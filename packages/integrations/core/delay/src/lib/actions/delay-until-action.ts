@@ -29,7 +29,7 @@ export const delayUntilAction = createAction({
     }),
   },
   async run(ctx) {
-    const delayTill = new Date(ctx.propsValue.delayUntilTimestamp);
+    const delayTill = parseTimestampOrThrow(ctx.propsValue.delayUntilTimestamp);
     const delayInMs = delayTill.getTime() - Date.now();
     if (ctx.executionType == ExecutionType.RESUME) {
       return {
@@ -63,10 +63,27 @@ export const delayUntilAction = createAction({
   },
 
   async test(ctx) {
-    const delayTill = new Date(ctx.propsValue.delayUntilTimestamp);
+    const delayTill = parseTimestampOrThrow(ctx.propsValue.delayUntilTimestamp);
     return {
       delayTill,
       success: true,
     };
   }
 });
+
+/**
+ * An unparseable timestamp used to yield an invalid Date, making every
+ * comparison against `delayInMs` false and falling through to
+ * `setTimeout(resolve, NaN)` — coerced to 1ms. The step then reported
+ * `success: true` with a null `delayTill` after waiting no time at all, so a
+ * flow that was meant to wait silently did not. Fail loudly instead.
+ */
+function parseTimestampOrThrow(timestamp: string): Date {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(
+      `Invalid Date and Time: "${timestamp}" could not be parsed. Use ISO format, e.g. 2026-08-05T14:30:00Z.`
+    );
+  }
+  return parsed;
+}

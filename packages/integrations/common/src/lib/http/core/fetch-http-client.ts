@@ -3,6 +3,7 @@ import { DelegatingAuthenticationConverter } from './delegating-authentication-c
 import { HttpError } from './http-error';
 import { HttpHeaders } from './http-headers';
 import { HttpMessageBody } from './http-message-body';
+import { HttpMethod } from './http-method';
 import { HttpRequest } from './http-request';
 import { HttpRequestBody } from './http-request-body';
 import { HttpResponse } from './http-response';
@@ -37,7 +38,9 @@ export class FetchHttpClient extends BaseHttpClient {
     const followRedirects = request.followRedirects ?? true;
     const retries = request.retries ?? 0;
 
-    const { body, extraHeaders, isStream } = serializeBody(request.body, headers);
+    const { body, extraHeaders, isStream } = acceptsRequestBody(request.method)
+      ? serializeBody(request.body, headers)
+      : { body: undefined, extraHeaders: {}, isStream: false };
     const finalHeaders = normalizeHeaders({ ...headers, ...extraHeaders });
 
     const response = await sendWithRetries(async () => {
@@ -66,7 +69,7 @@ export class FetchHttpClient extends BaseHttpClient {
           clearTimeout(timeoutId);
         }
       }
-    }, retries);
+    }, isStream ? 0 : retries);
 
     const successCeiling = followRedirects ? 300 : 400;
     if (response.status < 200 || response.status >= successCeiling) {
@@ -83,6 +86,13 @@ export class FetchHttpClient extends BaseHttpClient {
       body: responseBody as ResponseBody,
     };
   }
+}
+
+// A body on GET or HEAD is invalid per the fetch spec: `fetch()` throws
+// `TypeError: Request with GET/HEAD method cannot have body`. Drop it instead,
+// mirroring how axios silently ignored bodies for those methods.
+export function acceptsRequestBody(method: HttpMethod): boolean {
+  return method !== HttpMethod.GET && method !== HttpMethod.HEAD;
 }
 
 function serializeBody(
@@ -165,14 +175,17 @@ function backoff(attempt: number): Promise<void> {
 }
 
 function normalizeHeaders(headers: HttpHeaders): Record<string, string> {
-  const result: Record<string, string> = {};
+  // Dedupe case-insensitively (e.g. auto-set `Content-Type` vs a caller-supplied
+  // `content-type`): fetch() combines same-named headers with a comma, so two
+  // entries would corrupt the request as `Content-Type: application/json, text/csv`.
+  const entriesByLowerCaseKey = new Map<string, [string, string]>();
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) {
       continue;
     }
-    result[key] = Array.isArray(value) ? value.join(', ') : value;
+    entriesByLowerCaseKey.set(key.toLowerCase(), [key, Array.isArray(value) ? value.join(', ') : value]);
   }
-  return result;
+  return Object.fromEntries(entriesByLowerCaseKey.values());
 }
 
 function toHttpHeaders(headers: Headers): HttpHeaders {

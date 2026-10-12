@@ -12,12 +12,12 @@ import {
   ApFile,
 } from '@inboxfm-connect/pieces-framework';
 import {
-  HttpError,
   HttpHeaders,
   HttpMethod,
   HttpRequest,
   QueryParams,
   httpClient,
+  toFailsafeOutput,
 } from '../http';
 import { assertNotNullOrUndefined, isEmpty, isNil } from '@inboxfm-connect/core-utils';
 import fs from 'fs';
@@ -372,7 +372,7 @@ i.e ${getBaseUrlForDescription(baseUrl, auth)}/resource or /resource`,
         url: fullUrl,
         headers: {
           ...((headers ?? {}) as HttpHeaders),
-          ...(authLocation === 'headers' || !isNil(authLocation)
+          ...(authLocation === 'headers' || isNil(authLocation)
             ? authValue
             : {}),
         },
@@ -437,7 +437,7 @@ i.e ${getBaseUrlForDescription(baseUrl, auth)}/resource or /resource`,
         );
       } catch (error) {
         if (failsafe) {
-          return (error as HttpError).errorMessage();
+          return toFailsafeOutput({ error, requestBody: request.body });
         }
         throw error;
       }

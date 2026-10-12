@@ -126,8 +126,8 @@ export const zipFiles = createAction({
     }
 
     for (const fileProp of fileProps) {
-      // default to file name if filePath not explicitly provided
-      const zipFilePath = fileProp.filePath ?? fileProp.file.filename;
+      // default to file name if filePath not provided or left empty
+      const zipFilePath = fileProp.filePath || fileProp.file.filename;
       const blob = new Blob([new Uint8Array(fileProp.file.data)]);
       await zipWriter.add(zipFilePath, new BlobReader(blob), fileAddOptions);
     }
