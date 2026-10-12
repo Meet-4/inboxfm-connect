@@ -2,6 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 
+// axios instance methods that issue outbound HTTP requests
+const AXIOS_HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'request', 'head']
+
 export type Violation = {
     file: string
     line: number
@@ -20,11 +23,15 @@ export function scanFile(filePath: string): Violation[] {
     // silently skip the axios-creation checks.
     const isSafeHttpSource = normalizedPath.endsWith('packages/server/utils/src/safe-http.ts')
 
-    // Track axios alias identifiers (default: 'axios')
+    // Track alias identifiers of the global fetch and the axios module (defaults included)
+    const fetchAliases = new Set<string>(['fetch'])
     const axiosAliases = new Set<string>(['axios'])
+    // Track simple const aliases of axios members, e.g. const post = axios.post
+    const axiosCreateAliases = new Set<string>()
+    const axiosHttpAliases = new Set<string>()
 
-    // First pass: identify any alias imports or require bindings of 'axios'
-    function findImports(node: ts.Node): void {
+    // First pass: identify alias imports, require bindings and simple const aliases of 'fetch' / 'axios'
+    function collectAliases(node: ts.Node): void {
         if (ts.isImportDeclaration(node)) {
             const moduleSpecifier = node.moduleSpecifier
             if (ts.isStringLiteral(moduleSpecifier) && moduleSpecifier.text === 'axios') {
@@ -41,27 +48,60 @@ export function scanFile(filePath: string): Violation[] {
                 }
             }
         }
-        else if (ts.isVariableDeclaration(node) && node.initializer && ts.isCallExpression(node.initializer)) {
-            const call = node.initializer
-            if (ts.isIdentifier(call.expression) && call.expression.text === 'require' && call.arguments.length > 0) {
-                const arg = call.arguments[0]
-                if (ts.isStringLiteral(arg) && arg.text === 'axios' && ts.isIdentifier(node.name)) {
-                    axiosAliases.add(node.name.text)
+        else if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)) {
+            const name = node.name
+            const initializer = node.initializer
+            // const ax = require('axios')
+            if (ts.isCallExpression(initializer) && ts.isIdentifier(initializer.expression) && initializer.expression.text === 'require' && initializer.arguments.length > 0) {
+                const arg = initializer.arguments[0]
+                if (ts.isStringLiteral(arg) && arg.text === 'axios') {
+                    axiosAliases.add(name.text)
+                }
+            }
+            // const request = fetch / const http = axios, including chained aliases of known aliases
+            else if (ts.isIdentifier(initializer)) {
+                const referenced = initializer.text
+                if (fetchAliases.has(referenced)) {
+                    fetchAliases.add(name.text)
+                }
+                else if (axiosAliases.has(referenced)) {
+                    axiosAliases.add(name.text)
+                }
+                else if (axiosCreateAliases.has(referenced)) {
+                    axiosCreateAliases.add(name.text)
+                }
+                else if (axiosHttpAliases.has(referenced)) {
+                    axiosHttpAliases.add(name.text)
+                }
+            }
+            // const request = globalThis.fetch
+            else if (ts.isPropertyAccessExpression(initializer) && initializer.name.text === 'fetch') {
+                fetchAliases.add(name.text)
+            }
+            // const createClient = axios.create / const post = axios.post
+            else if (ts.isPropertyAccessExpression(initializer) && ts.isIdentifier(initializer.expression) && axiosAliases.has(initializer.expression.text)) {
+                const method = initializer.name.text
+                if (method === 'create') {
+                    axiosCreateAliases.add(name.text)
+                }
+                else if (AXIOS_HTTP_METHODS.includes(method)) {
+                    axiosHttpAliases.add(name.text)
                 }
             }
         }
-        ts.forEachChild(node, findImports)
+        ts.forEachChild(node, collectAliases)
     }
 
-    findImports(sourceFile)
+    collectAliases(sourceFile)
 
     // Second pass: scan AST for prohibited raw fetch and axios calls
     function visit(node: ts.Node): void {
         if (ts.isCallExpression(node)) {
             const expr = node.expression
 
-            // 1. Direct fetch(...) or property access (globalThis.fetch(...), window.fetch(...))
-            if (ts.isIdentifier(expr) && expr.text === 'fetch') {
+            // 1. Direct fetch(...) or property access (globalThis.fetch(...), window.fetch(...)),
+            // including simple const aliases, e.g. const request = fetch; request(url)
+            if (ts.isIdentifier(expr) && fetchAliases.has(expr.text)) {
                 const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart())
                 violations.push({
                     file: filePath,
@@ -106,7 +146,7 @@ export function scanFile(filePath: string): Violation[] {
                             codeSnippet: node.getText(sourceFile).slice(0, 100),
                         })
                     }
-                    else if (['get', 'post', 'put', 'patch', 'delete', 'request', 'head'].includes(method)) {
+                    else if (AXIOS_HTTP_METHODS.includes(method)) {
                         const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart())
                         violations.push({
                             file: filePath,
@@ -115,6 +155,28 @@ export function scanFile(filePath: string): Violation[] {
                             codeSnippet: node.getText(sourceFile).slice(0, 100),
                         })
                     }
+                }
+            }
+
+            // 4. Calls of const-aliased axios members, e.g. const createClient = axios.create; createClient()
+            if (ts.isIdentifier(expr)) {
+                if (axiosCreateAliases.has(expr.text) && !isSafeHttpSource) {
+                    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart())
+                    violations.push({
+                        file: filePath,
+                        line: line + 1,
+                        rule: 'NO_RAW_AXIOS_CREATE',
+                        codeSnippet: node.getText(sourceFile).slice(0, 100),
+                    })
+                }
+                else if (axiosHttpAliases.has(expr.text)) {
+                    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart())
+                    violations.push({
+                        file: filePath,
+                        line: line + 1,
+                        rule: 'NO_RAW_AXIOS_HTTP_CALL',
+                        codeSnippet: node.getText(sourceFile).slice(0, 100),
+                    })
                 }
             }
         }
