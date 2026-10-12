@@ -1,4 +1,4 @@
-import { ActivepiecesError, assertNotEqual, ErrorCode, isNil } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, assertNotEqual, ErrorCode, isNil, tryCatch } from '@inboxfm-connect/core-utils'
 import { safeHttp } from '@inboxfm-connect/server-utils'
 import { FastifyBaseLogger } from 'fastify'
 import jwksClient from 'jwks-rsa'
@@ -50,7 +50,7 @@ const exchangeCodeForIdToken = async (
     clientSecret: string,
     code: string,
 ): Promise<string> => {
-    const response = await safeHttp.createAxios({ validateStatus: () => true }).post<{ id_token?: string }>('https://oauth2.googleapis.com/token',
+    const { data: response, error } = await tryCatch(async () => safeHttp.createAxios({ validateStatus: () => true }).post<{ id_token?: string }>('https://oauth2.googleapis.com/token',
         new URLSearchParams({
             code,
             client_id: clientId,
@@ -63,7 +63,13 @@ const exchangeCodeForIdToken = async (
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
         },
-    )
+    ))
+    if (error !== null) {
+        throw new ActivepiecesError({
+            code: ErrorCode.INVALID_CREDENTIALS,
+            params: null,
+        }, `Google OAuth token exchange failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
 
     const responseBody = response.data
     if (isNil(responseBody.id_token)) {
