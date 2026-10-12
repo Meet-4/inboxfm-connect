@@ -3,7 +3,7 @@
 
 export interface ListConnectionsQueryContract {
   cursor?: string
-  projectId: string
+  projectId?: string
   scope?: 'PROJECT' | 'PLATFORM'
   pieceName?: string
   displayName?: string
