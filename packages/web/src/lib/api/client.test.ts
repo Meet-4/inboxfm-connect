@@ -86,6 +86,34 @@ describe('ApiClient', () => {
     await expect(apiClient.get('/test')).rejects.toThrow(ApiClientError)
   })
 
+  it('extracts the server message from structured { code, params } error bodies', async () => {
+    // The API's error handler sends ActivepiecesError responses as
+    // `{ code, params }` — the human-readable text lives in params.message.
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ code: 'VALIDATION', params: { message: 'Cron expression is not valid' } }),
+    })
+
+    await expect(apiClient.post('/scheduled-tasks', { prompt: 'x' })).rejects.toThrow(
+      'Cron expression is not valid'
+    )
+  })
+
+  it('falls back to the status message when the error body carries no message', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ code: 'INVALID_CREDENTIALS', params: null }),
+    })
+
+    await expect(apiClient.post('/authentication/sign-in', { email: 'a@b.c' })).rejects.toThrow(
+      'Request failed with status 401'
+    )
+  })
+
   it('should return parsed JSON data on 200 responses', async () => {
     const mockData = { id: '123', status: 'ACTIVE' }
     global.fetch = vi.fn().mockResolvedValue({

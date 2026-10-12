@@ -15,6 +15,34 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, unknown>
 }
 
+/**
+ * The API's global error handler (`error-handler.ts`) sends business failures
+ * as `{ code, params }` with NO top-level `message`, and most error codes carry
+ * the human-readable text in `params.message` (VALIDATION, AUTHENTICATION,
+ * ENTITY_NOT_FOUND, INVALID_CLAIM, ENGINE_OPERATION_FAILURE, …). Without
+ * reading it, every structured error degrades to "Request failed with status
+ * NNN" and the real reason the server rejected the request is swallowed.
+ */
+function extractErrorMessage(responseData: unknown, status: number): string {
+  if (isRecord(responseData)) {
+    if (typeof responseData.message === 'string' && responseData.message !== '') {
+      return responseData.message
+    }
+    if (
+      isRecord(responseData.params) &&
+      typeof responseData.params.message === 'string' &&
+      responseData.params.message !== ''
+    ) {
+      return responseData.params.message
+    }
+  }
+  return `Request failed with status ${status}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 export class ApiClient {
   private baseUrl = '/api/v1'
   private token: string | null = null
@@ -220,10 +248,7 @@ export class ApiClient {
       if (response.status === 401 && !path.includes('/authentication/sign-in')) {
         this.handleUnauthorized()
       }
-      const errorMessage =
-        (responseData as { message?: string })?.message ||
-        `Request failed with status ${response.status}`
-      throw new ApiClientError(response.status, errorMessage, responseData)
+      throw new ApiClientError(response.status, extractErrorMessage(responseData, response.status), responseData)
     }
 
     return responseData as T
