@@ -48,7 +48,30 @@ export class HttpError extends Error {
   }
 }
 
+// Failsafe output for non-HTTP failures (timeouts, DNS errors, invalid URLs):
+// without it, callers that do `(error as HttpError).errorMessage()` crash with
+// 'errorMessage is not a function' and mask the original error.
+export function toFailsafeOutput({ error, requestBody }: FailsafeOutputParams) {
+  if (error instanceof HttpError) {
+    return error.errorMessage();
+  }
+  return {
+    response: {
+      status: 0,
+      body: error instanceof Error ? error.message : String(error),
+    },
+    request: {
+      body: requestBody,
+    },
+  };
+}
+
 export type HttpErrorParams = {
   status: number;
   responseBody: unknown;
+};
+
+export type FailsafeOutputParams = {
+  error: unknown;
+  requestBody: unknown;
 };
