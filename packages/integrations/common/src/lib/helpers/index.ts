@@ -372,7 +372,7 @@ i.e ${getBaseUrlForDescription(baseUrl, auth)}/resource or /resource`,
         url: fullUrl,
         headers: {
           ...((headers ?? {}) as HttpHeaders),
-          ...(authLocation === 'headers' || !isNil(authLocation)
+          ...(authLocation === 'headers' || isNil(authLocation)
             ? authValue
             : {}),
         },
