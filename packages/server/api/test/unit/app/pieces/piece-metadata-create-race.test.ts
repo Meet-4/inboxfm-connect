@@ -211,6 +211,37 @@ describe('pieceMetadataService.create race (#475)', () => {
         expect(mockLog.error).toHaveBeenCalled()
     })
 
+    // #555: the persisted signal must fire between the save and the cache refresh, i.e.
+    // before anything that can still fail the create() promise (the refresh, then the
+    // lock release). Keying on the promise resolving instead leaves a window where
+    // redlock rejects .using() after the callback ran and a caller's compensating
+    // cleanup deletes the archive a committed row references.
+    it('fires onPiecePersisted between the save and the cache refresh', async () => {
+        const service = await loadService()
+        const order: string[] = []
+        mockSave.mockImplementation(async (entity) => {
+            order.push('save')
+            return { id: 'piece-1', ...entity }
+        })
+        mockCacheInvalidate.mockImplementation(async () => {
+            order.push('invalidate')
+        })
+
+        await service.create({
+            pieceMetadata,
+            packageType: PackageType.ARCHIVE,
+            platformId: 'platform-1',
+            pieceType: PieceType.CUSTOM,
+            archiveId: 'archive-1',
+            publishCacheRefresh: true,
+            onPiecePersisted: () => {
+                order.push('persisted')
+            },
+        })
+
+        expect(order).toEqual(['save', 'persisted', 'invalidate'])
+    })
+
     it('uses a platform-less lock key for community pieces', async () => {
         const service = await loadService()
         await createPiece(service, undefined)

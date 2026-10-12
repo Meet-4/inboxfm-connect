@@ -82,7 +82,7 @@ Unique index on `(name, version, platformId)`.
 - `list(params)` — returns filtered + sorted `PieceMetadataModelSummary[]` from cache; applies platform piece filters and EE filtering
 - `getOrThrow({ platformId, name, version, locale? })` — returns full `PieceMetadataModel` for exact piece; prefers platform-specific over official; applies i18n translation
 - `listVersions({ name, platformId, projectId })` — returns all available semver versions from registry cache
-- `create({ pieceMetadata, packageType, platformId, pieceType, archiveId? })` — inserts metadata record and invalidates cache
+- `create({ pieceMetadata, packageType, platformId, pieceType, archiveId?, publishCacheRefresh?, onPiecePersisted? })` — inserts metadata record and invalidates cache; `onPiecePersisted` fires the moment the row is saved (before the cache refresh / lock release), so callers that compensate for a create() rejection by deleting an uploaded archive can tell a committed row from a lost race (issue #555)
 - `delete({ id, platformId })` — looks up the piece by id, asserts it belongs to the caller's platform and is `CUSTOM` type, deletes all versions sharing the same name on that platform, then invalidates cache
 - `registry({ release? })` — returns lightweight name+version list for all pieces
 
