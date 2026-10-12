@@ -102,14 +102,32 @@ export const aiProviderService = (log: FastifyBaseLogger) => ({
 
     async create(platformId: PlatformId, request: CreateAIProviderRequest): Promise<void> {
         await this.validateProviderCredentials(request.provider, request.auth, request.config)
-        await aiProviderRepo().save({
-            id: apId(),
-            auth: await encryptUtils.encryptObject(request.auth),
-            config: request.config,
-            provider: request.provider,
-            displayName: request.displayName,
-            platformId,
-        })
+        try {
+            await aiProviderRepo().save({
+                id: apId(),
+                auth: await encryptUtils.encryptObject(request.auth),
+                config: request.config,
+                provider: request.provider,
+                displayName: request.displayName,
+                platformId,
+            })
+        }
+        catch (error: unknown) {
+            // A repeat create for a provider type that already exists hits the
+            // (platformId, provider) unique index. That is a conflict the caller
+            // can resolve - update the existing provider row instead - so map it
+            // to the 409-mapped conflict code instead of leaking the raw driver
+            // error, constraint name included, as a 500 (#545).
+            if (isUniqueConstraintViolation(error)) {
+                throw new ActivepiecesError({
+                    code: ErrorCode.VALIDATION,
+                    params: {
+                        message: `AI provider of type "${request.provider}" already exists for this platform`,
+                    },
+                })
+            }
+            throw error
+        }
     },
     async update(platformId: PlatformId, providerId: string, request: UpdateAIProviderRequest): Promise<void> {
         const aiProvider = await aiProviderRepo().findOneBy({
@@ -220,6 +238,16 @@ export const aiProviderService = (log: FastifyBaseLogger) => ({
     },
 
 })
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+    // Postgres unique-violation driver code (SQLSTATE 23505), gated on the driver
+    // code the same way as the approved #460/#466/#470 helpers: the two drivers
+    // pinned in this repo (pg 8.11.3, @electric-sql/pglite 0.3.14) do not always
+    // surface the code on the same property, so match both the top-level error
+    // and the wrapped driverError. Any other failure must propagate raw.
+    const candidate = error as { code?: string, driverError?: { code?: string } } | null | undefined
+    return candidate?.code === '23505' || candidate?.driverError?.code === '23505'
+}
 
 type GetOrCreateActivepiecesConfigResponse = {
     platformId: PlatformId
