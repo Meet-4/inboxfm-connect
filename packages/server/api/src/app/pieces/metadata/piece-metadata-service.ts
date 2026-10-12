@@ -123,6 +123,7 @@ export const pieceMetadataService = (log: FastifyBaseLogger) => {
             pieceType,
             archiveId,
             publishCacheRefresh = true,
+            onPiecePersisted,
         }: CreateParams): Promise<PieceMetadataSchema> {
             // Serialize the existence-check + insert on the natural key
             // (name, version, platformId). Without this, two concurrent installs of the same
@@ -172,6 +173,14 @@ export const pieceMetadataService = (log: FastifyBaseLogger) => {
                         platformId,
                         created: createdDate,
                     })
+                    // The row is committed: fire the caller's persisted signal now, not when
+                    // the promise chain settles. create() can still reject after this point -
+                    // redlock may fail the .using() promise with a LockError once this
+                    // callback has already run (lock lost during execution, release failing
+                    // against a hiccuping redis) - and a caller that compensates for the
+                    // rejection by deleting an uploaded archive must not destroy the one
+                    // this committed row references (issue #555).
+                    onPiecePersisted?.()
                     if (publishCacheRefresh) {
                         // The row is already committed at this point, so a cache refresh
                         // failure must not fail the install. Propagating it makes the caller
@@ -642,6 +651,12 @@ type CreateParams = {
     pieceType: PieceType
     archiveId?: string
     publishCacheRefresh?: boolean
+    // Fires the moment the row's save() returns, inside the lock and before the cache
+    // refresh - i.e. before anything that can still fail the create() promise. Callers
+    // that compensate for a create() rejection (removing an uploaded archive) must key
+    // on this signal rather than on the promise resolving, because redlock can reject
+    // .using() after the locked callback completed (issue #555).
+    onPiecePersisted?: () => void
 }
 
 type UpdateUsage = {
