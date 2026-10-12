@@ -195,7 +195,9 @@ export const catchWebhook = createTrigger({
       context.payload.rawBody
     );
     if (!verified) {
-      return [];
+      throw new Error(
+        `Webhook authentication failed: request did not pass the configured ${authenticationType} check`
+      );
     }
     return [context.payload];
   },
