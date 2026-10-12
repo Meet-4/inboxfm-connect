@@ -140,7 +140,7 @@ type McpToolCalled = {
 }
 
 type McpServerConnected = {
-    userId: string
+    userId?: string
     projectId?: string
     platformId?: string
 }

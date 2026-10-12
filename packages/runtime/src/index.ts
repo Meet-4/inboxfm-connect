@@ -33,6 +33,11 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
             pieceVersion: connection.pieceVersion,
         }
 
+        // The engine presents this token to API routes (store entries, files, piece
+        // bundle download), which verify it as a real ENGINE principal — placeholder
+        // strings are rejected with 401 by those routes' auth.
+        const engineToken = params.engineToken ?? 'headless'
+
         const result = await this.executeSandbox({
             workerIndex: 0,
             log: this.config.log,
@@ -40,7 +45,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
             operation: {
                 projectId: params.projectId,
                 platformId: params.platformId,
-                engineToken: 'headless',
+                engineToken,
                 internalApiUrl: params.internalApiUrl || 'http://localhost:3000',
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
                 timeoutInSeconds: 60,
@@ -56,7 +61,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
                 pieces: [piecePackage],
                 codes: [],
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
-                engineToken: 'headless',
+                engineToken,
             },
         })
 
@@ -165,6 +170,7 @@ export type ExecuteParams = {
     input: Record<string, unknown>
     projectId: string
     platformId: string
+    engineToken?: string
     internalApiUrl?: string
     publicApiUrl?: string
 }

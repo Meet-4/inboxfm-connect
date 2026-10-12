@@ -9,7 +9,7 @@ import { securityAccess } from '../../core/security/authorization/fastify-securi
 import { domainHelper } from '../../helper/domain-helper'
 import { rejectedPromiseHandler } from '../../helper/promise-handler'
 import { telemetry } from '../../helper/telemetry.utils'
-import { mcpServerService } from '../mcp-service'
+import { mcpServerRepository, mcpServerService } from '../mcp-service'
 import { mcpOAuthTokenService } from './token/mcp-oauth-token.service'
 
 export const mcpOAuthHttpController: FastifyPluginAsyncZod = async (app) => {
@@ -76,6 +76,7 @@ function registerMcpEndpoint(app: Parameters<FastifyPluginAsyncZod>[0], scope: M
         }
 
         const identity = await resolveIdentity({ token, scope, log: req.log })
+            ?? await resolveStaticTokenIdentity({ token, scope, log: req.log })
         if (isNil(identity)) {
             return unauthorized({ req, reply, scope, message: 'Invalid or expired access token', invalidToken: true })
         }
@@ -139,6 +140,30 @@ async function resolveIdentity({ token, scope, log }: { token: string, scope: Mc
     return null
 }
 
+// The project MCP server config (Settings/MCP Hub, GET /api/v1/projects/:id/mcp-server)
+// surfaces a long-lived static token, and it is the credential external clients naturally wire
+// up — but /mcp only verified short-lived minted JWTs, so that token was a dead field that 401'd
+// on first use (#547). Accept it as the long-lived credential of exactly the project config row
+// that stores it. Platform-scope rows stay rejected: a platform MCP session registers its tools
+// per user (buildMcpServer), and a config token carries no user, so accepting it would only
+// connect to a placeholder-tools server. Static-token sessions carry no user either, so project
+// tools run with the project-level permission set rather than a per-user checker. Revocation is
+// the existing POST /rotate flow.
+async function resolveStaticTokenIdentity({ token, scope, log }: { token: string, scope: McpServerType, log: FastifyBaseLogger }): Promise<ResolvedIdentity | null> {
+    if (scope !== McpServerType.PROJECT) {
+        return null
+    }
+    const { data: mcpServer, error } = await tryCatch(() => mcpServerRepository().findOneBy({ token }))
+    if (error || isNil(mcpServer)) {
+        log.debug({ scope }, 'Static MCP token did not match any server configuration')
+        return null
+    }
+    if (isNil(mcpServer.projectId)) {
+        return null
+    }
+    return { type: McpServerType.PROJECT, projectId: mcpServer.projectId }
+}
+
 async function resolveMcpAndUser({ identity, log }: { identity: ResolvedIdentity, log: FastifyBaseLogger }): Promise<{ mcp: PopulatedMcpServer | null, userId?: string }> {
     try {
         if (identity.type === McpServerType.PLATFORM) {
@@ -169,8 +194,8 @@ async function resolveMcpAndUser({ identity, log }: { identity: ResolvedIdentity
 }
 
 type ResolvedIdentity =
-    | { type: McpServerType.PROJECT, projectId: string, userId: string }
-    | { type: McpServerType.PLATFORM, platformId: string, userId: string }
+    | { type: McpServerType.PROJECT, projectId: string, userId?: string }
+    | { type: McpServerType.PLATFORM, platformId: string, userId?: string }
 
 
 
