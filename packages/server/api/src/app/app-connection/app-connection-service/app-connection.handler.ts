@@ -1,6 +1,6 @@
 import { isNil, PlatformId, ProjectId } from '@inboxfm-connect/core-utils'
 import { PropertyType } from '@inboxfm-connect/pieces-framework'
-import { AppConnection, AppConnectionStatus, AppConnectionType, AppConnectionValue, EngineResponse, EngineResponseStatus, ExecuteRefreshTokenAuthResponse, WorkerJobType } from '@inboxfm-connect/shared'
+import { AppConnection, AppConnectionStatus, AppConnectionType, AppConnectionValue, ExecuteRefreshTokenAuthResponse, WorkerJobType } from '@inboxfm-connect/shared'
 import dayjs from 'dayjs'
 import { FastifyBaseLogger } from 'fastify'
 import { lru, LRU } from 'tiny-lru'
@@ -49,21 +49,13 @@ export const appConnectionHandler = (_log: FastifyBaseLogger) => ({
                     pieceVersion: connection.pieceVersion,
                 })
                 log.info({ pieceName: connection.pieceName, externalId: connection.externalId }, '[custom-auth-refresh] submitting token refresh job')
-                const engineResponse = await userInteractionWatcher.submitAndWaitForResponse<EngineResponse<ExecuteRefreshTokenAuthResponse>>({
+                const refreshResult = await userInteractionWatcher.submitAndWaitForResponse<ExecuteRefreshTokenAuthResponse>({
                     piece,
                     projectId,
                     platformId: connection.platformId,
                     auth: connection.value,
                     jobType: WorkerJobType.EXECUTE_TOKEN_REFRESH,
                 }, log)
-                if (engineResponse.status === EngineResponseStatus.TIMEOUT) {
-                    log.warn({ pieceName: connection.pieceName }, '[custom-auth-refresh] token refresh timed out — using existing credentials')
-                    return connection
-                }
-                if (engineResponse.status !== EngineResponseStatus.OK) {
-                    throw new CustomAuthRefreshError(`Custom auth token refresh failed: ${engineResponse.error ?? 'unknown engine error'}`)
-                }
-                const refreshResult = engineResponse.response
                 if (refreshResult.skipped) {
                     // Piece no longer has onRefreshToken (e.g. piece was updated) — clear
                     // the token so the next needRefresh call re-checks piece metadata.

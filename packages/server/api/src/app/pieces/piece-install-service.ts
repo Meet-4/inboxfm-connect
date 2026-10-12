@@ -1,6 +1,6 @@
 import { ActivepiecesError, ErrorCode, isNil, PlatformId, ProjectId } from '@inboxfm-connect/core-utils'
 import { PieceMetadata, PieceMetadataModel } from '@inboxfm-connect/pieces-framework'
-import { AddPieceRequestBody, EngineResponse, EngineResponseStatus, ExecuteExtractPieceMetadata, FileCompression, FileId, FileType, PackageType, PiecePackage, PieceType, WorkerJobType } from '@inboxfm-connect/shared'
+import { AddPieceRequestBody, ExecuteExtractPieceMetadata, FileCompression, FileId, FileType, PackageType, PiecePackage, PieceType, WorkerJobType } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { fileService } from '../file/file.service'
 import { rejectedPromiseHandler } from '../helper/promise-handler'
@@ -91,17 +91,12 @@ async function savePiecePackage(platformId: string | undefined, params: AddPiece
 }
 
 const extractPieceInformation = async (request: ExecuteExtractPieceMetadata, log: FastifyBaseLogger): Promise<PieceMetadata> => {
-    const engineResponse = await userInteractionWatcher.submitAndWaitForResponse<EngineResponse<PieceMetadata>>({
+    return await userInteractionWatcher.submitAndWaitForResponse<PieceMetadata>({
         jobType: WorkerJobType.EXECUTE_EXTRACT_PIECE_INFORMATION,
         platformId: request.platformId,
         piece: request,
         projectId: undefined,
     }, log)
-
-    if (engineResponse.status !== EngineResponseStatus.OK) {
-        throw new Error(engineResponse.error)
-    }
-    return engineResponse.response
 }
 
 const saveArchive = async (

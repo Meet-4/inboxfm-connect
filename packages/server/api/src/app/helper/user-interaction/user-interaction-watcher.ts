@@ -30,6 +30,10 @@ const sandboxRuntime = createSandboxRuntime({
 let nextWorkerIndex = 0
 
 const userInteractionWatcherImpl = {
+    // Resolves with the engine operation's bare result payload (e.g. ExecuteValidateAuthResponse),
+    // never the EngineResponse envelope: the envelope is the sandbox transport contract and is
+    // unwrapped here. A non-OK engine status throws ENGINE_OPERATION_FAILURE instead of resolving,
+    // so a caller sees either the operation's payload or an error — never a status to re-check.
     submitAndWaitForResponse: async <T>(request: UserInteractionRequest, log: ApLogger): Promise<T> => {
         let operationType: EngineOperationType
         switch (request.jobType) {
