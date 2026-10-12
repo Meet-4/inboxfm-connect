@@ -65,10 +65,27 @@ export const jsonToCsvAction = createAction({
       }))
     }
     const flattened = json_array.map((item) => flatten(item) as Record<string, string>);
+    if (flattened.length === 0) {
+      return '';
+    }
 
     return stringify(flattened, {
       header: true,
       delimiter: delimiter_type,
+      columns: collectColumns(flattened),
     });
   },
 });
+
+// csv-stringify derives the header columns from the first record only, so
+// keys that first appear in later rows would be silently dropped from every
+// row. Pass the union of all keys instead; missing values render as blanks.
+function collectColumns(rows: Record<string, string>[]): string[] {
+  const columns = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      columns.add(key);
+    }
+  }
+  return Array.from(columns);
+}
