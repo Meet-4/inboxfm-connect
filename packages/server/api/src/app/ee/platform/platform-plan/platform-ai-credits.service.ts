@@ -3,7 +3,7 @@ import { ActivePiecesProviderAuthConfig, AiCreditsAutoTopUpState, CreateAICredit
 import dayjs from 'dayjs'
 import { FastifyBaseLogger } from 'fastify'
 import { AIProviderEntity, AIProviderSchema } from '../../../ai/ai-provider-entity'
-import { aiProviderService } from '../../../ai/ai-provider-service'
+import { aiProviderService, isUniqueConstraintViolation, runProvisionExclusiveOrWithoutLock } from '../../../ai/ai-provider-service'
 import { repoFactory } from '../../../core/db/repo-factory'
 import { distributedLock, distributedStore } from '../../../database/redis-connections'
 import { flagService } from '../../../flags/flag.service'
@@ -185,13 +185,37 @@ export const platformAiCreditsService = (log: FastifyBaseLogger) => ({
     // Ensures the platform's managed ACTIVEPIECES provider exists, mints an OpenRouter
     // key when it has none, and schedules the AI credit renewal check. This used to live
     // in the CE ai-provider-service, which dragged ee imports into CE code.
+    //
+    // The whole ensure + mint runs under the shared ai-provider provision mutex
+    // (same key, same fail-open semantics, as listProviders' auto-create and
+    // update()'s chat assignment): the callers are Stripe billing webhooks and
+    // the admin top-up route, which fire concurrently on a fresh platform.
+    // Unlocked, two callers both read "no provider" and raced the
+    // (platformId, provider) unique index — the loser surfaced a raw 23505 as
+    // an HTTP 500, failing the payment webhook. Even after a converged ensure,
+    // two callers could both read the still-empty auth and each mint an
+    // OpenRouter key, leaking the loser's paid key forever.
     async getOrCreateActivePiecesProviderAuthConfig({ platformId }: { platformId: string }): Promise<ActivePiecesProviderAuthConfig> {
-        const aiProvider = await ensureActivepiecesProvider({ platformId })
+        await runProvisionExclusiveOrWithoutLock({
+            platformId,
+            log,
+            fn: async () => {
+                const aiProvider = await ensureActivepiecesProvider({ platformId })
 
-        const storedAuth = await encryptUtils.decryptObject<ActivePiecesProviderAuthConfig>(aiProvider.auth)
-        const auth = !isNil(storedAuth) && !isNil(storedAuth.apiKey) && storedAuth.apiKey !== ''
-            ? storedAuth
-            : await provisionActivepiecesKey({ aiProvider, log })
+                const storedAuth = await encryptUtils.decryptObject<ActivePiecesProviderAuthConfig>(aiProvider.auth)
+                const hasKey = !isNil(storedAuth) && !isNil(storedAuth.apiKey) && storedAuth.apiKey !== ''
+                if (!hasKey) {
+                    await provisionActivepiecesKey({ aiProvider, log })
+                }
+            },
+        })
+
+        const aiProvider = await aiProviderRepo().findOneByOrFail({
+            platformId,
+            provider: AIProviderName.ACTIVEPIECES,
+        })
+        const auth = await encryptUtils.decryptObject<ActivePiecesProviderAuthConfig>(aiProvider.auth)
+        assertNotNullOrUndefined(auth?.apiKey, 'apiKey is required')
 
         rejectedPromiseHandler(systemJobsSchedule(log).upsertJob({
             job: {
@@ -213,6 +237,10 @@ function openRouterUsageCacheKey(apiKeyHash: string): string {
 }
 
 async function ensureActivepiecesProvider({ platformId }: { platformId: string }): Promise<AIProviderSchema> {
+    // In-lock re-check + insert. The unique index (platformId, provider) is
+    // the final guard: when the lock infrastructure itself is unavailable
+    // (fail-open), a concurrent creator's insert still wins and this save
+    // loses — converge on the winner's row instead of surfacing a raw 23505.
     const existingProvider = await aiProviderRepo().findOneBy({
         platformId,
         provider: AIProviderName.ACTIVEPIECES,
@@ -222,15 +250,26 @@ async function ensureActivepiecesProvider({ platformId }: { platformId: string }
     }
 
     const hasChatProvider = await aiProviderRepo().existsBy({ platformId, enabledForChat: true })
-    return aiProviderRepo().save({
-        id: apId(),
-        auth: await encryptUtils.encryptObject({}),
-        config: {},
-        provider: AIProviderName.ACTIVEPIECES,
-        displayName: 'Inboxfm Connect',
-        platformId,
-        enabledForChat: !hasChatProvider,
-    })
+    try {
+        return await aiProviderRepo().save({
+            id: apId(),
+            auth: await encryptUtils.encryptObject({}),
+            config: {},
+            provider: AIProviderName.ACTIVEPIECES,
+            displayName: 'Inboxfm Connect',
+            platformId,
+            enabledForChat: !hasChatProvider,
+        })
+    }
+    catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+            return await aiProviderRepo().findOneByOrFail({
+                platformId,
+                provider: AIProviderName.ACTIVEPIECES,
+            })
+        }
+        throw error
+    }
 }
 
 async function provisionActivepiecesKey({ aiProvider, log }: { aiProvider: AIProviderSchema, log: FastifyBaseLogger }): Promise<ActivePiecesProviderAuthConfig> {
