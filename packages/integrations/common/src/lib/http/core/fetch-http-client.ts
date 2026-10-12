@@ -165,14 +165,17 @@ function backoff(attempt: number): Promise<void> {
 }
 
 function normalizeHeaders(headers: HttpHeaders): Record<string, string> {
-  const result: Record<string, string> = {};
+  // Dedupe case-insensitively (e.g. auto-set `Content-Type` vs a caller-supplied
+  // `content-type`): fetch() combines same-named headers with a comma, so two
+  // entries would corrupt the request as `Content-Type: application/json, text/csv`.
+  const entriesByLowerCaseKey = new Map<string, [string, string]>();
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) {
       continue;
     }
-    result[key] = Array.isArray(value) ? value.join(', ') : value;
+    entriesByLowerCaseKey.set(key.toLowerCase(), [key, Array.isArray(value) ? value.join(', ') : value]);
   }
-  return result;
+  return Object.fromEntries(entriesByLowerCaseKey.values());
 }
 
 function toHttpHeaders(headers: Headers): HttpHeaders {
