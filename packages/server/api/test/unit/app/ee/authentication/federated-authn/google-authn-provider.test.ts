@@ -71,7 +71,9 @@ describe('Google Authn Provider (Issue #143)', () => {
     })
 
     it('throws ActivepiecesError(INVALID_CREDENTIALS) on network or transport failure during token exchange', async () => {
-        vi.spyOn(safeHttp.axios, 'post').mockRejectedValueOnce(new Error('Connection reset by peer'))
+        vi.spyOn(safeHttp, 'createAxios').mockReturnValueOnce({
+            post: vi.fn().mockRejectedValueOnce(new Error('Connection reset by peer')),
+        } as any)
 
         const provider = googleAuthnProvider(mockLogger)
 
