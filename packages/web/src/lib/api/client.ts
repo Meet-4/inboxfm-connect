@@ -165,9 +165,7 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      const errorMessage =
-        (responseData as { message?: string })?.message ||
-        `Request failed with status ${response.status}`
+      const errorMessage = extractErrorMessage(responseData) || `Request failed with status ${response.status}`
       throw new ApiClientError(response.status, errorMessage, responseData)
     }
 
@@ -189,6 +187,33 @@ export class ApiClient {
   delete<T>(path: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(path, { ...options, method: 'DELETE' })
   }
+}
+
+/**
+ * Backend API errors serialize as `{ code, params }` — e.g. INVALID_APP_CONNECTION
+ * carries the piece's own validation message in `params.error`, and domain errors
+ * like AUTHORIZATION use `params.message` — while framework validation errors
+ * (FST_ERR_VALIDATION) use a top-level `message`. Without this, every non-2xx
+ * collapses to "Request failed with status 400" and a bad API key becomes
+ * indistinguishable from a broken backend.
+ */
+function extractErrorMessage(responseData: unknown): string | undefined {
+  if (typeof responseData !== 'object' || responseData === null) {
+    return undefined
+  }
+  const errorBody = responseData as { message?: unknown, params?: { error?: unknown, message?: unknown } }
+  if (typeof errorBody.params === 'object' && errorBody.params !== null) {
+    if (typeof errorBody.params.error === 'string' && errorBody.params.error.length > 0) {
+      return errorBody.params.error
+    }
+    if (typeof errorBody.params.message === 'string' && errorBody.params.message.length > 0) {
+      return errorBody.params.message
+    }
+  }
+  if (typeof errorBody.message === 'string' && errorBody.message.length > 0) {
+    return errorBody.message
+  }
+  return undefined
 }
 
 export const apiClient = new ApiClient()
