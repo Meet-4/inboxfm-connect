@@ -1,6 +1,7 @@
+import { isNil, tryCatch } from '@inboxfm-connect/core-utils'
 import { HeadlessRuntime } from '@inboxfm-connect/runtime'
 import { apLogger } from '@inboxfm-connect/server-utils'
-import { McpToolResult, NetworkMode } from '@inboxfm-connect/shared'
+import { AppConnectionStatus, McpToolResult, NetworkMode } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
 import { appConnectionService, appConnectionsRepo } from '../../app-connection/app-connection-service/app-connection-service'
@@ -9,6 +10,8 @@ import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { localPieceCatalog } from '../../pieces/metadata/local-piece-catalog'
 import { projectService } from '../../project/project-service'
+import { pieceMetadataService } from '../../pieces/metadata/piece-metadata-service'
+import { mcpUtils } from './mcp-utils'
 
 const runtimeLog = apLogger.create({ bindings: {} })
 
@@ -97,8 +100,24 @@ export async function executeAdhocAction({
         throw new Error(
             projectConnections.length === 0
                 ? 'A connection must be created first before executing a tool.'
-                : `No connection found for integration "${pieceName}" in this project. Existing connections: ${projectConnections.map((candidate) => `${candidate.externalId} (${candidate.pieceName})`).join(', ')}. Create a connection for this integration, or pass connectionExternalId of a connection that belongs to it.`,
+                : `No connection found for integration "${pieceName}" in this project. Existing connections: ${projectConnections.map((candidate) => `${candidate.externalId} (${candidate.pieceName})`).join(', ')}. Create a connection for this integration, or pass a connectionExternalId of a connection that belongs to it.`,
         )
+    }
+
+    // MISSING is a placeholder row with no credentials attached (placeholder upserts
+    // store status MISSING with a NO_AUTH value) — not a deleted or inaccessible
+    // connection. Gate on it at the execution boundary (#546): an auth-requiring
+    // action would otherwise fail deep inside the piece with an error far from the
+    // cause, and a no-auth action would silently run against a credential-less row.
+    let missingCredentialsWarning: string | undefined
+    if (connection.status === AppConnectionStatus.MISSING) {
+        const connectionLabel = `"${connection.displayName}" (${connection.externalId})`
+        if (await actionRequiresAuth({ pieceName, actionName, projectId, platformId: project.platformId, log })) {
+            return mcpUtils.mcpToolError('Connection has no credentials', new Error(
+                `Connection ${connectionLabel} for piece "${pieceName}" has no credentials attached (status: MISSING), and action "${actionName}" requires auth. Reconnect the connection with real credentials (Connections page or POST /api/v1/app-connections), or pass a connectionExternalId of an ACTIVE connection.`,
+            ))
+        }
+        missingCredentialsWarning = `⚠️ Connection ${connectionLabel} has no credentials attached (status: MISSING). "${actionName}" ran because it does not require auth — actions that need this connection's credentials will fail until it is reconnected.`
     }
 
     const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
@@ -113,6 +132,31 @@ export async function executeAdhocAction({
         publicApiUrl: publicUrl,
     })
 
-    const text = `Result:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
-    return { content: [{ type: 'text', text }] }
+    const text = `${missingCredentialsWarning ? `${missingCredentialsWarning}\n\n` : ''}Result:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
+    return {
+        content: [{ type: 'text', text }],
+        ...(missingCredentialsWarning ? { structuredContent: { warning: missingCredentialsWarning, result } } : {}),
+    }
+}
+
+async function actionRequiresAuth({ pieceName, actionName, projectId, platformId, log }: ActionRequiresAuthParams): Promise<boolean> {
+    const normalized = mcpUtils.normalizePieceName(pieceName)
+    if (isNil(normalized)) {
+        return false
+    }
+    const { data: piece, error } = await tryCatch(() => pieceMetadataService(log).get({ name: normalized, projectId, platformId }))
+    // Unknown piece or action: do not block here — the engine surfaces a clear
+    // piece/action-not-found failure of its own on execution.
+    if (error || isNil(piece) || isNil(piece.actions[actionName])) {
+        return false
+    }
+    return piece.actions[actionName].requireAuth
+}
+
+type ActionRequiresAuthParams = {
+    pieceName: string
+    actionName: string
+    projectId: string
+    platformId: string
+    log: FastifyBaseLogger
 }
