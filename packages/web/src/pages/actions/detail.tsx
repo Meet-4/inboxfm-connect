@@ -56,8 +56,12 @@ function ActionDetailSkeleton() {
 
 export default function ActionDetailPage() {
   const { pieceName, actionName } = useParams<{ pieceName: string; actionName: string }>()
-  const decodedPieceName = decodeURIComponent(pieceName ?? '')
-  const decodedActionName = decodeURIComponent(actionName ?? '')
+  // React Router already percent-decodes route params, so they are used as-is.
+  // A second decodeURIComponent would throw a URIError (crashing the whole
+  // route) on any value that still contains a percent sequence after the
+  // router's own safe decode, e.g. /actions/foo%25zz/bar.
+  const decodedPieceName = pieceName ?? ''
+  const decodedActionName = actionName ?? ''
 
   const {
     data: piece,
