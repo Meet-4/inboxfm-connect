@@ -23,9 +23,11 @@ describe('Google Authn Provider (Issue #143)', () => {
     })
 
     it('throws ActivepiecesError(INVALID_CREDENTIALS) when Google returns non-2xx / error body', async () => {
-        vi.spyOn(safeHttp.axios, 'post').mockResolvedValueOnce({
-            status: 400,
-            data: { error: 'invalid_grant', error_description: 'Bad Request' },
+        vi.spyOn(safeHttp, 'createAxios').mockReturnValueOnce({
+            post: vi.fn().mockResolvedValueOnce({
+                status: 400,
+                data: { error: 'invalid_grant', error_description: 'Bad Request' },
+            }),
         } as any)
 
         const provider = googleAuthnProvider(mockLogger)
@@ -45,9 +47,11 @@ describe('Google Authn Provider (Issue #143)', () => {
     })
 
     it('throws ActivepiecesError(INVALID_CREDENTIALS) when Google response is missing id_token', async () => {
-        vi.spyOn(safeHttp.axios, 'post').mockResolvedValueOnce({
-            status: 200,
-            data: { access_token: 'some-access-token' }, // missing id_token
+        vi.spyOn(safeHttp, 'createAxios').mockReturnValueOnce({
+            post: vi.fn().mockResolvedValueOnce({
+                status: 200,
+                data: { access_token: 'some-access-token' }, // missing id_token
+            }),
         } as any)
 
         const provider = googleAuthnProvider(mockLogger)
@@ -67,7 +71,9 @@ describe('Google Authn Provider (Issue #143)', () => {
     })
 
     it('throws ActivepiecesError(INVALID_CREDENTIALS) on network or transport failure during token exchange', async () => {
-        vi.spyOn(safeHttp.axios, 'post').mockRejectedValueOnce(new Error('Connection reset by peer'))
+        vi.spyOn(safeHttp, 'createAxios').mockReturnValueOnce({
+            post: vi.fn().mockRejectedValueOnce(new Error('Connection reset by peer')),
+        } as any)
 
         const provider = googleAuthnProvider(mockLogger)
 
