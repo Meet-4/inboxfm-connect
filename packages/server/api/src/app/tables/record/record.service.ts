@@ -257,9 +257,21 @@ export const recordService = {
 
                 // Perform bulk upsert only for valid cells
                 if (cellsToUpsert.length > 0) {
+                    // The insert is built with an explicit overwrite list instead of
+                    // repository.upsert(): TypeORM's upsert() puts every supplied column
+                    // that is not part of the conflict target into ON CONFLICT ... DO UPDATE
+                    // SET, and cellsToUpsert carries a fresh apId() per call, so the cell
+                    // row's primary key was rewritten on every record update — same defect
+                    // class as the store-entry and project-member upserts. Only `value`
+                    // changes on an existing cell (`updated` is appended by TypeORM);
+                    // the fresh id stays on the insert path only.
                     await entityManager
                         .getRepository(CellEntity)
-                        .upsert(cellsToUpsert, ['projectId', 'fieldId', 'recordId'])
+                        .createQueryBuilder()
+                        .insert()
+                        .values(cellsToUpsert)
+                        .orUpdate(['value'], ['projectId', 'fieldId', 'recordId'])
+                        .execute()
                 }
             }
 
