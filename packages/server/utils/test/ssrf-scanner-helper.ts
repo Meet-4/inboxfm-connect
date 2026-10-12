@@ -15,7 +15,10 @@ export function scanFile(filePath: string): Violation[] {
     const violations: Violation[] = []
 
     const normalizedPath = filePath.replace(/\\/g, '/')
-    const isSafeHttpSource = normalizedPath.endsWith('/safe-http.ts')
+    // Only the canonical safe-http implementation is allowed to create raw axios instances;
+    // pin the exclusion to its full package path so a same-named file elsewhere cannot
+    // silently skip the axios-creation checks.
+    const isSafeHttpSource = normalizedPath.endsWith('packages/server/utils/src/safe-http.ts')
 
     // Track axios alias identifiers (default: 'axios')
     const axiosAliases = new Set<string>(['axios'])
