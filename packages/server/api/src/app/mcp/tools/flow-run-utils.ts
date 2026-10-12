@@ -3,8 +3,10 @@ import { apLogger } from '@inboxfm-connect/server-utils'
 import { McpToolResult, NetworkMode } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
+import { accessTokenManager } from '../../authentication/lib/access-token-manager'
 import { appConnectionService, appConnectionsRepo } from '../../app-connection/app-connection-service/app-connection-service'
 import { AppConnectionSchema } from '../../app-connection/app-connection.entity'
+import { domainHelper } from '../../helper/domain-helper'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { projectService } from '../../project/project-service'
@@ -104,7 +106,17 @@ export async function executeAdhocAction({
         throw new Error('A connection must be created first before executing a tool.')
     }
 
-    const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
+    // The runtime builds sandbox-internal URLs (store entries, files, piece bundles) by
+    // appending `v1/...` to this value, so it must carry the `/api` prefix — the raw
+    // AP_FRONTEND_URL previously made `new URL()` throw "Invalid URL" for every
+    // store-touching action (#544). The engine token is generated per execution: the
+    // store/files routes verify it as a real ENGINE principal and reject placeholder
+    // strings with 401.
+    const publicUrl = await domainHelper.getPublicApiUrl({ path: '' })
+    const engineToken = await accessTokenManager(log).generateEngineToken({
+        projectId,
+        platformId: project.platformId,
+    })
     const result = await runtime.execute({
         integration: pieceName,
         tool: actionName,
@@ -112,6 +124,7 @@ export async function executeAdhocAction({
         input,
         projectId,
         platformId: project.platformId,
+        engineToken,
         internalApiUrl: publicUrl,
         publicApiUrl: publicUrl,
     })
