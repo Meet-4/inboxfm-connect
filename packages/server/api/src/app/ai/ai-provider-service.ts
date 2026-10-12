@@ -277,7 +277,14 @@ export const aiProviderService = (log: FastifyBaseLogger) => ({
 // breaking the never-create-a-second-chat-provider invariant. update() takes
 // this lock around ONLY its chat-assignment transaction - the credential
 // validation (a slow upstream HTTP call) runs before the lock is acquired.
-async function runProvisionExclusiveOrWithoutLock({ platformId, fn, log }: {
+//
+// Exported so the ee platform-ai-credits service mints the managed provider
+// under the SAME mutex (same key, same fail-open semantics): its
+// ensureActivepiecesProvider used to be an unlocked find-then-save, and its
+// callers (Stripe billing webhooks, the admin top-up route) fire concurrently
+// on a fresh platform, so the loser hit the (platformId, provider) unique
+// index as a raw 23505 (HTTP 500) and failed the payment webhook.
+export async function runProvisionExclusiveOrWithoutLock({ platformId, fn, log }: {
     platformId: PlatformId
     fn: () => Promise<void>
     log: FastifyBaseLogger
@@ -310,7 +317,7 @@ async function runProvisionExclusiveOrWithoutLock({ platformId, fn, log }: {
     }
 }
 
-function isUniqueConstraintViolation(error: unknown): boolean {
+export function isUniqueConstraintViolation(error: unknown): boolean {
     // Postgres unique-violation driver code (SQLSTATE 23505), gated on the driver
     // code the same way as the approved #460/#466/#470 helpers: the two drivers
     // pinned in this repo (pg 8.11.3, @electric-sql/pglite 0.3.14) do not always
