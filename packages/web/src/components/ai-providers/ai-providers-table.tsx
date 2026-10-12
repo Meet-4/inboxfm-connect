@@ -14,6 +14,8 @@ import { AIProviderName } from '@/lib/api/ai-providers'
 
 export interface AIProvidersTableProps {
   providers: AIProviderWithoutSensitiveData[]
+  /** Set false for non-admin users: edit/delete and the chat toggle hit admin-only endpoints. */
+  canManage?: boolean
   onEdit: (provider: AIProviderWithoutSensitiveData) => void
   onDelete: (provider: AIProviderWithoutSensitiveData) => void
   onBrowseModels: (provider: AIProviderWithoutSensitiveData) => void
@@ -36,6 +38,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 export function AIProvidersTable({
   providers,
+  canManage = true,
   onEdit,
   onDelete,
   onBrowseModels,
@@ -89,7 +92,7 @@ export function AIProvidersTable({
                     <Switch
                       id={`chat-toggle-${p.id}`}
                       checked={p.enabledForChat}
-                      disabled={isAnyToggling || isManaged}
+                      disabled={isAnyToggling || isManaged || !canManage}
                       onCheckedChange={(checked) => onToggleChat(p, checked)}
                       aria-label={`Toggle chat for ${p.name}`}
                       title={isManaged ? 'Platform-managed provider cannot be disabled' : undefined}
@@ -129,7 +132,7 @@ export function AIProvidersTable({
                       <span>Models</span>
                     </Button>
 
-                    {!isManaged && (
+                    {!isManaged && canManage && (
                       <>
                         <Button
                           size="xs"
