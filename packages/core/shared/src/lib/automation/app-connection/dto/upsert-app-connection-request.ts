@@ -7,7 +7,12 @@ const commonAuthProps = {
     externalId: z.string(),
     displayName: z.string(),
     pieceName: z.string(),
-    projectId: z.string(),
+    // Optional at the schema level: the authenticated upsert route still REQUIRES
+    // a project (the authorization middleware's BODY extractor reads it and
+    // rejects with AUTHORIZATION when absent), while the token-gated public
+    // connect-session route derives the tenant from the session and never reads
+    // this field. The schema no longer hard-rejects its absence up front.
+    projectId: z.string().optional(),
     metadata: z.optional(Metadata),
     pieceVersion: z.string().optional(),
 }

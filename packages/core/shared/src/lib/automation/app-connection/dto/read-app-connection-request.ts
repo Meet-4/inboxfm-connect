@@ -5,7 +5,13 @@ import { AppConnectionScope, AppConnectionStatus, AppConnectionWithoutSensitiveD
 
 export const ListAppConnectionsRequestQuery = z.object({
     cursor: z.string().optional(),
-    projectId: z.string(),
+    // Optional at the schema level: project-scoped routes still REQUIRE a project
+    // (the authorization middleware extracts it from the query and rejects with
+    // AUTHORIZATION when absent), but the schema no longer 400s first — requests
+    // the web client fires before its project resolves now reach the security
+    // layer's explicit 'Project ID is required' message instead of an opaque
+    // FST_ERR_VALIDATION error.
+    projectId: z.string().optional(),
     scope: z.nativeEnum(AppConnectionScope).optional(),
     pieceName: z.string().optional(),
     displayName: z.string().optional(),
