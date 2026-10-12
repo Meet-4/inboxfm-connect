@@ -23,6 +23,14 @@ export const pieceInstallService = (log: FastifyBaseLogger) => ({
         // invalidates the piece cache, so a cache-invalidation failure propagates out of a
         // successful insert. Cleaning up on "an error was thrown" would delete the archive of
         // a piece that exists and references it, leaving the piece unusable (issue #475).
+        //
+        // The flag is flipped from inside create(), the moment the row's save() returns -
+        // not only when create() resolves. create() runs inside distributedLock()
+        // .runExclusive -> redlock.using(), and redlock can reject the .using() promise with
+        // a LockError after the locked callback already completed (lock lost during
+        // execution, release failing against a hiccuping redis). In that window the row
+        // exists and references the archive, so keying the cleanup on the promise chain
+        // would delete it (issue #555).
         let uploadedArchive: File | undefined
         let piecePersisted = false
         try {
@@ -48,6 +56,13 @@ export const pieceInstallService = (log: FastifyBaseLogger) => ({
                 platformId,
                 pieceType: PieceType.CUSTOM,
                 archiveId,
+                // Set from inside create(), when the row's save() returns: a redlock
+                // LockError can still reject create() afterwards, and the cleanup in the
+                // catch below must already see the row as persisted in that window,
+                // or it deletes the archive the committed row references (issue #555).
+                onPiecePersisted: () => {
+                    piecePersisted = true
+                },
             })
             piecePersisted = true
             // Drop the reference the moment the row is committed (choksi2212 on #496): no
