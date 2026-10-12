@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { apiClient } from '@/lib/api/client'
+import { apiClient, ApiClientError } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/auth-context'
 import { toast } from 'sonner'
 
@@ -34,6 +34,24 @@ export function resolvePostLoginTarget(returnUrlParam?: string | null, stateFrom
   }
 
   return '/'
+}
+
+/**
+ * Sign-in failures come back as structured `{ code, params }` bodies with no
+ * message for the common codes (INVALID_CREDENTIALS carries `params: null`,
+ * SIGN_IN_ATTEMPTS_EXCEEDED only carries the limit), so the status is the only
+ * signal available to turn them into something a user can act on.
+ */
+function describeSignInError(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    if (error.statusCode === 401) {
+      return 'Invalid email or password.'
+    }
+    if (error.statusCode === 429) {
+      return 'Too many failed attempts. Try again shortly.'
+    }
+  }
+  return error instanceof Error ? error.message : 'Invalid credentials'
 }
 
 export default function LoginPage() {
@@ -82,7 +100,7 @@ export default function LoginPage() {
       navigateAfterLogin()
     } catch (err) {
       toast.error('Authentication failed', {
-        description: err instanceof Error ? err.message : 'Invalid credentials',
+        description: describeSignInError(err),
       })
     } finally {
       setIsLoading(false)
@@ -110,7 +128,7 @@ export default function LoginPage() {
       navigateAfterLogin()
     } catch (err) {
       toast.error('Dev authentication failed', {
-        description: err instanceof Error ? err.message : 'Invalid dev credentials',
+        description: describeSignInError(err),
       })
     } finally {
       setIsLoading(false)
