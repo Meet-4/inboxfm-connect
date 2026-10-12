@@ -129,14 +129,32 @@ export const aiProviderService = (log: FastifyBaseLogger) => ({
 
     async create(platformId: PlatformId, request: CreateAIProviderRequest): Promise<void> {
         await this.validateProviderCredentials(request.provider, request.auth, request.config)
-        await aiProviderRepo().save({
-            id: apId(),
-            auth: await encryptUtils.encryptObject(request.auth),
-            config: request.config,
-            provider: request.provider,
-            displayName: request.displayName,
-            platformId,
-        })
+        try {
+            await aiProviderRepo().save({
+                id: apId(),
+                auth: await encryptUtils.encryptObject(request.auth),
+                config: request.config,
+                provider: request.provider,
+                displayName: request.displayName,
+                platformId,
+            })
+        }
+        catch (error: unknown) {
+            // A repeat create for a provider type that already exists hits the
+            // (platformId, provider) unique index. That is a conflict the caller
+            // can resolve - update the existing provider row instead - so map it
+            // to the 409-mapped conflict code instead of leaking the raw driver
+            // error, constraint name included, as a 500 (#545).
+            if (isUniqueConstraintViolation(error)) {
+                throw new ActivepiecesError({
+                    code: ErrorCode.VALIDATION,
+                    params: {
+                        message: `AI provider of type "${request.provider}" already exists for this platform`,
+                    },
+                })
+            }
+            throw error
+        }
     },
     async update(platformId: PlatformId, providerId: string, request: UpdateAIProviderRequest): Promise<void> {
         const aiProvider = await aiProviderRepo().findOneBy({
@@ -259,7 +277,6 @@ export const aiProviderService = (log: FastifyBaseLogger) => ({
     },
 
 })
-
 
 // The managed-AI auto-create inside listProviders is a find-then-create on the
 // unique index (platformId, provider) that runs on a plain GET route. Two
