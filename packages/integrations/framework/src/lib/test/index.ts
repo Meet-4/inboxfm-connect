@@ -58,9 +58,6 @@ export function createMockActionContext<
       stop: () => {
         return;
       },
-      pause: () => {
-        return;
-      },
       respond: () => {
         return;
       },
@@ -128,9 +125,6 @@ export function createMockToolContext<
     run: {
       id: 'test-run-id' as string,
       stop: () => {
-        return;
-      },
-      pause: () => {
         return;
       },
       respond: () => {
