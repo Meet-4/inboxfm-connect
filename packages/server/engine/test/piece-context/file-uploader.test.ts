@@ -43,6 +43,47 @@ describe('file-uploader service', () => {
         ).rejects.toThrow(FileSizeError)
     })
 
+    it('still enforces the 25MB platform default when AP_MAX_FILE_SIZE_MB is unset', async () => {
+        // Number(undefined) is NaN and `length > NaN` is always false, so the
+        // guard used to fail open exactly when its configuration was missing.
+        delete process.env.AP_MAX_FILE_SIZE_MB
+        const files = createFileUploader(SERVICE_PARAMS)
+        const overDefaultBuffer = Buffer.alloc(25 * 1024 * 1024 + 1)
+        await expect(
+            files.write({ fileName: 'big.bin', data: overDefaultBuffer }),
+        ).rejects.toThrow(FileSizeError)
+    })
+
+    it('falls back to the 25MB default rather than failing open when the env var is unset', async () => {
+        delete process.env.AP_MAX_FILE_SIZE_MB
+        const readUrl = 'https://api.example.com/v1/files/abc123?token=xyz'
+
+        vi.spyOn(global, 'fetch').mockResolvedValue(new Response(
+            JSON.stringify({ fileId: 'file-1', readUrl }),
+            {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-ap-file-read-url': readUrl,
+                },
+            },
+        ))
+
+        const files = createFileUploader(SERVICE_PARAMS)
+        const result = await files.write({ fileName: 'small.bin', data: Buffer.from('hello') })
+
+        expect(result).toBe(readUrl)
+    })
+
+    it('falls back to the default when AP_MAX_FILE_SIZE_MB is non-numeric', async () => {
+        process.env.AP_MAX_FILE_SIZE_MB = 'banana'
+        const files = createFileUploader(SERVICE_PARAMS)
+        const overDefaultBuffer = Buffer.alloc(25 * 1024 * 1024 + 1)
+        await expect(
+            files.write({ fileName: 'big.bin', data: overDefaultBuffer }),
+        ).rejects.toThrow(FileSizeError)
+    })
+
     it('returns the read url from the response header on the proxy path', async () => {
         const readUrl = 'https://api.example.com/v1/files/abc123?token=xyz'
 
