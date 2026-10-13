@@ -1,5 +1,5 @@
 import { isNil, unique } from '@inboxfm-connect/core-utils'
-import { CreateScimGroupRequest, DefaultProjectRole, parseScimFilter, Project, ProjectType, ReplaceScimGroupRequest, SCIM_GROUP_SCHEMA, SCIM_LIST_RESPONSE_SCHEMA, ScimError, ScimGroupMember, ScimGroupResource, ScimListResponse, ScimPatchRequest, UserStatus, UserWithMetaInformation } from '@inboxfm-connect/shared'
+import { CreateScimGroupRequest, DefaultProjectRole, parseScimFilter, Project, ProjectType, ReplaceScimGroupRequest, SCIM_GROUP_SCHEMA, SCIM_LIST_RESPONSE_SCHEMA, ScimError, ScimGroupMember, ScimGroupResource, ScimListResponse, ScimPatchRequest, User, UserStatus, UserWithMetaInformation } from '@inboxfm-connect/shared'
 
 import { FastifyBaseLogger } from 'fastify'
 import { StatusCodes } from 'http-status-codes'
@@ -45,7 +45,11 @@ export const scimGroupService = (log: FastifyBaseLogger) => ({
                         log,
                     })
                     const user = await userService(log).get({ id: member.value })
-                    if (!isNil(user)) {
+                    // Report only members that were actually added: addMemberToProject
+                    // silently skips users outside this platform and inactive users, so
+                    // echoing them here would claim memberships that do not exist (and
+                    // leak another platform's user ids/emails into this response).
+                    if (isEligibleScimGroupMember(user, platformId)) {
                         const identity = await userService(log).getMetaInformation({ id: user.id })
                         return {
                             value: user.id,
@@ -287,7 +291,7 @@ async function addMemberToProject(params: {
     const { userId, projectId, platformId, log } = params
 
     const user = await userService(log).get({ id: userId })
-    if (isNil(user) || user.platformId !== platformId || user.status !== UserStatus.ACTIVE) {
+    if (!isEligibleScimGroupMember(user, platformId)) {
         return
     }
 
@@ -298,6 +302,14 @@ async function addMemberToProject(params: {
         projectId,
         projectRoleName: role,
     })
+}
+
+// The exact user predicate addMemberToProject enforces before upserting a membership:
+// the user must exist, belong to the same platform as the group, and be active. The
+// create/replace response builders must use the SAME predicate, otherwise they report
+// memberships that were silently skipped (and leak foreign-platform users' ids/emails).
+function isEligibleScimGroupMember(user: User | null, platformId: string): boolean {
+    return !isNil(user) && user.platformId === platformId && user.status === UserStatus.ACTIVE
 }
 
 async function removeMemberFromProject(params: {
@@ -419,7 +431,9 @@ async function replaceMembers(params: {
                 log,
             })
             const user = await userService(log).get({ id: member.value })
-            if (!isNil(user)) {
+            // Same predicate as the create path: only report members that were
+            // actually added (see the note on cross-platform/inactive users there).
+            if (isEligibleScimGroupMember(user, platformId)) {
                 const identity = await userService(log).getMetaInformation({ id: user.id })
                 return {
                     value: user.id,
