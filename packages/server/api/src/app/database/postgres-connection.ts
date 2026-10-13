@@ -44,8 +44,8 @@ const poolErrorHandler = (error: unknown): void => {
  * fork has since removed — flow builder, templates, trigger sources) into one migration
  * generated directly from the current `getEntities()` list. A fresh install now gets the
  * current schema in one step instead of replaying years of since-diverged history.
- * The old migration files remain on disk (unregistered, never executed) — see the repo
- * root's audit notes for why they weren't deleted outright.
+ * The old migration files remain on disk (unregistered, never executed) — they are
+ * the legacy Activepieces-era chains kept for upstream-merge and history reference.
  */
 export const getMigrations = (): (new () => Migration)[] => {
     const migrations = [
