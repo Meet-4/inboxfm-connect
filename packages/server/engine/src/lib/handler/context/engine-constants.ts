@@ -1,6 +1,6 @@
 import { ensureTrailingSlash, PlatformId, ProjectId } from '@inboxfm-connect/core-utils'
 import { ContextVersion } from '@inboxfm-connect/pieces-framework'
-import { DEFAULT_MCP_DATA, EngineGenericError, ExecutePropsOptions, ExecuteToolOperation, ExecuteTriggerOperation, flowStructureUtil, FlowVersionState, Project, ResumePayload, StreamStepProgress, TriggerHookType } from '@inboxfm-connect/shared'
+import { DEFAULT_MCP_DATA, EngineGenericError, ExecutePropsOptions, ExecuteToolOperation, ExecuteTriggerOperation, flowStructureUtil, FlowVersionState, Project, ResumePayload, RunEnvironment, StreamStepProgress, TriggerHookType } from '@inboxfm-connect/shared'
 import { createPropsResolver, PropsResolver } from '../../variables/props-resolver'
 
 type RetryConstants = {
