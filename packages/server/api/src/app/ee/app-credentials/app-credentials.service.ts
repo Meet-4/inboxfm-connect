@@ -77,19 +77,30 @@ export const appCredentialService = {
         projectId: ProjectId
         request: UpsertAppCredentialRequest
     }): Promise<AppCredential | null> {
-        const newId = request.id ?? apId()
-        await appCredentialRepo().upsert(
-            {
-                id: newId,
-                ...request,
+        // TypeORM's `upsert()` derives the DO UPDATE set from every supplied column
+        // outside the conflict target, so conflicting on ['id'] with a fresh id per
+        // call made every POST a bare INSERT — two calls for the same app created two
+        // rows for one logical credential, and the read-back below served an arbitrary
+        // one. The insert targets the natural key (projectId, appName) — backed by a
+        // unique index — with an explicit overwrite list, so a conflicting call only
+        // updates `settings` in place and the row id is never rewritten. The row is
+        // read back afterwards because InsertResult.identifiers echoes the id
+        // generated for this call, not the one already stored.
+        await appCredentialRepo()
+            .createQueryBuilder()
+            .insert()
+            .into(AppCredentialEntity)
+            .values({
+                id: request.id ?? apId(),
+                appName: request.appName,
                 // Always encrypt on write — the clientSecret must never hit
                 // the jsonb column in plaintext (see decryptSettings for how
                 // pre-encryption rows are still read).
                 settings: await encryptUtils.encryptObject(request.settings),
                 projectId,
-            },
-            ['id'],
-        )
+            })
+            .orUpdate(['settings'], ['projectId', 'appName'])
+            .execute()
         const stored = await appCredentialRepo().findOneBy({ projectId, appName: request.appName })
         return isNil(stored) ? null : {
             ...stored,
