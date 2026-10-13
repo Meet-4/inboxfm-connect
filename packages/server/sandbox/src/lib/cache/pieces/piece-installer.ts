@@ -1,8 +1,9 @@
-import { rm, writeFile } from 'node:fs/promises'
+import { rm, rename, writeFile } from 'node:fs/promises'
 import path, { dirname, join } from 'node:path'
 import { ensureTrailingSlash, groupBy, isEmpty, isNil, tryCatch } from '@inboxfm-connect/core-utils'
 import { type ApLogger, fileSystemUtils, memoryLock, wideEvent } from '@inboxfm-connect/server-utils'
 import { ExecutionMode, getPieceNameFromAlias, PackageType, PiecePackage, PieceType } from '@inboxfm-connect/shared'
+import { nanoid } from 'nanoid'
 import writeFileAtomic from 'write-file-atomic'
 import { SandboxSettings } from '../../types'
 import { bunRunner } from '../../utils/bun-runner'
@@ -273,7 +274,22 @@ async function saveBundlesToDiskIfNotCached(rootWorkspace: string, pieces: Piece
             throw new Error(`Failed to fetch piece bundle ${piece.pieceName}@${piece.pieceVersion}: ${response.status} ${response.statusText}`)
         }
         await fileSystemUtils.threadSafeMkdir(dirname(bundlePath))
-        await writeFile(bundlePath, Buffer.from(await response.arrayBuffer()))
+        // The tarball is the piece cache's source of truth and the "already cached"
+        // gate is a bare fileExists check, so a partially-written bundle.tgz would
+        // be treated as a valid cache hit forever (every later bun install for the
+        // piece fails with a corrupt-tarball error). Write to a unique temp
+        // sibling and rename into place — a crash mid-write can then only leave a
+        // .tmp file behind, never a corrupt bundle (same pattern as the engine
+        // installer's atomicCopy).
+        const tempPath = `${bundlePath}.${nanoid()}.tmp`
+        try {
+            await writeFile(tempPath, Buffer.from(await response.arrayBuffer()))
+            await rename(tempPath, bundlePath)
+        }
+        catch (err) {
+            await rm(tempPath, { force: true })
+            throw err
+        }
     }))
 }
 
