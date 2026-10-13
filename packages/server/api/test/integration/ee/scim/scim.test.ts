@@ -389,6 +389,110 @@ describe('SCIM 2.0 API', () => {
             // FEATURE_DISABLED maps to PAYMENT_REQUIRED (402)
             expect(response?.statusCode).toBe(StatusCodes.PAYMENT_REQUIRED)
         })
+
+        it('should 409 on creating a second user with an already-used externalId', async () => {
+            const { bearerToken } = await setupScimPlatform()
+            const externalId = `dup-${apId()}`
+            await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser({ externalId }),
+            })
+
+            const response = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser({ externalId }),
+            })
+
+            expect(response?.statusCode).toBe(StatusCodes.CONFLICT)
+        })
+
+        it('should 409 on PUT that moves another user\'s externalId, instead of a raw 500', async () => {
+            const { bearerToken } = await setupScimPlatform()
+
+            const first = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser({ externalId: 'owner-ext-1' }),
+            })
+            const second = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser({ externalId: 'owner-ext-2' }),
+            })
+
+            // Try to claim the first user's externalId from the second user (PUT)
+            const putResponse = await app?.inject({
+                method: 'PUT',
+                url: `/api/v1/scim/v2/Users/${second?.json().id}`,
+                headers: { authorization: bearerToken },
+                body: {
+                    schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'],
+                    userName: second?.json().userName,
+                    active: true,
+                    externalId: 'owner-ext-1',
+                },
+            })
+            expect(putResponse?.statusCode).toBe(StatusCodes.CONFLICT)
+
+            // Same conflict via PATCH (replace value-object form)
+            const patchResponse = await app?.inject({
+                method: 'PATCH',
+                url: `/api/v1/scim/v2/Users/${second?.json().id}`,
+                headers: { authorization: bearerToken },
+                body: {
+                    schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                    Operations: [
+                        { op: 'replace', value: { externalId: 'owner-ext-1' } },
+                    ],
+                },
+            })
+            expect(patchResponse?.statusCode).toBe(StatusCodes.CONFLICT)
+
+            // The winner's externalId is untouched by the failed attempts
+            const survivor = await app?.inject({
+                method: 'GET',
+                url: `/api/v1/scim/v2/Users/${first?.json().id}`,
+                headers: { authorization: bearerToken },
+            })
+            expect(survivor?.json().externalId).toBe('owner-ext-1')
+        })
+
+        it('should 409 on PATCH that sets another user\'s externalId via the add path', async () => {
+            const { bearerToken } = await setupScimPlatform()
+
+            const first = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser({ externalId: 'add-path-ext-1' }),
+            })
+            const second = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: bearerToken },
+                body: mockIdpUser(),
+            })
+
+            const patchResponse = await app?.inject({
+                method: 'PATCH',
+                url: `/api/v1/scim/v2/Users/${second?.json().id}`,
+                headers: { authorization: bearerToken },
+                body: {
+                    schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                    Operations: [
+                        { op: 'add', path: 'externalId', value: 'add-path-ext-1' },
+                    ],
+                },
+            })
+            expect(patchResponse?.statusCode).toBe(StatusCodes.CONFLICT)
+            expect(first?.statusCode).toBe(StatusCodes.CREATED)
+        })
     })
 
     // ==================== SCIM Group Tests ====================
@@ -715,6 +819,86 @@ describe('SCIM 2.0 API', () => {
                 headers: { authorization: bearerToken },
             })
             expect(getResponse?.statusCode).toBe(StatusCodes.NOT_FOUND)
+        })
+
+        it('should 409 (not 500) on re-POSTing a group externalId that already exists in the platform', async () => {
+            const { bearerToken } = await setupScimPlatform()
+            const idpGroup = mockIdpGroup({ externalId: `dup-group-${apId()}` })
+
+            const first = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Groups',
+                headers: { authorization: bearerToken },
+                body: idpGroup,
+            })
+            expect(first?.statusCode).toBe(StatusCodes.CREATED)
+
+            // IdPs re-POST on retries; the duplicate must be a conflict, not a raw driver 500
+            const second = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Groups',
+                headers: { authorization: bearerToken },
+                body: idpGroup,
+            })
+            expect(second?.statusCode).toBe(StatusCodes.CONFLICT)
+            expect(second?.json().code).toBe('PROJECT_EXTERNAL_ID_ALREADY_EXISTS')
+        })
+
+        it('should allow the same group externalId in different platforms', async () => {
+            const platformA = await setupScimPlatform()
+            const platformB = await setupScimPlatform()
+            const externalId = `shared-group-${apId()}`
+
+            const inA = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Groups',
+                headers: { authorization: platformA.bearerToken },
+                body: mockIdpGroup({ externalId }),
+            })
+            expect(inA?.statusCode).toBe(StatusCodes.CREATED)
+
+            // The uniqueness domain is the platform, so platform B must be free to use it
+            const inB = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Groups',
+                headers: { authorization: platformB.bearerToken },
+                body: mockIdpGroup({ externalId }),
+            })
+            expect(inB?.statusCode).toBe(StatusCodes.CREATED)
+        })
+
+        it('should not report or store a member that belongs to another platform', async () => {
+            const platformA = await setupScimPlatform()
+            const platformB = await setupScimPlatform()
+
+            // A user provisioned in platform A only
+            const foreignUser = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Users',
+                headers: { authorization: platformA.bearerToken },
+                body: mockIdpUser(),
+            })
+            const foreignUserId = foreignUser?.json().id
+
+            // Platform B's IdP (or a malicious platform-B admin) references that user id
+            const groupResponse = await app?.inject({
+                method: 'POST',
+                url: '/api/v1/scim/v2/Groups',
+                headers: { authorization: platformB.bearerToken },
+                body: mockIdpGroup({ members: [{ value: foreignUserId }] }),
+            })
+            expect(groupResponse?.statusCode).toBe(StatusCodes.CREATED)
+
+            // The response must not claim the foreign user as a member (and must not
+            // leak their id/email either)
+            const body = groupResponse?.json()
+            expect(body.members).toEqual([])
+
+            // And no membership row may exist behind the response's back
+            const memberRow = await databaseConnection()
+                .getRepository('project_member')
+                .findOneBy({ userId: foreignUserId, platformId: platformB.mockPlatform.id })
+            expect(memberRow).toBeNull()
         })
     })
 
