@@ -443,6 +443,7 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                     name: f.name,
                     type: f.type,
                     externalId: f.externalId ?? f.id,
+                    data: 'data' in f ? f.data : null,
                 })),
                 status: tbl.status ?? null,
                 trigger: tbl.trigger ?? null,
@@ -2108,6 +2109,7 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                                         name: f.name,
                                         type: f.type as FieldType,
                                         externalId: f.externalId,
+                                        data: f.data ?? null,
                                     })),
                                 },
                             })
@@ -2159,6 +2161,7 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                                                 name: sf.name,
                                                 type: sf.type as FieldType,
                                                 externalId: sf.externalId,
+                                                data: sf.data ?? null,
                                             } as unknown as CreateFieldRequest,
                                         })
                                     }
@@ -2173,6 +2176,7 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                                                     name: sf.name,
                                                     type: sf.type as FieldType,
                                                     externalId: sf.externalId,
+                                                    data: sf.data ?? null,
                                                 } as unknown as CreateFieldRequest,
                                             })
                                         }

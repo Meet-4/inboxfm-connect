@@ -28,6 +28,9 @@ export const TableSnapshotSchema = z.object({
         name: z.string(),
         type: z.union([z.nativeEnum(FieldType), z.string()]),
         externalId: z.string().optional(),
+        // Required for STATIC_DROPDOWN fields: the options list lives here and
+        // fieldService.createFromState rejects dropdowns without it.
+        data: z.record(z.string(), z.unknown()).nullable().optional(),
     })).optional(),
     status: z.union([z.nativeEnum(TableAutomationStatus), z.string()]).nullable().optional(),
     trigger: z.union([z.nativeEnum(TableAutomationTrigger), z.string()]).nullable().optional(),
