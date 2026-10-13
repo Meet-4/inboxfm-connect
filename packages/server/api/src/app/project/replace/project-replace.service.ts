@@ -2145,8 +2145,13 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                                     else {
                                         matchedFieldIds.add(matchField.id)
                                         if (matchField.type !== sf.type) {
+                                            // delete+recreate appends the new field at the END of
+                                            // the table (position = siblingCount), so restore the
+                                            // original position afterwards or the destination field
+                                            // order silently diverges from the source table.
+                                            const originalPosition = matchField.position
                                             await fieldService.delete({ id: matchField.id, projectId: targetProjectId })
-                                            await fieldService.create({
+                                            const recreated = await fieldService.create({
                                                 projectId: targetProjectId,
                                                 request: {
                                                     tableId: destTable.id,
@@ -2155,6 +2160,11 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                                                     externalId: sf.externalId,
                                                     data: sf.data ?? null,
                                                 } as unknown as CreateFieldRequest,
+                                            })
+                                            await fieldService.update({
+                                                id: recreated.id,
+                                                projectId: targetProjectId,
+                                                request: { position: originalPosition },
                                             })
                                         }
                                         else if (matchField.name !== sf.name) {
