@@ -44,13 +44,17 @@ export async function spawnWithKill({
         let finished = false
         let timeoutHandler: NodeJS.Timeout | undefined
 
-        const finish = (err?: Error | null) => {
+        const finish = (err?: Error | null, killTree = false) => {
             if (finished) return
             finished = true
 
             if (timeoutHandler) clearTimeout(timeoutHandler)
 
-            if (!cp.pid) {
+            // treeKill is only for the timeout path, where the process is still
+            // alive and may have spawned children. On natural exit/error the
+            // process is already dead and its pid may have been recycled by the
+            // OS, so a kill can hit an unrelated process (and reports ESRCH).
+            if (!killTree || !cp.pid) {
                 return err ? reject(err) : resolve({ stdout, stderr })
             }
 
@@ -66,6 +70,7 @@ export async function spawnWithKill({
                     new Error(
                         `Timeout after ${timeoutMs}ms\nstdout: ${stdout}\nstderr: ${stderr}`,
                     ),
+                    true,
                 )
             }, timeoutMs)
         }
