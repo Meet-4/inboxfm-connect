@@ -1,11 +1,62 @@
-import { isEnumValue, isNil } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, ErrorCode, isEnumValue, isNil } from '@inboxfm-connect/core-utils'
 import { cryptoUtils } from '@inboxfm-connect/server-utils'
 import { CreateScimUserRequest, parseScimFilter, PlatformRole, ReplaceScimUserRequest, SCIM_CUSTOM_USER_ATTRIBUTES_SCHEMA, SCIM_LIST_RESPONSE_SCHEMA, SCIM_USER_SCHEMA, ScimError, ScimListResponse, ScimPatchRequest, ScimUserResource, User, UserIdentityProvider, UserStatus } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { StatusCodes } from 'http-status-codes'
 import { userIdentityService } from '../../authentication/user-identity/user-identity-service'
+import { distributedLock } from '../../database/redis-connections'
 import { userService } from '../../user/user-service'
 import { emailService } from '../helper/email/email-service'
+
+// Postgres surfaces a unique violation as SQLSTATE 23505 on `code`, and pglite puts it
+// on `driverError.code` instead - same shape as the other services in this package.
+const isUniqueViolation = (error: unknown): boolean => {
+    const candidate = error as { code?: unknown, driverError?: { code?: unknown } } | null
+    return candidate?.code === '23505' || candidate?.driverError?.code === '23505'
+}
+
+// The create flow check-then-acts on two unique keys: (platformId, externalId) on the
+// user row (idx_user_platform_id_external_id) and email on the identity. Two concurrent
+// SCIM creates that both pass the pre-checks both proceed, and the loser of the
+// externalId race blew up with a raw 23505 AFTER its user and personal project were
+// already provisioned - leaving a user that can never be re-provisioned, because the
+// retry then fails the email conflict check (409 'User with email already exists')
+// while the row still has no externalId. Serialize SCIM user creates per platform
+// (provisioning volume is low, so this is cheap) and re-run the whole flow inside the
+// lock. Fail open when the lock is unavailable: the unique indexes still arbitrate,
+// and the mapped 409s below keep the error contract intact.
+const runCreateExclusiveOrWithoutLock = async <T>(params: {
+    platformId: string
+    log: FastifyBaseLogger
+    fn: () => Promise<T>
+}): Promise<T> => {
+    const { platformId, log, fn } = params
+    let fnSettled = false
+    try {
+        return await distributedLock(log).runExclusive({
+            key: `scim:user:create:${platformId}`,
+            timeoutInSeconds: 30,
+            fn: async () => {
+                try {
+                    return await fn()
+                }
+                finally {
+                    // Mark settled on EVERY exit path (throw AND success) so a
+                    // lock-infra error after fn completed cannot fail open and run
+                    // fn a second time.
+                    fnSettled = true
+                }
+            },
+        })
+    }
+    catch (error) {
+        if (fnSettled) {
+            throw error
+        }
+        log.warn({ error, platformId }, 'SCIM user create lock unavailable - failing open')
+        return fn()
+    }
+}
 
 export const scimUserService = (log: FastifyBaseLogger) => ({
     async create(params: {
@@ -21,64 +72,99 @@ export const scimUserService = (log: FastifyBaseLogger) => ({
         const generatedPassword = await cryptoUtils.generateRandomPassword()
         const platformRole = request[SCIM_CUSTOM_USER_ATTRIBUTES_SCHEMA]?.platformRole ?? PlatformRole.MEMBER
 
-        if (!isNil(externalId)) {
-            const existingUser = await userService(log).getByPlatformAndExternalId({
-                platformId,
-                externalId,
-            })
-            if (!isNil(existingUser)) {
-                throw new ScimError(
-                    StatusCodes.CONFLICT,
-                    'User with external ID already exists',
-                )
-            }
-        }
-
-        let identity = await userIdentityService(log).getIdentityByEmail(email)
-        if (isNil(identity)) {
-            identity = await userIdentityService(log).create({
-                email,
-                firstName,
-                lastName,
-                password: generatedPassword,
-                trackEvents: false,
-                newsLetter: false,
-                provider: UserIdentityProvider.SAML,
-                verified: true,
-            })
-        }
-
-        const existingUserForIdentity = await userService(log).getOneByIdentityAndPlatform({
-            identityId: identity.id,
+        return runCreateExclusiveOrWithoutLock({
             platformId,
-        })
-        if (!isNil(existingUserForIdentity)) {
-            throw new ScimError(
-                StatusCodes.CONFLICT,
-                'User with email already exists',
-            )
-        }
+            log,
+            fn: async () => {
+                if (!isNil(externalId)) {
+                    const existingUser = await userService(log).getByPlatformAndExternalId({
+                        platformId,
+                        externalId,
+                    })
+                    if (!isNil(existingUser)) {
+                        throw new ScimError(
+                            StatusCodes.CONFLICT,
+                            'User with external ID already exists',
+                        )
+                    }
+                }
 
-        const user = await userService(log).getOrCreateWithProject({
-            identity,
-            platformId,
-        })
+                let identity = await userIdentityService(log).getIdentityByEmail(email)
+                if (isNil(identity)) {
+                    try {
+                        identity = await userIdentityService(log).create({
+                            email,
+                            firstName,
+                            lastName,
+                            password: generatedPassword,
+                            trackEvents: false,
+                            newsLetter: false,
+                            provider: UserIdentityProvider.SAML,
+                            verified: true,
+                        })
+                    }
+                    catch (error) {
+                        // The identity email key is global, so another platform's SCIM
+                        // create can race this one past the lock and commit the identity
+                        // first. Converge on the committed identity instead of surfacing
+                        // a raw EXISTING_USER error out of a SCIM endpoint.
+                        if (error instanceof ActivepiecesError && error.error.code === ErrorCode.EXISTING_USER) {
+                            identity = await userIdentityService(log).getIdentityByEmail(email)
+                        }
+                        if (isNil(identity)) {
+                            throw error
+                        }
+                    }
+                }
 
-        await userService(log).update({
-            id: user.id,
-            platformId,
-            status: active ? UserStatus.ACTIVE : UserStatus.INACTIVE,
-            platformRole,
-            externalId,
-        })
+                const existingUserForIdentity = await userService(log).getOneByIdentityAndPlatform({
+                    identityId: identity.id,
+                    platformId,
+                })
+                if (!isNil(existingUserForIdentity)) {
+                    throw new ScimError(
+                        StatusCodes.CONFLICT,
+                        'User with email already exists',
+                    )
+                }
 
-        await emailService(log).sendScimUserWelcome({
-            email,
-            platformId,
-        })
+                const user = await userService(log).getOrCreateWithProject({
+                    identity,
+                    platformId,
+                })
 
-        const finalUser = await userService(log).getOrThrow({ id: user.id })
-        return toScimUserResource(finalUser, identity.email, identity.firstName, identity.lastName)
+                try {
+                    await userService(log).update({
+                        id: user.id,
+                        platformId,
+                        status: active ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+                        platformRole,
+                        externalId,
+                    })
+                }
+                catch (error) {
+                    // A non-SCIM path (e.g. a platform admin editing a user) can commit
+                    // the same externalId between the pre-check and this write; the
+                    // unique index idx_user_platform_id_external_id arbitrates - report
+                    // the conflict per RFC 7644 instead of a raw driver error.
+                    if (isUniqueViolation(error)) {
+                        throw new ScimError(
+                            StatusCodes.CONFLICT,
+                            'User with external ID already exists',
+                        )
+                    }
+                    throw error
+                }
+
+                await emailService(log).sendScimUserWelcome({
+                    email,
+                    platformId,
+                })
+
+                const finalUser = await userService(log).getOrThrow({ id: user.id })
+                return toScimUserResource(finalUser, identity.email, identity.firstName, identity.lastName)
+            },
+        })
     },
 
     async getById(params: {
