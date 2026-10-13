@@ -22,7 +22,25 @@ export const projectService = (log: FastifyBaseLogger) => ({
             icon,
             releasesEnabled: false,
         }
-        const savedProject = await projectRepo(entityManager).save(newProject)
+        let savedProject: Project
+        try {
+            savedProject = await projectRepo(entityManager).save(newProject)
+        }
+        catch (error) {
+            // (platformId, externalId) is a unique index (idx_project_platform_id_external_id),
+            // so a duplicate - e.g. an IdP re-POSTing a SCIM group it already provisioned -
+            // surfaced as a raw SQLSTATE 23505 and an HTTP 500. Report the conflict with the
+            // existing error code (mapped to 409) instead.
+            if (isUniqueViolation(error) && !isNil(rest.externalId)) {
+                throw new ActivepiecesError({
+                    code: ErrorCode.PROJECT_EXTERNAL_ID_ALREADY_EXISTS,
+                    params: {
+                        externalId: rest.externalId,
+                    },
+                })
+            }
+            throw error
+        }
         if (callPostCreateHooks) {
             await this.callProjectPostCreateHooks(savedProject, postCreateContext)
         }
@@ -123,7 +141,7 @@ export const projectService = (log: FastifyBaseLogger) => ({
 
     async update(projectId: ProjectId, request: UpdateParams, entityManager?: EntityManager): Promise<Project> {
         const externalId = request.externalId?.trim() !== '' ? request.externalId : undefined
-        await assertExternalIdIsUnique(externalId, projectId)
+        await assertExternalIdIsUnique(externalId, projectId, entityManager)
 
         const baseUpdate = {
             ...spreadIfDefined('externalId', externalId),
@@ -284,10 +302,22 @@ export async function applyProjectsAccessFilters<T extends ObjectLiteral>(
         )
     }))
 }
-async function assertExternalIdIsUnique(externalId: string | undefined | null, projectId: ProjectId): Promise<void> {
+async function assertExternalIdIsUnique(externalId: string | undefined | null, projectId: ProjectId, entityManager?: EntityManager): Promise<void> {
     if (!isNil(externalId)) {
-        const externalIdAlreadyExists = await projectRepo().existsBy({
+        // The uniqueness domain is the PLATFORM: the unique index is
+        // (platformId, externalId) and every lookup that resolves an externalId
+        // (getByPlatformIdAndExternalId, platform project listings, SCIM groups) is
+        // platform-scoped. Checking without the platformId filter rejected an
+        // externalId that merely existed in ANOTHER platform - a cross-tenant false
+        // conflict that also confirmed to the caller that the other tenant uses it.
+        const project = await projectRepo(entityManager).findOneBy({ id: projectId })
+        if (isNil(project)) {
+            // A missing project 404s at the caller's own read-back; nothing to check.
+            return
+        }
+        const externalIdAlreadyExists = await projectRepo(entityManager).existsBy({
             id: Not(projectId),
+            platformId: project.platformId,
             externalId,
         })
 
@@ -300,6 +330,13 @@ async function assertExternalIdIsUnique(externalId: string | undefined | null, p
             })
         }
     }
+}
+
+// Postgres surfaces a unique violation as SQLSTATE 23505 on `code`, and pglite puts it
+// on `driverError.code` instead - same shape as the other services in this package.
+const isUniqueViolation = (error: unknown): boolean => {
+    const candidate = error as { code?: unknown, driverError?: { code?: unknown } } | null
+    return candidate?.code === '23505' || candidate?.driverError?.code === '23505'
 }
 
 type GetAllForUserParams = {
