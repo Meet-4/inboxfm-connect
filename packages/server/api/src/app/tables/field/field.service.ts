@@ -29,11 +29,14 @@ const FIELD_POSITION_LOCK_TIMEOUT_SECONDS = 30
 
 export const fieldService = {
     async create({ request, projectId }: CreateParams): Promise<Field> {
-        await this.validateCount({ projectId, tableId: request.tableId })
         return distributedLock(system.globalLogger()).runExclusive({
             key: fieldPositionLockKey(request.tableId),
             timeoutInSeconds: FIELD_POSITION_LOCK_TIMEOUT_SECONDS,
             fn: () => transaction(async (entityManager) => {
+                // The quota check must run inside the per-table lock: create, delete and
+                // reorder all serialize on this key, so a count read outside it can pass
+                // for two concurrent creates and overshoot MAX_FIELDS_PER_TABLE.
+                await this.validateCount({ projectId, tableId: request.tableId })
                 const repo = fieldRepo(entityManager)
                 const siblingCount = await repo.count({ where: { projectId, tableId: request.tableId } })
                 const targetPosition = clampPosition({ position: request.position ?? siblingCount, max: siblingCount })
