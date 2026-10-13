@@ -81,6 +81,61 @@ describe('identifyReleaseCandidates', () => {
 
         expect(candidates).toHaveLength(0)
     })
+
+    it('should clamp to a chain suffix when release labels are not monotonically increasing', () => {
+        // Mirrors the real chain shape in postgres-connection.ts: a migration
+        // labeled with an older release is registered after one labeled newer
+        // (AddApiKeyExpiry '0.87.0' before AddPositionToField '0.86.1',
+        // AddMcpOAuthTokenLineage '0.87.0' after AddAgentEntity '0.88.0').
+        // Reverting the newer one while keeping the later-registered
+        // older-labeled one applied is mechanically impossible with
+        // undoLastMigration, so the candidate set must be a contiguous suffix.
+        const migrations = [
+            createMockMigration({ name: 'Initial', release: '0.85.0', breaking: false }),
+            createMockMigration({ name: 'Expiry', release: '0.87.0', breaking: false }),
+            createMockMigration({ name: 'Position', release: '0.86.1', breaking: false }),
+            createMockMigration({ name: 'Agent', release: '0.88.0', breaking: false }),
+            createMockMigration({ name: 'Lineage', release: '0.87.0', breaking: false }),
+        ]
+
+        const candidates = identifyReleaseCandidates(migrations, '0.87.0')
+
+        expect(candidates.map((m) => m.name)).toEqual(['Lineage', 'Agent'])
+    })
+
+    it('should revert everything after the first newer migration when an older-labeled migration is registered late', () => {
+        const migrations = [
+            createMockMigration({ name: 'Old', release: '0.76.0', breaking: false }),
+            createMockMigration({ name: 'Newer', release: '0.78.0', breaking: false }),
+            createMockMigration({ name: 'OlderButRegisteredLater', release: '0.76.1', breaking: false }),
+        ]
+
+        const candidates = identifyReleaseCandidates(migrations, '0.77.0')
+
+        expect(candidates.map((m) => m.name)).toEqual(['OlderButRegisteredLater', 'Newer'])
+    })
+
+    it('should include unlabeled migrations registered after the first newer migration', () => {
+        const migrations = [
+            createMockMigration({ name: 'Labeled', release: '0.78.0', breaking: false }),
+            createMockMigration({ name: 'Unlabeled' }),
+        ]
+
+        const candidates = identifyReleaseCandidates(migrations, '0.77.0')
+
+        expect(candidates.map((m) => m.name)).toEqual(['Unlabeled', 'Labeled'])
+    })
+
+    it('should ignore invalid semver release labels instead of throwing', () => {
+        const migrations = [
+            createMockMigration({ name: 'Garbage', release: 'not-semver', breaking: false }),
+            createMockMigration({ name: 'Valid', release: '0.78.0', breaking: false }),
+        ]
+
+        const candidates = identifyReleaseCandidates(migrations, '0.77.0')
+
+        expect(candidates.map((m) => m.name)).toEqual(['Valid'])
+    })
 })
 
 describe('identifyCandidatesByManifest', () => {

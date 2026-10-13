@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { isNil } from '@inboxfm-connect/core-utils'
 import semver from 'semver'
 import { DataSource } from 'typeorm'
 import { Migration } from './migration'
@@ -48,14 +49,36 @@ export function identifyReleaseCandidates(
 ): Migration[] {
     const instances = migrationClasses.map((MigrationClass) => new MigrationClass())
 
-    const candidates = instances.filter((m) => {
-        if (!m.release) {
-            return false
-        }
-        return semver.gt(m.release, targetVersion)
-    })
+    const isNewerThanTarget = (m: Migration): boolean => {
+        return !isNil(m.release) && semver.valid(m.release) !== null && semver.gt(m.release, targetVersion)
+    }
 
-    return candidates.reverse()
+    const firstNewerIndex = instances.findIndex(isNewerThanTarget)
+    if (firstNewerIndex === -1) {
+        return []
+    }
+
+    // dataSource.undoLastMigration() always reverts the most recently applied
+    // migration, so the rollback set must be a contiguous SUFFIX of the chain.
+    // Release labels are per-migration metadata assigned by feature, not by
+    // registration order, and are not guaranteed to be monotonically
+    // non-decreasing along the chain. Filtering by release alone can therefore
+    // produce a non-suffix set, and every such rollback then aborts in
+    // verifyDatabaseState with "Migration order mismatch". Clamp to the suffix
+    // starting at the first migration newer than the target: anything
+    // registered after it is reverted as collateral, because there is no
+    // mechanical way to revert an earlier migration while keeping a later one
+    // applied.
+    const suffix = instances.slice(firstNewerIndex)
+    for (const m of suffix) {
+        if (!isNewerThanTarget(m)) {
+            console.warn(
+                `  ! ${m.name ?? 'unknown'} (release: ${m.release ?? 'unlabeled'}) is registered after a newer migration`
+                + ' and is reverted as well to keep the chain contiguous.',
+            )
+        }
+    }
+    return suffix.reverse()
 }
 
 export function identifyCandidatesByManifest(
