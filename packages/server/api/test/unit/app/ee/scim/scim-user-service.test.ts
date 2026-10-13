@@ -1,16 +1,18 @@
-import { PlatformRole, ScimPatchRequest, UserStatus } from '@inboxfm-connect/shared'
+import { PlatformRole, ReplaceScimUserRequest, ScimPatchRequest, UserStatus } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockUserGet = vi.fn()
 const mockUserUpdate = vi.fn()
 const mockUserGetOrThrow = vi.fn()
+const mockGetByPlatformAndExternalId = vi.fn()
 
 vi.mock('../../../../../src/app/user/user-service', () => ({
     userService: () => ({
         get: mockUserGet,
         update: mockUserUpdate,
         getOrThrow: mockUserGetOrThrow,
+        getByPlatformAndExternalId: mockGetByPlatformAndExternalId,
     }),
 }))
 
@@ -219,5 +221,158 @@ describe('scimUserService.patch() — platformRole add-operation path spellings'
         })).resolves.not.toThrow()
 
         expect(mockUserUpdate).not.toHaveBeenCalled()
+    })
+})
+
+// PUT/PATCH write externalId straight into the user row, whose unique index
+// (platformId, externalId) used to turn a duplicate into a raw 23505 -> HTTP 500.
+// These tests pin the RFC 7644 contract: another same-platform user's externalId is a
+// 409, the user's OWN externalId is a no-op that must still succeed, and a violation
+// that slips past the pre-check (check-then-act window) is mapped to the same 409.
+describe('scimUserService — externalId conflict handling', () => {
+    let service: ScimUserService
+
+    const baseUser = () => ({
+        id: 'user-1',
+        platformId: 'platform-1',
+        identityId: 'identity-1',
+        platformRole: PlatformRole.MEMBER,
+        status: UserStatus.ACTIVE,
+    })
+
+    beforeEach(async () => {
+        vi.clearAllMocks()
+        vi.resetModules()
+        service = await loadScimUserService()
+        mockUserGet.mockResolvedValue(baseUser())
+        mockUserGetOrThrow.mockResolvedValue(baseUser())
+        mockUserUpdate.mockResolvedValue(undefined)
+        mockGetByPlatformAndExternalId.mockResolvedValue(null)
+        mockGetBasicInformation.mockResolvedValue({
+            email: 'user@example.test',
+            firstName: 'First',
+            lastName: 'Last',
+        })
+    })
+
+    it('patch replace-value with an externalId owned by another platform user rejects with 409 and issues no update', async () => {
+        mockGetByPlatformAndExternalId.mockResolvedValue({ ...baseUser(), id: 'user-2', externalId: 'taken-1' })
+
+        await expect(service.patch({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                Operations: [
+                    {
+                        op: 'replace',
+                        value: { externalId: 'taken-1' },
+                    },
+                ],
+            } as unknown as ScimPatchRequest,
+        })).rejects.toMatchObject({
+            status: 409,
+            detail: 'User with external ID already exists',
+        })
+
+        expect(mockUserUpdate).not.toHaveBeenCalled()
+    })
+
+    it('patch add-path with an externalId owned by another platform user rejects with 409', async () => {
+        mockGetByPlatformAndExternalId.mockResolvedValue({ ...baseUser(), id: 'user-2', externalId: 'taken-2' })
+
+        await expect(service.patch({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                Operations: [
+                    {
+                        op: 'add',
+                        path: 'externalId',
+                        value: 'taken-2',
+                    },
+                ],
+            } as unknown as ScimPatchRequest,
+        })).rejects.toMatchObject({
+            status: 409,
+        })
+    })
+
+    it('patch that rewrites the user\'s own externalId still succeeds', async () => {
+        mockGetByPlatformAndExternalId.mockResolvedValue({ ...baseUser(), externalId: 'mine-1' })
+
+        await expect(service.patch({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                Operations: [
+                    {
+                        op: 'replace',
+                        value: { externalId: 'mine-1' },
+                    },
+                ],
+            } as unknown as ScimPatchRequest,
+        })).resolves.not.toThrow()
+
+        expect(mockUserUpdate).toHaveBeenCalledTimes(1)
+    })
+
+    it('patch surfaces a 23505 from the update itself as a SCIM 409 instead of a raw driver error', async () => {
+        mockUserUpdate.mockRejectedValue(Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }))
+
+        await expect(service.patch({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                Operations: [
+                    {
+                        op: 'replace',
+                        value: { externalId: 'raced-1' },
+                    },
+                ],
+            } as unknown as ScimPatchRequest,
+        })).rejects.toMatchObject({
+            status: 409,
+            detail: 'User with external ID already exists',
+        })
+    })
+
+    it('replace (PUT) with an externalId owned by another platform user rejects with 409 and issues no update', async () => {
+        mockGetByPlatformAndExternalId.mockResolvedValue({ ...baseUser(), id: 'user-2', externalId: 'taken-3' })
+
+        await expect(service.replace({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'],
+                userName: 'user@example.test',
+                active: true,
+                externalId: 'taken-3',
+            } as unknown as ReplaceScimUserRequest,
+        })).rejects.toMatchObject({
+            status: 409,
+        })
+
+        expect(mockUserUpdate).not.toHaveBeenCalled()
+    })
+
+    it('replace (PUT) with the user\'s own externalId still succeeds', async () => {
+        mockGetByPlatformAndExternalId.mockResolvedValue({ ...baseUser(), externalId: 'mine-2' })
+
+        await expect(service.replace({
+            platformId: 'platform-1',
+            userId: 'user-1',
+            request: {
+                schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'],
+                userName: 'user@example.test',
+                active: true,
+                externalId: 'mine-2',
+            } as unknown as ReplaceScimUserRequest,
+        })).resolves.not.toThrow()
+
+        expect(mockUserUpdate).toHaveBeenCalledTimes(1)
     })
 })

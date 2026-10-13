@@ -266,12 +266,22 @@ export const scimUserService = (log: FastifyBaseLogger) => ({
         const active = request.active !== false
         const status = active ? UserStatus.ACTIVE : UserStatus.INACTIVE
 
-        await userService(log).update({
-            id: userId,
+        await assertExternalIdIsAvailable({
+            log,
             platformId,
-            status,
+            userId,
             externalId: request.externalId,
-            platformRole: request[SCIM_CUSTOM_USER_ATTRIBUTES_SCHEMA]?.platformRole,
+        })
+
+        await updateUserGuardingExternalIdConflict({
+            log,
+            update: {
+                id: userId,
+                platformId,
+                status,
+                externalId: request.externalId,
+                platformRole: request[SCIM_CUSTOM_USER_ATTRIBUTES_SCHEMA]?.platformRole,
+            },
         })
 
         await userIdentityService(log).update(user.identityId, {
@@ -314,11 +324,20 @@ export const scimUserService = (log: FastifyBaseLogger) => ({
             if (op === 'replace') {
                 const value = operation.value as Record<string, unknown>
                 if (!isNil(value)) {
-                    await userService(log).update({
-                        id: userId,
+                    await assertExternalIdIsAvailable({
+                        log,
                         platformId,
-                        status: isNil(value.active) ? undefined : value.active ? UserStatus.ACTIVE : UserStatus.INACTIVE,
-                        externalId: value.externalId as string,
+                        userId,
+                        externalId: value.externalId as string | undefined,
+                    })
+                    await updateUserGuardingExternalIdConflict({
+                        log,
+                        update: {
+                            id: userId,
+                            platformId,
+                            status: isNil(value.active) ? undefined : value.active ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+                            externalId: value.externalId as string,
+                        },
                     })
                 }
 
@@ -386,7 +405,22 @@ export const scimUserService = (log: FastifyBaseLogger) => ({
         let updatedUser: User | undefined
         if (!isNil(addOperationFields)) {
             const { platformRole, firstName, lastName, externalId, active } = addOperationFields
-            await userService(log).update({ platformId, id: userId, platformRole, externalId, status: isNil(active) ? undefined : active ? UserStatus.ACTIVE : UserStatus.INACTIVE })
+            await assertExternalIdIsAvailable({
+                log,
+                platformId,
+                userId,
+                externalId,
+            })
+            await updateUserGuardingExternalIdConflict({
+                log,
+                update: {
+                    platformId,
+                    id: userId,
+                    platformRole,
+                    externalId,
+                    status: isNil(active) ? undefined : active ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+                },
+            })
             updatedUser = await userService(log).getOrThrow({ id: userId })
             await userIdentityService(log).update(updatedUser.identityId, { firstName, lastName })
         }
@@ -417,6 +451,63 @@ export const scimUserService = (log: FastifyBaseLogger) => ({
         })
     },
 })
+
+type ScimUserUpdate = {
+    id: string
+    platformId: string
+    status?: UserStatus
+    platformRole?: PlatformRole
+    externalId?: string
+}
+
+// PUT/PATCH can set a user's externalId to one already owned by a DIFFERENT user of the
+// same platform (IdPs move/rename external ids). The unique index
+// idx_user_platform_id_external_id then turned the update into a raw 23505 -> HTTP 500.
+// Check the natural key up front so the common case gets an immediate 409, still
+// excluding the user itself (a no-op rewrite of its own externalId must pass).
+async function assertExternalIdIsAvailable(params: {
+    log: FastifyBaseLogger
+    platformId: string
+    userId: string
+    externalId: string | undefined
+}): Promise<void> {
+    const { log, platformId, userId, externalId } = params
+    if (isNil(externalId)) {
+        return
+    }
+    const existingUser = await userService(log).getByPlatformAndExternalId({
+        platformId,
+        externalId,
+    })
+    if (!isNil(existingUser) && existingUser.id !== userId) {
+        throw new ScimError(
+            StatusCodes.CONFLICT,
+            'User with external ID already exists',
+        )
+    }
+}
+
+// The pre-check above still leaves a check-then-act window (another admin path can
+// commit the same externalId in between); the unique index is the real boundary, so
+// map its violation to the same SCIM 409 instead of a raw driver error.
+async function updateUserGuardingExternalIdConflict(params: {
+    log: FastifyBaseLogger
+    update: ScimUserUpdate
+}): Promise<void> {
+    const { log, update } = params
+    try {
+        await userService(log).update(update)
+    }
+    catch (error) {
+        if (isUniqueViolation(error)) {
+            throw new ScimError(
+                StatusCodes.CONFLICT,
+                'User with external ID already exists',
+            )
+        }
+        throw error
+    }
+}
 
 function toScimUserResource(
     user: Pick<User, 'id' | 'externalId' | 'created' | 'updated' | 'status' | 'platformRole'>,
