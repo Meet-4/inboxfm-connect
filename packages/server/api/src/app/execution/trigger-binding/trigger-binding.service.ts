@@ -140,6 +140,16 @@ export const triggerBindingService = {
             await executeEngineHook({ binding: saved, hookType: TriggerHookType.ON_DISABLE })
             await unsyncTriggerSchedule(saved.id)
         }
+        else if (oldStatus === TriggerBindingStatus.ENABLED && saved.status === TriggerBindingStatus.ENABLED) {
+            // The status did not flip, but settings (cronExpression /
+            // renewCronExpression / timezone) may have changed. Without a resync the
+            // registered scheduler job keeps firing on the OLD cron expression, and a
+            // removed cron expression is never canceled at all - the binding row says
+            // one thing while the schedule does another (scheduledTaskService#update
+            // resyncs on every update for the same reason).
+            await unsyncTriggerSchedule(saved.id)
+            await syncTriggerSchedule(saved)
+        }
 
         return saved
     },
