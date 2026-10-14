@@ -68,14 +68,15 @@ export const createOrUpdateContactAction = createAction({
 				body: contactPayload,
 			});
 		} catch (e) {
-			const err = e as HttpError;
-			if (err.response.status === 404) {
+			if (e instanceof HttpError && e.response.status === 404) {
 				await crispApiCall({
 					auth: context.auth,
 					method: HttpMethod.POST,
 					resourceUri: `/website/${websiteId}/people/profile`,
 					body: contactPayload,
 				});
+			} else {
+				throw e;
 			}
 		}
 

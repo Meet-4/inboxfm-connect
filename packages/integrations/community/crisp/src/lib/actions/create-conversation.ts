@@ -55,8 +55,7 @@ export const createConversationAction = createAction({
 				},
 			});
 		} catch (e) {
-			const err = e as HttpError;
-			if (err.response.status === 404) {
+			if (e instanceof HttpError && e.response.status === 404) {
 				await crispApiCall({
 					auth: context.auth,
 					method: HttpMethod.POST,
@@ -68,6 +67,8 @@ export const createConversationAction = createAction({
 						},
 					},
 				});
+			} else {
+				throw e;
 			}
 		}
 
