@@ -14,18 +14,13 @@ type BillplzAuth = AppConnectionValueForAuthProperty<typeof billplzAuth>;
 const polling: Polling<BillplzAuth, StaticPropsValue<Record<string, never>>> = {
   strategy: DedupeStrategy.LAST_ITEM,
   items: async ({ auth }) => {
-    try {
-      const response = await billplzApi.getCollections(auth.secret_text);
-      const collections = response.body.collections || [];
-      
-      return collections.map((collection: any) => ({
-        epochMilliSeconds: Date.now(),
-        data: collection
-      }));
-    } catch (error) {
-      console.error('Failed to fetch collections:', error);
-      return [];
-    }
+    const response = await billplzApi.getCollections(auth.secret_text);
+    const collections = response.body.collections || [];
+
+    return collections.map((collection: any) => ({
+      id: collection.id,
+      data: collection
+    }));
   },
 };
 
