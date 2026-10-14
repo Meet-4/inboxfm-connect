@@ -155,9 +155,12 @@ export const zohoBookingsCommon = {
     // if (options?.customer_name) payload['customer_name'] = options.customer_name;
     // if (options?.customer_email) payload['customer_email'] = options.customer_email;
 
-    // Send as multipart/form-data with a single `data` field
-    const formData = new FormData();
-    formData.append('data', JSON.stringify(payload));
+    // Zoho Bookings takes urlencoded form fields with the filters wrapped in a
+    // JSON-string `data` parameter (docs: parameters "passed in the request
+    // body as form-data"; the documented wire form is data={"from_time":...}).
+    // The urlencoded content-type below makes the shared HTTP client encode
+    // this object to exactly that wire form; a FormData body here was
+    // multipart-encoded bytes mislabeled as urlencoded.
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
       url: `${this.baseUrl(location)}/fetchappointment`,
@@ -165,7 +168,7 @@ export const zohoBookingsCommon = {
         Authorization: `Zoho-oauthtoken ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: formData,
+      body: { data: JSON.stringify(payload) },
     });
     console.log(JSON.stringify(response.body.response));
 
