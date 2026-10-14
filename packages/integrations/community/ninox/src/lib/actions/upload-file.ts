@@ -52,7 +52,6 @@ export const uploadFile = createAction({
 				HttpMethod.POST,
 				path,
 				formData,
-				'multipart/form-data',
 			);
 			return {
 				success: true,
