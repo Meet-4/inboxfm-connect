@@ -46,16 +46,20 @@ export const addNoteToSubscriber = createAction({
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
+
+        // Read the body once; the stream cannot be consumed twice.
+        let errorText: string | null = null;
         try {
-          const errorText = await response.text();
-          if (errorText && errorText.trim()) {
+          errorText = await response.text();
+        } catch {
+          errorText = null;
+        }
+
+        if (errorText && errorText.trim()) {
+          try {
             const errorData = JSON.parse(errorText);
             errorMessage = errorData.detail || errorData.title || errorData.message || errorText;
-          }
-        } catch (parseError) {
-          const errorText = await response.text();
-          if (errorText && errorText.trim()) {
+          } catch {
             errorMessage = errorText;
           }
         }
