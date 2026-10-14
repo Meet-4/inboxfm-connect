@@ -189,12 +189,14 @@ export const timelinesAiCommon = {
       formData.append('content_type', content_type);
     }
 
+    // No manual Content-Type: fetch derives it from the FormData body and
+    // appends the multipart boundary — a manual boundary-less header makes
+    // the request unparseable.
     const response = await httpClient.sendRequest<UploadFileResponse>({
       method: HttpMethod.POST,
       url: timelinesAiCommon.baseUrl + timelinesAiCommon.endpoints.uploadFile,
       headers: {
         ...timelinesAiCommon.getHeaders(apiKey.secret_text),
-        'Content-Type': 'multipart/form-data',
       },
       body: formData,
     });
