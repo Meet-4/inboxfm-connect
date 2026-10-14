@@ -123,11 +123,15 @@ export const newUpdatedWorkItemWebhookTrigger = createTrigger({
 
   async run(context) {
     const expectedToken = await context.store.get<string>(TRIGGER_TOKEN_STORE_KEY);
-    if (!expectedToken) return [];
+    if (!expectedToken) {
+      throw new Error(
+        'Webhook verification token is missing from the trigger store. Re-enable the trigger to regenerate it.'
+      );
+    }
 
     const authHeader = extractAuthHeader(context.payload.headers);
     if (!authHeader || !verifyBasicAuth(authHeader, BASIC_AUTH_USERNAME, expectedToken)) {
-      return [];
+      throw new Error('Webhook basic-auth verification failed. This request may not be from Azure DevOps.');
     }
 
     const payload = azureDevOpsCommon.parseWebhookPayload(context.payload.body);
