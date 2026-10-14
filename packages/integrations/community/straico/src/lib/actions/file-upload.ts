@@ -49,9 +49,9 @@ export const fileUpload = createAction({
         token: auth.secret_text,
       },
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      // No manual Content-Type: fetch derives it from the FormData body and
+      // appends the multipart boundary — a manual boundary-less header makes
+      // the request unparseable.
     });
 
     return response.body.data.url;
