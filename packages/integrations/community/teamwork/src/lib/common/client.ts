@@ -10,6 +10,17 @@ import { teamworkAuth } from './auth';
 const MAX_RETRIES = 5;
 const INITIAL_DELAY_MS = 500;
 
+// Only idempotent methods are safe to retry on a 5xx: the request may have
+// been applied before the server errored, so re-sending a POST could create
+// the task/project twice. 429 is always safe to retry — the request was
+// rejected before processing.
+const IDEMPOTENT_METHODS: readonly HttpMethod[] = [
+	HttpMethod.GET,
+	HttpMethod.HEAD,
+	HttpMethod.PUT,
+	HttpMethod.DELETE,
+];
+
 export type TeamworkRequestOptions = {
 	method: HttpMethod;
 	path: string;
@@ -57,7 +68,13 @@ export async function teamworkRequest(
 			return normalizeResponse(res.body);
 		} catch (e: any) {
 			const status: number | undefined = e?.response?.status;
-			if (status && (status === 429 || (status >= 500 && status < 600)) && attempt < MAX_RETRIES) {
+			const retryable =
+				status === 429 ||
+				(status !== undefined &&
+					status >= 500 &&
+					status < 600 &&
+					IDEMPOTENT_METHODS.includes(options.method));
+			if (status && retryable && attempt < MAX_RETRIES) {
 				const retryAfter = Number(e?.response?.headers?.['retry-after']);
 				await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : delay);
 				attempt++;
