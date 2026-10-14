@@ -21,7 +21,10 @@ export const reoonEmailVerifyAuth = PieceAuth.SecretText({
     try {
       await verifySingleEmail('placeholder@test', 'quick', auth.auth);
     } catch (e) {
-      const status = (e as HttpError).response.status;
+      if (!(e instanceof HttpError)) {
+        throw e;
+      }
+      const status = e.response.status;
 
       // Other 4xx status codes mean the API key is valid
       if (status === 401) {
