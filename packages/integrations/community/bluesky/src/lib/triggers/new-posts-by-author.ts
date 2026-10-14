@@ -30,81 +30,76 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof blueskyAuth>, {
       return [];
     }
     
-    try {
-      if (!selectedAuthorHandle || selectedAuthorHandle.trim().length === 0) {
-        return [];
-      }
-
-      const agent = await createBlueskyAgent(auth.props);
-      
-      const normalizedHandle = selectedAuthorHandle.replace('@', '').trim();
-      
-      const response = await agent.getAuthorFeed({
-        actor: normalizedHandle,
-        limit: 50,
-        filter: 'posts_with_replies'
-      });
-
-      if (!response.data?.feed || !Array.isArray(response.data.feed)) {
-        return [];
-      }
-
-      const cutoffTime = lastFetchEpochMS || 0;
-
-      return response.data.feed
-        .filter((feedItem: any) => {
-          const post = feedItem.post;
-          if (!post || !post.indexedAt) return false;
-          
-          const postTime = dayjs(post.indexedAt).valueOf();
-          if (postTime <= cutoffTime) return false;
-
-          const isReply = post.record?.reply !== undefined;
-          const isRepost = feedItem.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-          
-          if (isReply && !includeReplies) return false;
-          if (isRepost && !includeReposts) return false;
-          
-          return post.author.handle === normalizedHandle || post.author.did === normalizedHandle;
-        })
-        .map((feedItem: any) => {
-          const post = feedItem.post;
-          return {
-            epochMilliSeconds: dayjs(post.indexedAt).valueOf(),
-            data: {
-              uri: post.uri,
-              cid: post.cid,
-              author: post.author,
-              record: post.record,
-              indexedAt: post.indexedAt,
-              
-              replyCount: post.replyCount || 0,
-              repostCount: post.repostCount || 0,
-              likeCount: post.likeCount || 0,
-              quoteCount: post.quoteCount || 0,
-              
-              labels: post.labels || [],
-              viewer: post.viewer || {},
-              embed: post.embed || null,
-              
-              postContext: {
-                authorHandle: normalizedHandle,
-                isReply: post.record?.reply !== undefined,
-                isRepost: feedItem.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
-                replyTo: post.record?.reply?.parent?.uri || null,
-                hasImages: !!(post.embed?.images),
-                hasVideo: !!(post.embed?.video),
-                hasExternalLink: !!(post.embed?.external)
-              }
-            }
-          };
-        })
-        .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
-
-    } catch (error) {
-      console.warn('Failed to fetch author posts:', error instanceof Error ? error.message : 'Unknown error');
+    if (!selectedAuthorHandle || selectedAuthorHandle.trim().length === 0) {
       return [];
     }
+
+    const agent = await createBlueskyAgent(auth.props);
+    
+    const normalizedHandle = selectedAuthorHandle.replace('@', '').trim();
+    
+    const response = await agent.getAuthorFeed({
+      actor: normalizedHandle,
+      limit: 50,
+      filter: 'posts_with_replies'
+    });
+
+    if (!response.data?.feed || !Array.isArray(response.data.feed)) {
+      return [];
+    }
+
+    const cutoffTime = lastFetchEpochMS || 0;
+
+    return response.data.feed
+      .filter((feedItem: any) => {
+        const post = feedItem.post;
+        if (!post || !post.indexedAt) return false;
+        
+        const postTime = dayjs(post.indexedAt).valueOf();
+        if (postTime <= cutoffTime) return false;
+
+        const isReply = post.record?.reply !== undefined;
+        const isRepost = feedItem.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+        
+        if (isReply && !includeReplies) return false;
+        if (isRepost && !includeReposts) return false;
+        
+        return post.author.handle === normalizedHandle || post.author.did === normalizedHandle;
+      })
+      .map((feedItem: any) => {
+        const post = feedItem.post;
+        return {
+          epochMilliSeconds: dayjs(post.indexedAt).valueOf(),
+          data: {
+            uri: post.uri,
+            cid: post.cid,
+            author: post.author,
+            record: post.record,
+            indexedAt: post.indexedAt,
+            
+            replyCount: post.replyCount || 0,
+            repostCount: post.repostCount || 0,
+            likeCount: post.likeCount || 0,
+            quoteCount: post.quoteCount || 0,
+            
+            labels: post.labels || [],
+            viewer: post.viewer || {},
+            embed: post.embed || null,
+            
+            postContext: {
+              authorHandle: normalizedHandle,
+              isReply: post.record?.reply !== undefined,
+              isRepost: feedItem.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
+              replyTo: post.record?.reply?.parent?.uri || null,
+              hasImages: !!(post.embed?.images),
+              hasVideo: !!(post.embed?.video),
+              hasExternalLink: !!(post.embed?.external)
+            }
+          }
+        };
+      })
+      .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
+
   }
 };
 

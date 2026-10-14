@@ -16,79 +16,74 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof blueskyAuth>, {
   items: async ({ auth, propsValue, lastFetchEpochMS }) => {
     const { searchQuery, searchLanguage, includeImages, includeVideos, sortBy } = propsValue;
     
-    try {
-      if (!searchQuery || searchQuery.trim().length === 0) {
-        return [];
-      }
-
-      const agent = await createBlueskyAgent(auth.props);
-
-      const searchParams: any = {
-        q: searchQuery.trim(),
-        limit: 50,
-        sort: sortBy || 'latest'
-      };
-
-      if (searchLanguage && searchLanguage !== 'other') {
-        searchParams.lang = searchLanguage;
-      }
-
-      const response = await agent.api.app.bsky.feed.searchPosts(searchParams);
-
-      if (!response.data?.posts || !Array.isArray(response.data.posts)) {
-        return [];
-      }
-
-      const cutoffTime = lastFetchEpochMS || 0;
-
-      return response.data.posts
-        .filter((post: any) => {
-          if (!post.indexedAt) return false;
-          
-          const postTime = dayjs(post.indexedAt).valueOf();
-          if (postTime <= cutoffTime) return false;
-
-          if (includeImages === false && post.embed?.images) return false;
-          if (includeVideos === false && post.embed?.video) return false;
-          if (includeImages === true && !post.embed?.images) return false;
-          if (includeVideos === true && !post.embed?.video) return false;
-
-          return true;
-        })
-        .map((post: any) => ({
-          epochMilliSeconds: dayjs(post.indexedAt).valueOf(),
-          data: {
-            uri: post.uri,
-            cid: post.cid,
-            author: post.author,
-            record: post.record,
-            indexedAt: post.indexedAt,
-            
-            replyCount: post.replyCount || 0,
-            repostCount: post.repostCount || 0,
-            likeCount: post.likeCount || 0,
-            quoteCount: post.quoteCount || 0,
-            
-            labels: post.labels || [],
-            viewer: post.viewer || {},
-            embed: post.embed || null,
-            
-            searchContext: {
-              query: searchQuery,
-              language: searchLanguage || null,
-              matchedTerms: extractMatchedTerms(post.record?.text || '', searchQuery),
-              hasImages: !!(post.embed?.images),
-              hasVideo: !!(post.embed?.video),
-              hasExternalLink: !!(post.embed?.external)
-            }
-          }
-        }))
-        .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
-
-    } catch (error) {
-      console.warn('Failed to search posts:', error instanceof Error ? error.message : 'Unknown error');
+    if (!searchQuery || searchQuery.trim().length === 0) {
       return [];
     }
+
+    const agent = await createBlueskyAgent(auth.props);
+
+    const searchParams: any = {
+      q: searchQuery.trim(),
+      limit: 50,
+      sort: sortBy || 'latest'
+    };
+
+    if (searchLanguage && searchLanguage !== 'other') {
+      searchParams.lang = searchLanguage;
+    }
+
+    const response = await agent.api.app.bsky.feed.searchPosts(searchParams);
+
+    if (!response.data?.posts || !Array.isArray(response.data.posts)) {
+      return [];
+    }
+
+    const cutoffTime = lastFetchEpochMS || 0;
+
+    return response.data.posts
+      .filter((post: any) => {
+        if (!post.indexedAt) return false;
+        
+        const postTime = dayjs(post.indexedAt).valueOf();
+        if (postTime <= cutoffTime) return false;
+
+        if (includeImages === false && post.embed?.images) return false;
+        if (includeVideos === false && post.embed?.video) return false;
+        if (includeImages === true && !post.embed?.images) return false;
+        if (includeVideos === true && !post.embed?.video) return false;
+
+        return true;
+      })
+      .map((post: any) => ({
+        epochMilliSeconds: dayjs(post.indexedAt).valueOf(),
+        data: {
+          uri: post.uri,
+          cid: post.cid,
+          author: post.author,
+          record: post.record,
+          indexedAt: post.indexedAt,
+          
+          replyCount: post.replyCount || 0,
+          repostCount: post.repostCount || 0,
+          likeCount: post.likeCount || 0,
+          quoteCount: post.quoteCount || 0,
+          
+          labels: post.labels || [],
+          viewer: post.viewer || {},
+          embed: post.embed || null,
+          
+          searchContext: {
+            query: searchQuery,
+            language: searchLanguage || null,
+            matchedTerms: extractMatchedTerms(post.record?.text || '', searchQuery),
+            hasImages: !!(post.embed?.images),
+            hasVideo: !!(post.embed?.video),
+            hasExternalLink: !!(post.embed?.external)
+          }
+        }
+      }))
+      .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
+
   }
 };
 

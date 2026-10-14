@@ -7,62 +7,57 @@ import dayjs from 'dayjs';
 const polling: Polling<AppConnectionValueForAuthProperty<typeof blueskyAuth>, Record<string, never>> = {
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth, lastFetchEpochMS }) => {
-    try {
-      const agent = await createBlueskyAgent(auth.props);
-      
-      const response = await agent.getTimeline({
-        limit: 50
-      });
+    const agent = await createBlueskyAgent(auth.props);
+    
+    const response = await agent.getTimeline({
+      limit: 50
+    });
 
-      if (!response.data?.feed || !Array.isArray(response.data.feed)) {
-        return [];
-      }
-
-      const cutoffTime = lastFetchEpochMS || 0;
-
-      return response.data.feed
-        .filter((item: any) => {
-          if (!item.post || !item.post.indexedAt) return false;
-          
-          const postTime = dayjs(item.post.indexedAt).valueOf();
-          return postTime > cutoffTime;
-        })
-        .map((item: any) => ({
-          epochMilliSeconds: dayjs(item.post.indexedAt).valueOf(),
-          data: {
-            uri: item.post.uri,
-            cid: item.post.cid,
-            author: item.post.author,
-            record: item.post.record,
-            indexedAt: item.post.indexedAt,
-            
-            replyCount: item.post.replyCount || 0,
-            repostCount: item.post.repostCount || 0,
-            likeCount: item.post.likeCount || 0,
-            quoteCount: item.post.quoteCount || 0,
-            
-            labels: item.post.labels || [],
-            viewer: item.post.viewer || {},
-            embed: item.post.embed || null,
-            
-            reason: item.reason || null,
-            reply: item.reply || null,
-            
-            feedContext: {
-              isRepost: !!item.reason,
-              repostBy: item.reason?.by || null,
-              isReply: !!item.reply,
-              replyToPost: item.reply?.parent || null,
-              replyToRoot: item.reply?.root || null
-            }
-          }
-        }))
-        .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
-
-    } catch (error) {
-      console.warn('Failed to fetch timeline posts:', error instanceof Error ? error.message : 'Unknown error');
+    if (!response.data?.feed || !Array.isArray(response.data.feed)) {
       return [];
     }
+
+    const cutoffTime = lastFetchEpochMS || 0;
+
+    return response.data.feed
+      .filter((item: any) => {
+        if (!item.post || !item.post.indexedAt) return false;
+        
+        const postTime = dayjs(item.post.indexedAt).valueOf();
+        return postTime > cutoffTime;
+      })
+      .map((item: any) => ({
+        epochMilliSeconds: dayjs(item.post.indexedAt).valueOf(),
+        data: {
+          uri: item.post.uri,
+          cid: item.post.cid,
+          author: item.post.author,
+          record: item.post.record,
+          indexedAt: item.post.indexedAt,
+          
+          replyCount: item.post.replyCount || 0,
+          repostCount: item.post.repostCount || 0,
+          likeCount: item.post.likeCount || 0,
+          quoteCount: item.post.quoteCount || 0,
+          
+          labels: item.post.labels || [],
+          viewer: item.post.viewer || {},
+          embed: item.post.embed || null,
+          
+          reason: item.reason || null,
+          reply: item.reply || null,
+          
+          feedContext: {
+            isRepost: !!item.reason,
+            repostBy: item.reason?.by || null,
+            isReply: !!item.reply,
+            replyToPost: item.reply?.parent || null,
+            replyToRoot: item.reply?.root || null
+          }
+        }
+      }))
+      .sort((a: any, b: any) => b.epochMilliSeconds - a.epochMilliSeconds);
+
   }
 };
 
