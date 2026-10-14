@@ -42,9 +42,12 @@ async function sendWithRetry(
         response?: { status: number; body: unknown };
       };
       const statusCode = errorAny.response?.status;
-      const isRetryable =
-        statusCode === 429 ||
-        (statusCode !== undefined && statusCode >= 500);
+      // Retrying only on 429: the request is rejected before processing, so
+      // re-sending is safe. A 5xx does not guarantee the message was not
+      // delivered — this action appends a message per call (its own metadata
+      // marks it non-idempotent), so a 5xx retry can double-post to the
+      // customer conversation.
+      const isRetryable = statusCode === 429;
 
       if (!isRetryable || attempt === MAX_RETRIES - 1) {
         throw lastError;
