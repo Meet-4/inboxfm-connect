@@ -46,10 +46,12 @@ const extractStatusCode = (error: any): number => {
 };
 
 const shouldRetry = (statusCode: number, code?: string): boolean => {
-	// Retry on throttling and transient errors
+	// Retry on throttling and the transient statuses the Graph SDK's own
+	// RetryHandler retries (RETRY_STATUS_CODES = [429, 503, 504]). Generic
+	// 5xx is deliberately NOT retried: this wrapper also wraps creates such
+	// as POST /teams/{id}/channels, where the request may already have been
+	// applied — re-sending can duplicate the created resource.
 	if (statusCode === 429 || statusCode === 503 || statusCode === 504) return true;
-	// Optionally retry generic server errors
-	if (statusCode >= 500 && statusCode < 600) return true;
 	// Some SDKs surface codes like 'TooManyRequests'
 	if (code && /too\s*many\s*requests/i.test(code)) return true;
 	return false;
