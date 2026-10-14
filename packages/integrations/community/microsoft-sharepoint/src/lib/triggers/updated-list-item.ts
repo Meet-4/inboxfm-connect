@@ -113,7 +113,13 @@ export const updatedListItemTrigger = createTrigger({
         try {
           const updatedItem = await client.api(notification.resource).expand('fields').get();
           updatedItemPayloads.push(updatedItem);
-        } catch (error) {
+        } catch (error: any) {
+          // A resource deleted since the notification is expected; anything
+          // else (network, auth, throttling) must fail the run instead of
+          // silently dropping the event.
+          if (error?.statusCode !== 404) {
+            throw error;
+          }
           console.error('Error fetching list item from notification:', error);
         }
     }

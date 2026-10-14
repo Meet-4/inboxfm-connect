@@ -173,7 +173,13 @@ export const newFileInSubfoldersTrigger = createTrigger({
           if (newFile.file) { 
               newFilePayloads.push(newFile);
           }
-        } catch (error) {
+        } catch (error: any) {
+          // A resource deleted since the notification is expected; anything
+          // else (network, auth, throttling) must fail the run instead of
+          // silently dropping the event.
+          if (error?.statusCode !== 404) {
+            throw error;
+          }
           console.error('Error fetching file from notification:', error);
         }
     }
