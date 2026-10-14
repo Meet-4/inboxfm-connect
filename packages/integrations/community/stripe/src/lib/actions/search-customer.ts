@@ -33,7 +33,7 @@ export const stripeSearchCustomer = createAction({
         'Content-Type': 'application/x-www-form-urlencoded',
         'Stripe-Version': '2026-02-25.clover',
       },
-      body: {
+      queryParams: {
         query: `email:'${customer.email}'`,
       },
     });
