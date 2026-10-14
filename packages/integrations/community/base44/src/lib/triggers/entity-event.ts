@@ -27,48 +27,41 @@ const polling: Polling<Base44AuthType, { entityType: string; eventType: string }
       serviceToken: token,
     });
 
-    try {
-      const entitiesModule = token
-        ? base44.asServiceRole.entities as Record<string, {
-            list: (sort?: string, limit?: number, skip?: number) => Promise<unknown[]>;
-          }>
-        : base44.entities as Record<string, {
-            list: (sort?: string, limit?: number, skip?: number) => Promise<unknown[]>;
-          }>;
+    const entitiesModule = token
+      ? base44.asServiceRole.entities as Record<string, {
+          list: (sort?: string, limit?: number, skip?: number) => Promise<unknown[]>;
+        }>
+      : base44.entities as Record<string, {
+          list: (sort?: string, limit?: number, skip?: number) => Promise<unknown[]>;
+        }>;
 
-      const sortField = eventType === 'created' ? '-created_date' : '-updated_date';
-      const results = await entitiesModule[entityType].list(sortField, 100);
+    const sortField = eventType === 'created' ? '-created_date' : '-updated_date';
+    const results = await entitiesModule[entityType].list(sortField, 100);
 
-      if (!Array.isArray(results)) {
-        return [];
-      }
-
-      return results
-        .filter((item: any) => {
-          const timestamp = eventType === 'created'
-            ? new Date(item.created_date).getTime()
-            : new Date(item.updated_date).getTime();
-          return timestamp > lastFetchEpochMS;
-        })
-        .map((item: any) => {
-          const timestamp = eventType === 'created'
-            ? new Date(item.created_date).getTime()
-            : new Date(item.updated_date).getTime();
-          return {
-            epochMilliSeconds: timestamp,
-            data: {
-              ...item,
-              _eventType: eventType,
-              _entityType: entityType,
-            },
-          };
-        });
-    } catch (error) {
-      if (error instanceof Base44Error) {
-        console.error(`Base44 Error: ${error.message}`);
-      }
+    if (!Array.isArray(results)) {
       return [];
     }
+
+    return results
+      .filter((item: any) => {
+        const timestamp = eventType === 'created'
+          ? new Date(item.created_date).getTime()
+          : new Date(item.updated_date).getTime();
+        return timestamp > lastFetchEpochMS;
+      })
+      .map((item: any) => {
+        const timestamp = eventType === 'created'
+          ? new Date(item.created_date).getTime()
+          : new Date(item.updated_date).getTime();
+        return {
+          epochMilliSeconds: timestamp,
+          data: {
+            ...item,
+            _eventType: eventType,
+            _entityType: entityType,
+          },
+        };
+      });
   },
 };
 
