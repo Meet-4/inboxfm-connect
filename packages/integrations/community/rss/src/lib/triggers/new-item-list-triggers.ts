@@ -15,7 +15,7 @@ import { rssFeedUrls } from '../common/props';
 import FeedParser from 'feedparser';
 import { isNil } from '@inboxfm-connect/pieces-framework';
 import dayjs from 'dayjs';
-import { getId } from '../common/getId';
+import { getId, sortRssItemsByNewestFirst } from '../common/getId';
 import { sampleData } from '../common/sampleData';
 import { newItemListTriggerOutputSchema } from '../output-schemas';
 
@@ -134,7 +134,10 @@ async function getRssItemsFromMultipleUrls(urls: string[]): Promise<any[]> {
       }
     })
   );
-  return allItems;
+  // Feed blocks are concatenated, not merged; without a global newest-first
+  // sort the LAST_ITEM cursor stays at the first feed's newest item and no
+  // later feed's items can ever pass it.
+  return sortRssItemsByNewestFirst(allItems);
 }
 
 const polling: Polling<AppConnectionValueForAuthProperty<undefined>, PollingProps> = {
