@@ -97,7 +97,7 @@ export const contactPageEngagementUpdated = createTrigger({
       const headers = (context.payload.headers || {}) as Record<string, string>;
       const receivedSecret = headers['x-webhook-secret'];
       if (receivedSecret !== webhookSecret) {
-        return []; // Silent rejection — signature mismatch
+        throw new Error('Webhook secret verification failed. This request may not be from Sendr.');
       }
     }
     const body = context.payload.body as Record<string, unknown>;
