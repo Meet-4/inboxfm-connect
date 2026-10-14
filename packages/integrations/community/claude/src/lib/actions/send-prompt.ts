@@ -194,16 +194,17 @@ export const askClaude = createAction({
         break; // Break out of the loop if the request is successful
       } catch (e: any) {
         if (e?.type?.includes('rate_limit_error')) {
-          billingIssue = true;
+          // Give up only once the backoff budget is spent; a transient
+          // rate limit should retry, not surface the billing message.
           if (retries + 1 === maxRetries) {
-            throw e;
+            billingIssue = true;
+            break;
           }
           // Calculate the time delay for the next retry using exponential backoff
           const delay = Math.pow(6, retries) * 1000;
           console.log(`Retrying in ${delay} milliseconds...`);
           await sleep(delay); // Wait for the calculated delay
           retries++;
-          break;
         } else {
           if (e?.error?.type?.includes('not_found_error')) {
             unauthorized = true;
