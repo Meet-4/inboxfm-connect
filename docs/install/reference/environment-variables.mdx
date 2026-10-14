@@ -46,6 +46,9 @@ Variables marked ❗ are required for a self-hosted production deployment.
   <Card title="Pieces & flows" icon="puzzle-piece" href="#pieces-&-flows">
     Piece syncing, polling, publish behavior.
   </Card>
+  <Card title="Logging & observability" icon="file-lines" href="#logging-&-observability">
+    Log level, sampling, and log drains.
+  </Card>
 </CardGroup>
 
 ---
@@ -63,6 +66,14 @@ protect connections and tokens, and telemetry.
 | `AP_CONFIG_PATH` | Path where the PGLite database and local settings are stored. | `~/.activepieces` |
 | `AP_INTERNAL_URL` | (Beta) Internal URL used for SSO authentication, e.g. `https://demo.activepieces.com/api`. | `None` |
 | `AP_TELEMETRY_ENABLED` | Collect anonymous telemetry. | `true` |
+| `AP_TELEMETRY_INCLUDE_PII` | Opt in (issue #406) to sending user identity fields — email, first name, last name — along with anonymous telemetry. Without it, usage telemetry still flows but identity fields are stripped. | `false` |
+| `AP_PORT` | Port the API server listens on. Also used to build the worker role's callback URL (`http://127.0.0.1:<port>/api`). | `3000` (the Docker entrypoint defaults it to `80` inside the container) |
+| `AP_EDITION` | Feature set to boot: `ce` (Community), `ee` (Enterprise), or `cloud`. The enterprise and cloud editions register the SSO/SAML, SCIM, platform-plan, license-key, and embed-subdomain modules on startup. | `ce` |
+| `AP_ENVIRONMENT` | Deployment mode: `prod`, `dev`, or `test`. `dev` skips serving the built console (run the web dev server instead) and warns that only the pieces in `AP_DEV_PIECES` are listed; `test` skips SMTP delivery, runs PGLite in memory, and skips the S3 startup validation. | `prod` |
+| `AP_JWT_ISSUER` | `iss` claim for newly issued JWTs. Verification keeps accepting the legacy `activepieces` issuer until the configured value equals it, so tokens minted before an issuer change keep working (issue #373). | `activepieces` (legacy upstream value) |
+| `AP_SENTRY_DSN` | Sentry DSN for server-side error capture. | `None` |
+| `AP_FRONTEND_SENTRY_DSN` | Sentry DSN exposed to the web console for client-side error capture. | `None` |
+| `AP_API_KEY` | Platform admin API key. Gates the admin endpoints (sent as the `api-key` header, compared in constant time; cloud edition) and authenticates the pieces CLI (`publish-piece`, `sync`). `tools/deploy.sh` generates one into the root `.env`. | `None` |
 
 <Warning>
 `AP_FRONTEND_URL` is essential for webhooks and app triggers. It must be
@@ -73,6 +84,32 @@ The default URL is the machine's IP address. If that address isn't reachable
 from the internet, set `AP_FRONTEND_URL` explicitly. For local development you
 can expose the frontend port (4200) with a tunneling service such as
 [ngrok](https://ngrok.com/).
+
+---
+
+### Logging & observability
+
+Controls the server's log pipeline: level, formatting, sampling, and where logs
+are shipped. Remote drains are resolved in order — **Axiom → HyperDX → Loki →
+Better Stack → OTLP** — and only the first fully-configured one is used.
+`AP_LOG_FILE` writes local files *in addition to* any remote drain.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AP_LOG_LEVEL` | Minimum log level: `error`, `warn`, `info`, `debug`, or `trace`. | `info` |
+| `AP_LOG_PRETTY` | Pretty-print logs on the console instead of raw JSON. | `false` |
+| `AP_LOG_FILE` | Write NDJSON log files under `.evlog/logs` (kept for 14 files, oldest rotated out). Development-oriented; also enables the browser client-logs endpoint on non-cloud editions. | `false` |
+| `AP_LOG_SAMPLE_RATE_INFO` | Percentage (0–100) of `info`-level events kept by the sampler. `warn` and `error` events are always kept. | `100` |
+| `AP_LOG_KEEP_SLOW_MS` | Events slower than this (in milliseconds) are always kept, even when the sampler would drop them. | `2000` |
+| `AP_AXIOM_TOKEN` | Axiom API token. Both this and `AP_AXIOM_DATASET` must be set for the Axiom drain to activate. | `None` |
+| `AP_AXIOM_DATASET` | Axiom dataset that logs are shipped to. | `None` |
+| `AP_HYPERDX_TOKEN` | HyperDX API token (enables the HyperDX drain). | `None` |
+| `AP_LOKI_URL` | Loki base URL; batches are pushed to `<url>/loki/api/v1/push`. | `None` |
+| `AP_LOKI_USERNAME` | Basic-auth username for the Loki endpoint. | `None` |
+| `AP_LOKI_PASSWORD` | Basic-auth password for the Loki endpoint. | `None` |
+| `AP_BETTERSTACK_HOST` | Better Stack host. Both this and `AP_BETTERSTACK_TOKEN` must be set for the Better Stack drain to activate. | `None` |
+| `AP_BETTERSTACK_TOKEN` | Better Stack source token. | `None` |
+| `AP_OTEL_ENABLED` | Export logs via OTLP (OpenTelemetry). Only used when no other drain is configured. | `false` |
 
 ---
 
