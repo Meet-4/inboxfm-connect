@@ -68,8 +68,9 @@ This single webhook will now send all events to Activepieces. This trigger will 
           .digest('base64');
 
         if (expectedSignature !== signatureHeader) {
-          console.warn('Extracta.ai webhook signature verification failed');
-          return [];
+          throw new Error(
+            'Webhook signature verification failed. This request may not be from Extracta.ai.',
+          );
         }
       } catch (error) {
         console.warn('Error verifying webhook signature:', error);
