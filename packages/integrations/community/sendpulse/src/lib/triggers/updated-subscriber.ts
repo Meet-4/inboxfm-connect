@@ -55,51 +55,46 @@ export const updatedSubscriberTrigger = createTrigger({
       return [];
     }
 
-    try {
-      const currentSubscribers = await sendpulseApiCall<any[]>({
-        method: HttpMethod.GET,
-        auth: context.auth.props,
-        resourceUri: `/addressbooks/${mailingListId}/emails`,
-      });
+  const currentSubscribers = await sendpulseApiCall<any[]>({
+    method: HttpMethod.GET,
+    auth: context.auth.props,
+    resourceUri: `/addressbooks/${mailingListId}/emails`,
+  });
 
-      const cachedSubscribers = await context.store.get('subscribers_cache');
+  const cachedSubscribers = await context.store.get('subscribers_cache');
+  
+  if (!cachedSubscribers) {
+    await context.store.put('subscribers_cache', JSON.stringify(currentSubscribers));
+    return [];
+  }
+
+  const previousSubscribers = JSON.parse(cachedSubscribers as string);
+  const changes = [];
+
+  for (const current of currentSubscribers) {
+    const previous = previousSubscribers.find((p: any) => p.email === current.email);
+    
+    if (previous) {
+      const hasChanges = JSON.stringify(current) !== JSON.stringify(previous);
       
-      if (!cachedSubscribers) {
-        await context.store.put('subscribers_cache', JSON.stringify(currentSubscribers));
-        return [];
+      if (hasChanges) {
+        changes.push({
+          id: `${current.email}_${Date.now()}`,
+          email: current.email,
+          mailingListId,
+          previousData: previous,
+          currentData: current,
+          updatedAt: new Date().toISOString(),
+          changes: detectChanges(previous, current),
+        });
       }
-
-      const previousSubscribers = JSON.parse(cachedSubscribers as string);
-      const changes = [];
-
-      for (const current of currentSubscribers) {
-        const previous = previousSubscribers.find((p: any) => p.email === current.email);
-        
-        if (previous) {
-          const hasChanges = JSON.stringify(current) !== JSON.stringify(previous);
-          
-          if (hasChanges) {
-            changes.push({
-              id: `${current.email}_${Date.now()}`,
-              email: current.email,
-              mailingListId,
-              previousData: previous,
-              currentData: current,
-              updatedAt: new Date().toISOString(),
-              changes: detectChanges(previous, current),
-            });
-          }
-        }
-      }
-
-      await context.store.put('subscribers_cache', JSON.stringify(currentSubscribers));
-      await context.store.put('last_check', Date.now().toString());
-
-      return changes;
-    } catch (error: any) {
-      console.error('Error checking for subscriber updates:', error);
-      return [];
     }
+  }
+
+  await context.store.put('subscribers_cache', JSON.stringify(currentSubscribers));
+  await context.store.put('last_check', Date.now().toString());
+
+  return changes;
   },
 
   async test() {
