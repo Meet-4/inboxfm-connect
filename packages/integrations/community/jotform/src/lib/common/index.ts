@@ -71,7 +71,11 @@ export const jotformCommon = {
       )}/form/${formId}/webhooks`,
       headers: {
         APIKEY: authentication.props.apiKey,
-        'Content-Type': 'multipart/form-data',
+        // Jotform's create-webhook endpoint takes webhookURL as a form
+        // parameter (api.jotform.com docs: curl -X POST -d "webhookURL=...").
+        // A multipart content-type makes the common client JSON-encode the
+        // body and label it multipart — a shape the endpoint cannot parse.
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: {
         webhookURL: webhookUrl,
