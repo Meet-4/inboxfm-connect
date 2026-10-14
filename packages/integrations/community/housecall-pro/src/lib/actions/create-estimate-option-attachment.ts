@@ -29,7 +29,9 @@ export const createEstimateOptionAttachment = createAction({
       method: HttpMethod.POST,
       headers: {
         "Authorization": `Token ${auth}`,
-        "Content-Type": "multipart/form-data",
+        // No manual Content-Type: fetch derives it from the FormData body
+        // and appends the multipart boundary — a manual boundary-less
+        // header makes the request unparseable.
       },
       body: formData,
     });
