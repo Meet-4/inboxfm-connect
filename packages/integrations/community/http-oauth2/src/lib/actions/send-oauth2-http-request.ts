@@ -275,8 +275,8 @@ export const httpOauth2RequestAction = createAction({
       const response = await httpClient.sendRequest(request);
       return handleResponse(response);
     } catch (error) {
-      if (failsafe) {
-        return (error as HttpError).errorMessage();
+      if (failsafe && error instanceof HttpError) {
+        return error.errorMessage();
       }
 
       throw error;
