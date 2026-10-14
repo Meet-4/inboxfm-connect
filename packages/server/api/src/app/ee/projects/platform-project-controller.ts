@@ -6,12 +6,22 @@ import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { ProjectResourceType } from '../../core/security/authorization/common'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
+import { distributedLock } from '../../database/redis-connections'
 import { platformService } from '../../platform/platform.service'
 import { projectService } from '../../project/project-service'
 import { userService } from '../../user/user-service'
 import { platformProjectService } from './platform-project-service'
 
 const DEFAULT_LIMIT_SIZE = 50
+
+// Lock acquisition budget for project creates, mirroring the tables record
+// insert lock. Redlock auto-extends while the locked fn runs, so this only
+// bounds acquisition retries, not the create itself.
+const PROJECT_CREATE_LOCK_TIMEOUT_SECONDS = 30
+
+function projectCreateLockKey(platformId: string): string {
+    return `platform-project-create_${platformId}`
+}
 
 export const platformProjectController: FastifyPluginAsyncZod = async (app) => {
 
@@ -23,15 +33,27 @@ export const platformProjectController: FastifyPluginAsyncZod = async (app) => {
     app.post('/', CreateProjectRequest, async (request, reply) => {
         const platformId = request.principal.platform.id
         assertNotNullOrUndefined(platformId, 'platformId')
-        await assertMaximumNumberOfProjectsReachedByEdition(platformId, request.log)
-        const projectWithUsage = await platformProjectService(request.log).create({
-            platformId,
-            displayName: request.body.displayName,
-            externalId: request.body.externalId ?? undefined,
-            metadata: request.body.metadata ?? undefined,
-            maxConcurrentJobs: request.body.maxConcurrentJobs ?? undefined,
-            globalConnectionExternalIds: request.body.globalConnectionExternalIds ?? undefined,
-            alertReceiverEmail: request.body.alertReceiverEmail ?? undefined,
+        // Serialize the team-projects quota check with the create behind a
+        // per-platform distributedLock (runExclusive), the same writer
+        // serialization the tables record/field quota checks rely on: the
+        // count-then-create pair is a check-then-act quota race — two
+        // concurrent creates both counted below the limit and both inserted,
+        // drifting TeamProjectsLimit.ONE by one racing request.
+        const projectWithUsage = await distributedLock(request.log).runExclusive({
+            key: projectCreateLockKey(platformId),
+            timeoutInSeconds: PROJECT_CREATE_LOCK_TIMEOUT_SECONDS,
+            fn: async () => {
+                await assertMaximumNumberOfProjectsReachedByEdition(platformId, request.log)
+                return platformProjectService(request.log).create({
+                    platformId,
+                    displayName: request.body.displayName,
+                    externalId: request.body.externalId ?? undefined,
+                    metadata: request.body.metadata ?? undefined,
+                    maxConcurrentJobs: request.body.maxConcurrentJobs ?? undefined,
+                    globalConnectionExternalIds: request.body.globalConnectionExternalIds ?? undefined,
+                    alertReceiverEmail: request.body.alertReceiverEmail ?? undefined,
+                })
+            },
         })
         await reply.status(StatusCodes.CREATED).send(projectWithUsage)
     })
