@@ -1,4 +1,4 @@
-import { CreateScheduledTaskRequest, Permission, PrincipalType, UpdateScheduledTaskRequest } from '@inboxfm-connect/shared'
+import { CreateScheduledTaskRequest, ListScheduledTasksRequestQuery, Permission, PrincipalType, UpdateScheduledTaskRequest } from '@inboxfm-connect/shared'
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
@@ -25,6 +25,8 @@ export const scheduledTaskController: FastifyPluginAsyncZod = async (fastify) =>
         return scheduledTaskService.list({
             projectId,
             platformId,
+            cursorRequest: request.query.cursor ?? null,
+            limit: request.query.limit,
         })
     })
 
@@ -101,6 +103,9 @@ const ListScheduledTasksRouteOptions = {
             Permission.READ_RUN,
             { type: ProjectResourceType.QUERY },
         ),
+    },
+    schema: {
+        querystring: ListScheduledTasksRequestQuery,
     },
 }
 
