@@ -32,6 +32,54 @@ export function clampRecordListLimit(rawLimit: number | undefined): number {
 const recordRepo = repoFactory(RecordEntity)
 const cellsRepo = repoFactory(CellEntity)
 
+const CELLS_FETCH_CHUNK_SIZE = 1000
+
+/**
+ * Attach each record's cells with batched `WHERE "recordId" IN (chunk)` queries
+ * instead of `relations: ['cells']`.
+ *
+ * TypeORM loads one-to-many relations through a LEFT JOIN, so fetching R
+ * records that own R*F cells returns R*F wide joined rows — every record
+ * column repeated once per cell — before TypeORM deduplicates them in memory.
+ * The whole-table paths that used the join (table export, table template,
+ * clone-with-records, delete-all) run against up to MAX_RECORDS_PER_TABLE
+ * (default 10k) records, so a 10-field table materialized ~100k wide rows per
+ * request. The batched form fetches the same rows exactly once, narrow, in
+ * bounded chunks — the exact shape record.service#list (the hot list path)
+ * already uses.
+ *
+ * Cell order within a record is not preserved (JOIN order was never specified
+ * either); every consumer keys cells by fieldId, so results are identical.
+ */
+export async function attachCellsToRecords({ records, projectId, entityManager }: {
+    records: RecordSchema[]
+    projectId: string
+    entityManager?: EntityManager
+}): Promise<RecordSchema[]> {
+    const cellsByRecordId = new Map<string, Cell[]>()
+    for (const recordIdChunk of chunk(records.map((record) => record.id), CELLS_FETCH_CHUNK_SIZE)) {
+        const cells = await cellsRepo(entityManager).find({
+            where: {
+                projectId,
+                recordId: In(recordIdChunk),
+            },
+        })
+        for (const cell of cells) {
+            const group = cellsByRecordId.get(cell.recordId)
+            if (group) {
+                group.push(cell)
+            }
+            else {
+                cellsByRecordId.set(cell.recordId, [cell])
+            }
+        }
+    }
+    for (const record of records) {
+        record.cells = cellsByRecordId.get(record.id) ?? []
+    }
+    return records
+}
+
 export const recordService = {
     async create({
         request,
@@ -333,9 +381,16 @@ export const recordService = {
         projectId,
     }: DeleteAllParams): Promise<PopulatedRecord[]> {
         const deletedRecords = await transaction(async (entityManager: EntityManager) => {
-            const records = await entityManager.getRepository(RecordEntity).find({
-                where: { projectId, tableId },
-                relations: ['cells'],
+            // Batched cell fetch (attachCellsToRecords) instead of
+            // `relations: ['cells']`: delete-all runs against a whole table, and
+            // the relation JOIN multiplies every record row by its cell count
+            // inside this transaction. Same rows, no multiplication.
+            const records = await attachCellsToRecords({
+                records: await entityManager.getRepository(RecordEntity).find({
+                    where: { projectId, tableId },
+                }),
+                projectId,
+                entityManager,
             })
 
             const recordIds = records.map((record) => record.id)

@@ -11,6 +11,7 @@ import { AppSystemProp } from '../../helper/system/system-props'
 import { FieldEntity, FieldSchema } from '../field/field.entity'
 import { fieldService } from '../field/field.service'
 import { CellEntity } from '../record/cell.entity'
+import { attachCellsToRecords } from '../record/record.service'
 import { RecordEntity } from '../record/record.entity'
 import { TableEntity } from './table.entity'
 
@@ -135,9 +136,14 @@ export const tableService = {
 
         const fields = await fieldService.getAll({ projectId, tableId })
 
-        const records = await recordRepo().find({
-            where: { tableId: table.id, projectId },
-            relations: ['cells'],
+        // Batched cell fetch instead of `relations: ['cells']` — a template
+        // reads the whole table and the relation JOIN multiplies each record
+        // row by its cell count (see attachCellsToRecords).
+        const records = await attachCellsToRecords({
+            records: await recordRepo().find({
+                where: { tableId: table.id, projectId },
+            }),
+            projectId,
         })
 
         const rows: TableDataState['rows'] = records.map((record) => {
@@ -207,9 +213,14 @@ export const tableService = {
 
         const fields = await fieldService.getAll({ projectId, tableId: id })
 
-        const records = await recordRepo().find({
-            where: { tableId: id, projectId },
-            relations: ['cells'],
+        // Batched cell fetch instead of `relations: ['cells']` — export reads
+        // the whole table and the relation JOIN multiplies each record row by
+        // its cell count (see attachCellsToRecords).
+        const records = await attachCellsToRecords({
+            records: await recordRepo().find({
+                where: { tableId: id, projectId },
+            }),
+            projectId,
         })
 
         const rows = records.map((record) => {
@@ -343,10 +354,16 @@ export const tableService = {
                 }
 
                 if (sourceRecordCount > 0) {
-                    const sourceRecords = await recordRepo.find({
-                        where: { projectId, tableId: sourceTable.id },
-                        relations: ['cells'],
-                        order: { created: 'ASC' },
+                    // Batched cell fetch instead of `relations: ['cells']` —
+                    // the count guard caps this at MAX_RECORDS_PER_TABLE, and
+                    // the relation JOIN multiplies each record row by its cell
+                    // count (see attachCellsToRecords).
+                    const sourceRecords = await attachCellsToRecords({
+                        records: await recordRepo.find({
+                            where: { projectId, tableId: sourceTable.id },
+                            order: { created: 'ASC' },
+                        }),
+                        projectId,
                     })
 
                     const recordIdMap = new Map<string, string>()
