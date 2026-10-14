@@ -13,7 +13,7 @@ export const projectLimitsService = (_log: FastifyBaseLogger) => ({
         projectId: string,
         entityManager?: EntityManager,
     ): Promise<ProjectPlan> {
-        const projectPlan = await this.getOrCreateDefaultPlan(projectId)
+        const projectPlan = await this.getOrCreateDefaultPlan(projectId, entityManager)
         await projectPlanRepo(entityManager).update(projectPlan.id, {
             ...spreadIfDefined('name', planLimits.nickname),
             ...spreadIfDefined('locked', planLimits.locked),
@@ -23,21 +23,33 @@ export const projectLimitsService = (_log: FastifyBaseLogger) => ({
         return projectPlanRepo().findOneByOrFail({ projectId })
     },
 
-    async getOrCreateDefaultPlan(projectId: string): Promise<ProjectPlan> {
-        const existingPlan = await projectPlanRepo().findOneBy({ projectId })
+    async getOrCreateDefaultPlan(projectId: string, entityManager?: EntityManager): Promise<ProjectPlan> {
+        const existingPlan = await projectPlanRepo(entityManager).findOneBy({ projectId })
 
         if (!isNil(existingPlan)) {
             return existingPlan
         }
 
-        await projectPlanRepo().upsert({
-            id: apId(),
-            projectId,
-            pieces: [],
-            piecesFilterType: PiecesFilterType.NONE,
-            locked: false,
-            name: 'free',
-        }, ['projectId'])
+        // The explicit overwrite list only touches the plan columns, never the
+        // primary key: the repository `upsert(entity, ['projectId'])` form puts
+        // every supplied column that is not a conflict path into the DO UPDATE
+        // set — including the freshly generated `id` — so the loser of two
+        // concurrent first-writes would rewrite the winner's primary key and
+        // silently drop an update racing on the old id.
+        await projectPlanRepo(entityManager)
+            .createQueryBuilder()
+            .insert()
+            .into(ProjectPlanEntity)
+            .values({
+                id: apId(),
+                projectId,
+                pieces: [],
+                piecesFilterType: PiecesFilterType.NONE,
+                locked: false,
+                name: 'free',
+            })
+            .orUpdate(['name', 'pieces', 'piecesFilterType', 'locked'], ['projectId'])
+            .execute()
 
         return projectPlanRepo().findOneByOrFail({ projectId })
     },
