@@ -103,7 +103,7 @@ export const newCommentTrigger = createTrigger({
 		const rawBody = context.payload.rawBody;
 
 		if (!verifyWebhookSignature(webhookSecret, webhookSignatureHeader, rawBody)) {
-			return [];
+			throw new Error('Webhook signature verification failed. This request may not be from Smartsheet.');
 		}
 
 		if (payload.newWebhookStatus) {
