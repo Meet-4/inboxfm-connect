@@ -76,12 +76,7 @@ export const newSubscription = createTrigger({
       return [];
     }
 
-    let event: KoFiSubscriptionEvent;
-    try {
-      event = JSON.parse(body.data) as KoFiSubscriptionEvent;
-    } catch {
-      return [];
-    }
+    const event = JSON.parse(body.data) as KoFiSubscriptionEvent;
 
     if (event.verification_token !== context.auth.secret_text) {
       return [];
