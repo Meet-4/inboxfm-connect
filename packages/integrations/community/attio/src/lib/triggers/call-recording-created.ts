@@ -109,7 +109,7 @@ export const callRecordingCreatedTrigger = createTrigger({
 		const rawBody = context.payload.rawBody;
 
 		if (!verifyWebhookSignature(webhookSecret, webhookSignatureHeader, rawBody)) {
-			return [];
+			throw new Error('Webhook signature verification failed. This request may not be from Attio.');
 		}
 
 		const payload = context.payload.body as CallRecordingWebhookPayload;
