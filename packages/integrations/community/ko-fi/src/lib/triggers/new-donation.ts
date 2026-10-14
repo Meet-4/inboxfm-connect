@@ -77,7 +77,7 @@ export const newDonation = createTrigger({
     const event = JSON.parse(body.data) as KoFiDonationEvent;
 
     if (event.verification_token !== context.auth.secret_text) {
-      return [];
+      throw new Error('Webhook verification token mismatch. This request may not be from Ko-fi.');
     }
     if (event.type !== 'Donation') {
       return [];
