@@ -141,10 +141,10 @@ export const callMethod = createAction({
     } catch (e: any) {
       return {
         error: true,
-        status: e.response.status,
+        status: e?.response?.status,
         raw: {
           request: client.lastRequest,
-          response: e.body,
+          response: e?.body,
         },
       };
     }
