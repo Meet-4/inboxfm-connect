@@ -135,7 +135,9 @@ export const emailBounced = createTrigger({
         signingSecret: data?.signingSecret ?? '',
       })
     ) {
-      return [];
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Resend.',
+      );
     }
 
     return [context.payload.body];
