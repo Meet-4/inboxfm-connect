@@ -92,7 +92,11 @@ export const updateAgent = createAction({
       url: `${BASE_URL}/projects/${propsValue.project_id}`,
       headers: {
         Authorization: `Bearer ${auth.secret_text}`,
-        'content-type': 'multipart/form-data',
+        // CustomGPT's project endpoints take JSON (docs quickstart + SDK
+        // "Update a project name" sample both use application/json). The
+        // plain-object body below is JSON-encoded by the shared HTTP client,
+        // so a boundary-less multipart label made every update unparseable.
+        'content-type': 'application/json',
       },
       body,
     });
