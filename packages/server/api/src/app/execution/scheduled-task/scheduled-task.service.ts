@@ -1,4 +1,4 @@
-import { ActivepiecesError, apId, ErrorCode, isNil, SeekPage, tryCatch } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, apId, Cursor, ErrorCode, isNil, SeekPage, tryCatch } from '@inboxfm-connect/core-utils'
 import { cronParser, scheduler } from '@inboxfm-connect/scheduler'
 import {
     CreateScheduledTaskRequest,
@@ -13,6 +13,8 @@ import { FastifyBaseLogger } from 'fastify'
 import { repoFactory } from '../../core/db/repo-factory'
 import { getScheduledTaskTickLockKey } from '../../database/redis/keys'
 import { distributedStore } from '../../database/redis-connections'
+import { buildPaginator } from '../../helper/pagination/build-paginator'
+import { paginationHelper } from '../../helper/pagination/pagination-utils'
 import { executionService } from '../execution.service'
 import { ScheduledTaskEntity, ScheduledTaskSchema } from './scheduled-task-entity'
 
@@ -22,6 +24,11 @@ import { ScheduledTaskEntity, ScheduledTaskSchema } from './scheduled-task-entit
  * the initialized one.
  */
 const scheduledTaskRepo = repoFactory<ScheduledTaskSchema>(ScheduledTaskEntity)
+
+// Mirrors the MAX_PAGE_SIZE convention of the records and piece-metadata lists.
+// Serves as the service-level default so every caller gets a bounded query,
+// even when the request omitted `limit`.
+const DEFAULT_LIST_LIMIT = 500
 
 export const scheduledTaskService = {
     async create({ request, projectId, platformId }: CreateParams): Promise<ScheduledTask> {
@@ -80,13 +87,29 @@ export const scheduledTaskService = {
         return task
     },
 
-    async list({ projectId, platformId }: ListParams): Promise<SeekPage<ScheduledTask>> {
-        const tasks = await scheduledTaskRepo().findBy({ projectId, platformId })
-        return {
-            data: tasks,
-            next: null,
-            previous: null,
-        }
+    async list({ projectId, platformId, cursorRequest, limit = DEFAULT_LIST_LIMIT }: ListParams): Promise<SeekPage<ScheduledTask>> {
+        // Bounded pagination (was: findBy with no limit, returning every task
+        // of the project). The paginator fetches limit+1 rows to decide
+        // hasMore, so no COUNT round trip is added. Ordered by created DESC via
+        // the paginator's default key; idx_scheduled_task_project_id covers
+        // the tenant filter.
+        const decodedCursor = paginationHelper.decodeCursor(cursorRequest)
+        const paginator = buildPaginator({
+            entity: ScheduledTaskEntity,
+            query: {
+                limit,
+                order: 'DESC',
+                afterCursor: decodedCursor.nextCursor,
+                beforeCursor: decodedCursor.previousCursor,
+            },
+        })
+
+        const query = scheduledTaskRepo()
+            .createQueryBuilder('scheduled_task')
+            .where({ projectId, platformId })
+
+        const { data, cursor } = await paginator.paginate(query)
+        return paginationHelper.createPage<ScheduledTask>(data, cursor)
     },
 
     async update({ id, projectId, platformId, request }: UpdateParams): Promise<ScheduledTask> {
@@ -296,6 +319,8 @@ type GetOneParams = {
 type ListParams = {
     projectId: ProjectId
     platformId: PlatformId
+    cursorRequest?: Cursor | null
+    limit?: number
 }
 
 type UpdateParams = {
