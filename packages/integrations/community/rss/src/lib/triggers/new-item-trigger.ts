@@ -16,7 +16,7 @@ import { rssFeedUrl } from '../common/props';
 import FeedParser from 'feedparser';
 import { isNil } from '@inboxfm-connect/pieces-framework';
 import dayjs from 'dayjs';
-import { getId } from '../common/getId';
+import { getId, sortRssItemsByNewestFirst } from '../common/getId';
 import { sampleData } from '../common/sampleData';
 import { newItemTriggerOutputSchema } from '../output-schemas';
 
@@ -131,7 +131,7 @@ const polling: Polling<
     propsValue: { rss_feed_url: string };
   }) => {
     const items = await getRssItems(propsValue.rss_feed_url);
-    return items.map((item) => ({
+    return sortRssItemsByNewestFirst(items).map((item) => ({
       id: getId(item),
       data: item,
     }));
