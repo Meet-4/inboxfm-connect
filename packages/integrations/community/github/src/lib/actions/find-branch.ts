@@ -37,8 +37,7 @@ export const githubFindBranchAction = createAction({
         result: response.body,
       };
     } catch (e) {
-      const status = (e as HttpError).response.status;
-      if (status === 404) {
+      if (e instanceof HttpError && e.response.status === 404) {
         return {
           found: false,
           result: {},
