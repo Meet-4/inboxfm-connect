@@ -5,6 +5,17 @@ const DEFAULT_TIMEOUT = 20000;
 const MAX_RETRIES = 3;
 const RETRY_BACKOFF = 1000;
 
+// Only idempotent methods are safe to retry on a 5xx: the request may have
+// been applied (and billed) before the server errored, so re-sending a
+// generation POST could double the cost. 429 is always safe to retry — the
+// request was rejected before processing.
+const IDEMPOTENT_METHODS: readonly HttpMethod[] = [
+  HttpMethod.GET,
+  HttpMethod.HEAD,
+  HttpMethod.PUT,
+  HttpMethod.DELETE,
+];
+
 function logEdenAiError(error: any, context: Record<string, any>) {
   const log = {
     error: error?.message || error,
@@ -79,7 +90,16 @@ export async function edenAiApiCall<T = any>({
       logEdenAiError(err, { url, method, body, query, attempt });
 
       const status = err?.response?.status;
-      if (status === 429 || (status && status >= 500 && status < 600)) {
+      // A 5xx does not guarantee the request wasn't applied — only
+      // idempotent methods retry on 5xx; 429 was rejected before
+      // processing, so it always retries.
+      if (
+        status === 429 ||
+        (status !== undefined &&
+          status >= 500 &&
+          status < 600 &&
+          IDEMPOTENT_METHODS.includes(method))
+      ) {
         if (attempt < maxRetries - 1) {
           const delay = RETRY_BACKOFF * Math.pow(2, attempt);
           await new Promise(res => setTimeout(res, delay));
