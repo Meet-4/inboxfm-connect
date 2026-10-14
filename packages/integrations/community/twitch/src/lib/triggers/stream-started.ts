@@ -51,7 +51,7 @@ const polling: Polling<
     const streams = response.body.data;
 
     return streams.map((s: any) => ({
-      epochMs: dayjs(s.started_at).valueOf(),
+      epochMilliSeconds: dayjs(s.started_at).valueOf(),
       data: s,
     }));
   },
