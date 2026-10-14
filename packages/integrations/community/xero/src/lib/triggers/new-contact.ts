@@ -69,13 +69,13 @@ Notes:
     const rawBody = context.payload.rawBody as string | undefined;
 
     if (!signatureHeader || !rawBody) {
-      return [];
+      throw new Error('Webhook signature verification failed. This request may not be from Xero.');
     }
 
     // Verify HMAC-SHA256 signature (base64)
     const computed = createHmac('sha256', webhook_key).update(rawBody).digest('base64');
     if (computed !== signatureHeader) {
-      return [];
+      throw new Error('Webhook signature verification failed. This request may not be from Xero.');
     }
 
     const body = context.payload.body as any;
