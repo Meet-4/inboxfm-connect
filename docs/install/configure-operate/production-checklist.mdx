@@ -30,7 +30,6 @@ The exhaustive list with defaults lives in [Environment Variables](/install/refe
 
 **Required only in specific combinations, also enforced at boot:**
 
-- If `AP_EDITION` is `ee` (Enterprise) or `cloud` **and** `AP_ENVIRONMENT=PRODUCTION`: `AP_EXECUTION_MODE` must be one of `SANDBOX_PROCESS`, `SANDBOX_CODE_ONLY`, or `SANDBOX_CODE_AND_PROCESS` — `UNSANDBOXED` is rejected outright. Community Edition self-hosters can still run `UNSANDBOXED`, but see [Sandboxing](../architecture/sandboxing) before you do for anything multi-tenant.
 - If `AP_FILE_STORAGE_LOCATION=S3`: the full S3 configuration is validated with a live smoke test (put/head/delete) at boot — see [S3 Storage](./setup-s3).
 - If `AP_PAUSED_FLOW_TIMEOUT_DAYS` exceeds `AP_EXECUTION_DATA_RETENTION_DAYS`: boot fails. Keep the pause window inside the retention window.
 
@@ -39,6 +38,7 @@ The exhaustive list with defaults lives in [Environment Variables](/install/refe
 - TLS termination (see below) — nothing in the app enforces HTTPS; an operator who forgets it just serves plaintext.
 - SMTP (see below) — invitations and password resets silently no-op via the log-only sender if unset, rather than erroring.
 - `AP_QUEUE_UI_USERNAME`/`AP_QUEUE_UI_PASSWORD` — required *if* `AP_QUEUE_UI_ENABLED=true` (the default); leaving the queue UI enabled without credentials exposes job internals on whatever port serves it.
+- A sandboxed `AP_EXECUTION_MODE` for multi-tenant deployments — nothing rejects `UNSANDBOXED` at boot, on any edition; the app simply runs user code in-process. For anything multi-tenant, set `AP_EXECUTION_MODE` to `SANDBOX_PROCESS`, `SANDBOX_CODE_ONLY`, or `SANDBOX_CODE_AND_PROCESS` — see [Sandboxing](../architecture/sandboxing).
 
 **Dev-only defaults that must never reach production:** `.env.dev` at the repo root is loaded automatically by the local dev server (`bootstrap.ts` reads it directly, and `tools/setup-dev.js` parses it) — it's checked into the repo for local-development convenience and its values are not production secrets. Separately, `tools/deploy.sh` copies `.env.example` to `.env` and **already randomizes** `AP_API_KEY`, `AP_POSTGRES_PASSWORD`, `AP_JWT_SECRET`, and `AP_ENCRYPTION_KEY` with `openssl rand` as part of that copy — that's the intended path for a fresh production `.env`, not something you need to do by hand on top of it. The actual risk is skipping that script and hand-copying `.env.dev` (or an unrandomized `.env.example`) into a production deployment instead. Either way, never commit a filled-in `.env` to version control.
 
@@ -71,10 +71,10 @@ As of version 0.73.0, SMTP configuration was **removed from the platform admin U
 The current CE-safe path (`packages/server/api/src/app/ee/helper/email/email-sender/email-sender.ts` — despite living under the `ee/` directory tree, this file has no license/plan gate; every edition uses it identically):
 
 - Set all four of `AP_SMTP_HOST`, `AP_SMTP_PORT`, `AP_SMTP_USERNAME`, `AP_SMTP_PASSWORD` (plus `AP_SMTP_SENDER_EMAIL`/`AP_SMTP_SENDER_NAME` for the From header) to send real mail. `smtpEmailSender.isSmtpConfigured()` requires **all four** of the first set — partial configuration falls back silently.
-- In `AP_ENVIRONMENT=PRODUCTION`, the app **always** tries to send via SMTP for invitation, password-reset, and notification emails — if SMTP isn't configured, sends fail rather than falling back.
-- In any other environment (local dev, staging without `AP_ENVIRONMENT=PRODUCTION` set), the app falls back to a log-only sender if SMTP isn't configured — invitations/resets are logged, not delivered. This is intentional zero-setup dev behavior, not a bug — but it means **staging environments that don't set `AP_ENVIRONMENT=PRODUCTION` will silently not send mail**, which has bitten people testing an invite flow.
+- In `AP_ENVIRONMENT=prod`, the app **always** tries to send via SMTP for invitation, password-reset, and notification emails — if SMTP isn't configured, sends fail rather than falling back.
+- In any other environment (local dev, staging without `AP_ENVIRONMENT=prod` set), the app falls back to a log-only sender if SMTP isn't configured — invitations/resets are logged, not delivered. This is intentional zero-setup dev behavior, not a bug — but it means **staging environments that don't set `AP_ENVIRONMENT=prod` will silently not send mail**, which has bitten people testing an invite flow.
 
-Set `AP_ENVIRONMENT=PRODUCTION` and all four SMTP variables together for any deployment real users will use.
+Set `AP_ENVIRONMENT=prod` and all four SMTP variables together for any deployment real users will use.
 
 ## Observability
 
@@ -92,9 +92,9 @@ If you're planning to use any Enterprise-gated feature (SSO, SCIM, audit logs, c
 
 - [ ] `AP_ENCRYPTION_KEY`, `AP_JWT_SECRET`, `AP_POSTGRES_PASSWORD` were generated for this deployment via `tools/deploy.sh` (or an equivalent random-secret step) — not hand-copied from `.env.dev` or an un-randomized `.env.example`.
 - [ ] `AP_FRONTEND_URL` is the real public HTTPS URL, and TLS is actually terminated somewhere in the request path (reverse proxy or platform-native).
-- [ ] `AP_ENVIRONMENT=PRODUCTION` is set, and all four `AP_SMTP_*` credential variables are set alongside it — verify with a real invite, not just that the env vars are non-empty.
+- [ ] `AP_ENVIRONMENT=prod` is set, and all four `AP_SMTP_*` credential variables are set alongside it — verify with a real invite, not just that the env vars are non-empty.
 - [ ] Deployment secrets are injected via your platform's secret store, not baked into the image or committed to version control.
-- [ ] `AP_EXECUTION_MODE` is a sandboxed mode (not `UNSANDBOXED`) if you're multi-tenant or on `ee`/`cloud` in production — boot-enforced for `ee`/`cloud`, your own responsibility on `ce`.
+- [ ] `AP_EXECUTION_MODE` is a sandboxed mode (not `UNSANDBOXED`) if you're multi-tenant or on `ee`/`cloud` in production — not boot-enforced on any edition, so this is your responsibility to verify.
 - [ ] `AP_FILE_STORAGE_LOCATION` decision made deliberately (DB is fine to start; S3 config is smoke-tested at boot if you switch).
 - [ ] `AP_QUEUE_UI_ENABLED` is either `false` or has real `AP_QUEUE_UI_USERNAME`/`PASSWORD` set.
 - [ ] Observability drain configured and a `warn`/`error` event confirmed to reach it — see the [Observability checklist](./setup-opentelemetry#pre-launch-checklist).
