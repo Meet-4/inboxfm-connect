@@ -46,117 +46,112 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof smooveAuth>, {
 }> = {
     strategy: DedupeStrategy.TIMEBASED,
     items: async ({ auth, propsValue, lastFetchEpochMS }) => {
-        try {
-            const { 
-                fields, 
-                includeCustomFields = false, 
-                includeLinkedLists = false,
-                joinSourceFilter,
-                sortBy = '-timestampSignup',
-                maxItems = 100
-            } = propsValue;
-            
-            const queryParams: string[] = [];
-            
-            if (fields && fields.trim()) {
-                queryParams.push(`fields=${encodeURIComponent(fields.trim())}`);
-            } else {
-                queryParams.push('fields=id,email,firstName,lastName,timestampSignup,joinSource,lastChanged,canReceiveEmails,campaignSource,ipSignup');
-            }
-            
-            if (includeCustomFields) {
-                queryParams.push('includeCustomFields=true');
-            }
-            if (includeLinkedLists) {
-                queryParams.push('includeLinkedLists=true');
-            }
-            
-            queryParams.push(`sort=${encodeURIComponent(sortBy)}`);
-            
-            queryParams.push('skip=0');
-            queryParams.push(`take=${Math.min(maxItems, 100)}`);
-            
-            const endpoint = `/Contacts?${queryParams.join('&')}`;
-            
-            const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
-            
-            if (!response) {
-                return [];
-            }
-            
-            const items: ContactData[] = Array.isArray(response) ? response : [response];
-            
-            const newSubscribers = items.filter(item => {
-                if (!item.timestampSignup) return false;
-                
-                const signupTime = new Date(item.timestampSignup).getTime();
-                const isNew = signupTime > (lastFetchEpochMS ?? 0);
-                
-                if (joinSourceFilter && joinSourceFilter !== 'All' && item.joinSource !== joinSourceFilter) {
-                    return false;
-                }
-                
-                return isNew;
-            });
-            
-            const sortedSubscribers = newSubscribers
-                .sort((a, b) => new Date(b.timestampSignup || 0).getTime() - new Date(a.timestampSignup || 0).getTime());
-            
-            return sortedSubscribers.map(item => ({
-                epochMilliSeconds: new Date(item.timestampSignup || 0).getTime(),
-                data: {
-                    id: item.id?.toString(),
-                    email: item.email,
-                    firstName: item.firstName,
-                    lastName: item.lastName,
-                    phone: item.phone,
-                    cellPhone: item.cellPhone,
-                    
-                    address: item.address,
-                    city: item.city,
-                    country: item.country,
-                    company: item.company,
-                    position: item.position,
-                    dateOfBirth: item.dateOfBirth,
-                    externalId: item.externalId,
-                    
-                    canReceiveEmails: item.canReceiveEmails,
-                    canReceiveSmsMessages: item.canReceiveSmsMessages,
-                    
-                    ipSignup: item.ipSignup,
-                    timestampSignup: item.timestampSignup,
-                    joinSource: item.joinSource,
-                    campaignSource: item.campaignSource,
-                    
-                    lastChanged: item.lastChanged,
-                    listAssociationTime: item.listAssociationTime,
-                    c_DaysSinceSignup: item.c_DaysSinceSignup,
-                    
-                    deleted: item.deleted,
-                    
-                    ...(includeLinkedLists && item.lists_Linked ? { lists_Linked: item.lists_Linked } : {}),
-                    ...(includeCustomFields && item.customFields ? { customFields: item.customFields } : {}),
-                    
-                    ...(item.unsubscribeReasonType ? { 
-                        unsubscribeReasonType: item.unsubscribeReasonType,
-                        unsubscribeReasonComment: item.unsubscribeReasonComment,
-                        timestampUnsubscribed: item.timestampUnsubscribed
-                    } : {}),
-                    
-                    triggerInfo: {
-                        detectedAt: new Date().toISOString(),
-                        source: 'smoove',
-                        type: 'new_subscriber',
-                        joinSource: item.joinSource,
-                        daysSinceSignup: item.c_DaysSinceSignup || 0
-                    }
-                }
-            }));
-            
-        } catch (error: any) {
-            console.error('Error fetching new subscribers:', error);
+        const { 
+            fields, 
+            includeCustomFields = false, 
+            includeLinkedLists = false,
+            joinSourceFilter,
+            sortBy = '-timestampSignup',
+            maxItems = 100
+        } = propsValue;
+        
+        const queryParams: string[] = [];
+        
+        if (fields && fields.trim()) {
+            queryParams.push(`fields=${encodeURIComponent(fields.trim())}`);
+        } else {
+            queryParams.push('fields=id,email,firstName,lastName,timestampSignup,joinSource,lastChanged,canReceiveEmails,campaignSource,ipSignup');
+        }
+        
+        if (includeCustomFields) {
+            queryParams.push('includeCustomFields=true');
+        }
+        if (includeLinkedLists) {
+            queryParams.push('includeLinkedLists=true');
+        }
+        
+        queryParams.push(`sort=${encodeURIComponent(sortBy)}`);
+        
+        queryParams.push('skip=0');
+        queryParams.push(`take=${Math.min(maxItems, 100)}`);
+        
+        const endpoint = `/Contacts?${queryParams.join('&')}`;
+        
+        const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
+        
+        if (!response) {
             return [];
         }
+        
+        const items: ContactData[] = Array.isArray(response) ? response : [response];
+        
+        const newSubscribers = items.filter(item => {
+            if (!item.timestampSignup) return false;
+            
+            const signupTime = new Date(item.timestampSignup).getTime();
+            const isNew = signupTime > (lastFetchEpochMS ?? 0);
+            
+            if (joinSourceFilter && joinSourceFilter !== 'All' && item.joinSource !== joinSourceFilter) {
+                return false;
+            }
+            
+            return isNew;
+        });
+        
+        const sortedSubscribers = newSubscribers
+            .sort((a, b) => new Date(b.timestampSignup || 0).getTime() - new Date(a.timestampSignup || 0).getTime());
+        
+        return sortedSubscribers.map(item => ({
+            epochMilliSeconds: new Date(item.timestampSignup || 0).getTime(),
+            data: {
+                id: item.id?.toString(),
+                email: item.email,
+                firstName: item.firstName,
+                lastName: item.lastName,
+                phone: item.phone,
+                cellPhone: item.cellPhone,
+                
+                address: item.address,
+                city: item.city,
+                country: item.country,
+                company: item.company,
+                position: item.position,
+                dateOfBirth: item.dateOfBirth,
+                externalId: item.externalId,
+                
+                canReceiveEmails: item.canReceiveEmails,
+                canReceiveSmsMessages: item.canReceiveSmsMessages,
+                
+                ipSignup: item.ipSignup,
+                timestampSignup: item.timestampSignup,
+                joinSource: item.joinSource,
+                campaignSource: item.campaignSource,
+                
+                lastChanged: item.lastChanged,
+                listAssociationTime: item.listAssociationTime,
+                c_DaysSinceSignup: item.c_DaysSinceSignup,
+                
+                deleted: item.deleted,
+                
+                ...(includeLinkedLists && item.lists_Linked ? { lists_Linked: item.lists_Linked } : {}),
+                ...(includeCustomFields && item.customFields ? { customFields: item.customFields } : {}),
+                
+                ...(item.unsubscribeReasonType ? { 
+                    unsubscribeReasonType: item.unsubscribeReasonType,
+                    unsubscribeReasonComment: item.unsubscribeReasonComment,
+                    timestampUnsubscribed: item.timestampUnsubscribed
+                } : {}),
+                
+                triggerInfo: {
+                    detectedAt: new Date().toISOString(),
+                    source: 'smoove',
+                    type: 'new_subscriber',
+                    joinSource: item.joinSource,
+                    daysSinceSignup: item.c_DaysSinceSignup || 0
+                }
+            }
+        }));
+        
     }
 };
 
@@ -274,35 +269,31 @@ export const newSubscriber = createTrigger({
     type: TriggerStrategy.POLLING,
     
     async test(context) {
-        try {
-            const response = await makeRequest(context.auth.secret_text, HttpMethod.GET, '/Contacts?take=1&sort=-timestampSignup');
-            const item = Array.isArray(response) ? response[0] : response;
-            
-            if (!item) {
-                throw new Error('No subscribers found to test with');
-            }
-            
-            return [{
-                id: item.id?.toString(),
-                email: item.email,
-                firstName: item.firstName,
-                lastName: item.lastName,
-                phone: item.phone,
-                cellPhone: item.cellPhone,
-                timestampSignup: item.timestampSignup,
-                joinSource: item.joinSource,
-                campaignSource: item.campaignSource,
-                canReceiveEmails: item.canReceiveEmails,
-                canReceiveSmsMessages: item.canReceiveSmsMessages,
-                triggerInfo: {
-                    detectedAt: new Date().toISOString(),
-                    source: 'smoove',
-                    type: 'new_subscriber_test',
-                }
-            }];
-        } catch (error) {
-            throw new Error('Unable to test trigger - please check your API connection');
+        const response = await makeRequest(context.auth.secret_text, HttpMethod.GET, '/Contacts?take=1&sort=-timestampSignup');
+        const item = Array.isArray(response) ? response[0] : response;
+        
+        if (!item) {
+            throw new Error('No subscribers found to test with');
         }
+        
+        return [{
+            id: item.id?.toString(),
+            email: item.email,
+            firstName: item.firstName,
+            lastName: item.lastName,
+            phone: item.phone,
+            cellPhone: item.cellPhone,
+            timestampSignup: item.timestampSignup,
+            joinSource: item.joinSource,
+            campaignSource: item.campaignSource,
+            canReceiveEmails: item.canReceiveEmails,
+            canReceiveSmsMessages: item.canReceiveSmsMessages,
+            triggerInfo: {
+                detectedAt: new Date().toISOString(),
+                source: 'smoove',
+                type: 'new_subscriber_test',
+            }
+        }];
     },
     
     async onEnable(context) {

@@ -14,43 +14,38 @@ interface LandingPageData {
 const polling: Polling<AppConnectionValueForAuthProperty<typeof smooveAuth>, { formType?: string }> = {
     strategy: DedupeStrategy.LAST_ITEM,
     items: async ({ auth, propsValue }) => {
-        try {
-            let endpoint = '/LandingPages';
-            const { formType } = propsValue;
-            
-            if (formType && formType !== 'All') {
-                endpoint += `?type=${encodeURIComponent(formType)}`;
-            }
+        let endpoint = '/LandingPages';
+        const { formType } = propsValue;
+        
+        if (formType && formType !== 'All') {
+            endpoint += `?type=${encodeURIComponent(formType)}`;
+        }
 
-            const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
-            
-            if (!response) {
-                return [];
-            }
-            
-            const items: LandingPageData[] = Array.isArray(response) ? response : [response];
-
-            const validItems = items
-                .filter(item => item.formId && item.formTitle)
-                .sort((a, b) => (b.formId || 0) - (a.formId || 0));
-
-            return validItems.map(item => {
-                const { formId, formTitle, formType, ...otherFields } = item;
-                return {
-                    id: formId.toString(),
-                    data: {
-                        formId,
-                        formTitle,
-                        formType: formType || 'Unknown',
-                        ...otherFields
-                    },
-                };
-            });
-            
-        } catch (error: any) {
-            console.error('Error fetching landing pages:', error);
+        const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
+        
+        if (!response) {
             return [];
         }
+        
+        const items: LandingPageData[] = Array.isArray(response) ? response : [response];
+
+        const validItems = items
+            .filter(item => item.formId && item.formTitle)
+            .sort((a, b) => (b.formId || 0) - (a.formId || 0));
+
+        return validItems.map(item => {
+            const { formId, formTitle, formType, ...otherFields } = item;
+            return {
+                id: formId.toString(),
+                data: {
+                    formId,
+                    formTitle,
+                    formType: formType || 'Unknown',
+                    ...otherFields
+                },
+            };
+        });
+        
     }
 };
 
