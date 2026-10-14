@@ -27,68 +27,58 @@ interface LeadSubmission {
 const polling: Polling<AppConnectionValueForAuthProperty<typeof smooveAuth>, any> = {
     strategy: DedupeStrategy.TIMEBASED,
     items: async ({ auth, propsValue, lastFetchEpochMS }) => {
-        try {
-            const { 
-                monitoringMode, 
-                landingPageId, 
-                includeCustomFields = false, 
-                includeContactDetails = true 
-            } = propsValue;
+        const { 
+            monitoringMode, 
+            landingPageId, 
+            includeCustomFields = false, 
+            includeContactDetails = true 
+        } = propsValue;
+        
+        let allSubmissions: LeadSubmission[] = [];
+        
+        if (monitoringMode === 'specific' && landingPageId) {
+            const submissions = await fetchSubmissionsForPage(
+                auth, 
+                landingPageId as string, 
+                includeCustomFields, 
+                includeContactDetails,
+                lastFetchEpochMS
+            );
+            allSubmissions = submissions;
             
-            let allSubmissions: LeadSubmission[] = [];
+        } else if (monitoringMode === 'all') {
+            const landingPages = await makeRequest(auth.secret_text, HttpMethod.GET, '/LandingPages');
+            const pages = Array.isArray(landingPages) ? landingPages : [];
             
-            if (monitoringMode === 'specific' && landingPageId) {
-                const submissions = await fetchSubmissionsForPage(
-                    auth, 
-                    landingPageId as string, 
-                    includeCustomFields, 
-                    includeContactDetails,
-                    lastFetchEpochMS
-                );
-                allSubmissions = submissions;
-                
-            } else if (monitoringMode === 'all') {
-                try {
-                    const landingPages = await makeRequest(auth.secret_text, HttpMethod.GET, '/LandingPages');
-                    const pages = Array.isArray(landingPages) ? landingPages : [];
-                    
-                    const pagePromises = pages.slice(0, 10).map(async (page: any) => {
-                        if (page.formId) {
-                            return await fetchSubmissionsForPage(
-                                auth, 
-                                page.formId.toString(), 
-                                includeCustomFields, 
-                                includeContactDetails,
-                                lastFetchEpochMS
-                            );
-                        }
-                        return [];
-                    });
-                    
-                    const allPageSubmissions = await Promise.all(pagePromises);
-                    allSubmissions = allPageSubmissions.flat();
-                    
-                } catch (error) {
-                    console.error('Error fetching all landing pages:', error);
-                    return [];
+            const pagePromises = pages.slice(0, 10).map(async (page: any) => {
+                if (page.formId) {
+                    return await fetchSubmissionsForPage(
+                        auth, 
+                        page.formId.toString(), 
+                        includeCustomFields, 
+                        includeContactDetails,
+                        lastFetchEpochMS
+                    );
                 }
-            }
+                return [];
+            });
             
-            const uniqueSubmissions = allSubmissions
-                .filter((submission, index, self) => 
-                    index === self.findIndex(s => s.id === submission.id)
-                )
-                .sort((a, b) => new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime());
-                
-            return uniqueSubmissions.map(submission => ({
-                epochMilliSeconds: new Date(submission.timeStamp).getTime(),
-                data: submission
-            }));
+            const allPageSubmissions = await Promise.all(pagePromises);
+            allSubmissions = allPageSubmissions.flat();
             
-        } catch (error: any) {
-            console.error('Error fetching lead submissions:', error);
-            return [];
         }
+        
+        const uniqueSubmissions = allSubmissions
+            .filter((submission, index, self) => 
+                index === self.findIndex(s => s.id === submission.id)
+            )
+            .sort((a, b) => new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime());
+            
+        return uniqueSubmissions.map(submission => ({
+            epochMilliSeconds: new Date(submission.timeStamp).getTime(),
+            data: submission
+        }));
+        
     }
 };
 

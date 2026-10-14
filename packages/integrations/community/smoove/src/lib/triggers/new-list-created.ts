@@ -27,45 +27,40 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof smooveAuth>, {
 }> = {
     strategy: DedupeStrategy.LAST_ITEM,
     items: async ({ auth, propsValue }) => {
-        try {
-            const { fields, sortBy, maxItems = 50 } = propsValue;
-            
-            const queryParams: string[] = [];
-            
-            if (fields && fields.trim()) {
-                queryParams.push(`fields=${encodeURIComponent(fields.trim())}`);
-            }
-            
-            if (sortBy) {
-                queryParams.push(`sort=${encodeURIComponent(sortBy)}`);
-            }
-            
-            queryParams.push('skip=0');
-            queryParams.push(`take=${Math.min(maxItems, 100)}`);
-            
-            const endpoint = `/Lists${queryParams.length ? '?' + queryParams.join('&') : ''}`;
-            
-            const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
-            
-            if (!response) {
-                return [];
-            }
-            
-            const items: ListData[] = Array.isArray(response) ? response : [response];
-            
-            const validItems = items
-                .filter(item => item.id)
-                .sort((a, b) => (b.id || 0) - (a.id || 0));
-            
-            return validItems.map(item => ({
-                id: item.id.toString(),
-                data: item,
-            }));
-            
-        } catch (error: any) {
-            console.error('Error fetching lists:', error);
+        const { fields, sortBy, maxItems = 50 } = propsValue;
+        
+        const queryParams: string[] = [];
+        
+        if (fields && fields.trim()) {
+            queryParams.push(`fields=${encodeURIComponent(fields.trim())}`);
+        }
+        
+        if (sortBy) {
+            queryParams.push(`sort=${encodeURIComponent(sortBy)}`);
+        }
+        
+        queryParams.push('skip=0');
+        queryParams.push(`take=${Math.min(maxItems, 100)}`);
+        
+        const endpoint = `/Lists${queryParams.length ? '?' + queryParams.join('&') : ''}`;
+        
+        const response = await makeRequest(auth.secret_text, HttpMethod.GET, endpoint);
+        
+        if (!response) {
             return [];
         }
+        
+        const items: ListData[] = Array.isArray(response) ? response : [response];
+        
+        const validItems = items
+            .filter(item => item.id)
+            .sort((a, b) => (b.id || 0) - (a.id || 0));
+        
+        return validItems.map(item => ({
+            id: item.id.toString(),
+            data: item,
+        }));
+        
     }
 };
 
