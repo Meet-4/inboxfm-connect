@@ -218,10 +218,14 @@ export const triggerBindingService = {
         })
 
         const items = Array.isArray(runResult.output) ? runResult.output : (runResult.output ? [runResult.output] : [])
-        const createdExecutions: Execution[] = []
 
-        for (const item of items) {
-            const execution = await executionService.create({
+        // One INSERT for the whole burst (executionService.createMany) instead
+        // of one round trip per item; events are still emitted per execution,
+        // in item order.
+        const createdExecutions = await executionService.createMany({
+            projectId: binding.projectId,
+            platformId: binding.platformId,
+            items: items.map((item) => ({
                 prompt: binding.promptTemplate,
                 metadata: {
                     triggerBindingId: binding.id,
@@ -229,11 +233,8 @@ export const triggerBindingService = {
                     triggerName: binding.triggerName,
                     item: typeof item === 'object' && item !== null ? item : { value: item },
                 },
-                projectId: binding.projectId,
-                platformId: binding.platformId,
-            })
-            createdExecutions.push(execution)
-        }
+            })),
+        })
 
         return createdExecutions
     },

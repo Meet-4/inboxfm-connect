@@ -1,5 +1,6 @@
 import { ActivepiecesError, apId, ErrorCode, isNil, SeekPage } from '@inboxfm-connect/core-utils'
 import { Execution, ExecutionEventType, ExecutionStatus, executionUtils, TokenUsage } from '@inboxfm-connect/shared'
+import { QueryDeepPartialEntity } from 'typeorm'
 import { repoFactory } from '../core/db/repo-factory'
 import { buildPaginator } from '../helper/pagination/build-paginator'
 import { paginationHelper } from '../helper/pagination/pagination-utils'
@@ -49,6 +50,61 @@ const executionService = {
         })
 
         return saved
+    },
+
+    /**
+     * Bulk variant of `create` for trigger-event ingress: one INSERT for the
+     * whole burst instead of one round trip per item (the previous loop called
+     * `create` per item, so a 100-item webhook burst meant 100 sequential
+     * INSERTs before any event was emitted). Events are still emitted once per
+     * execution, in item order, with the same payloads — the event sequence
+     * (Redis INCR per execution) must stay per-row, so only the DB write is
+     * batched.
+     */
+    async createMany(params: {
+        projectId: string
+        platformId: string
+        userId?: string | null
+        items: Array<{ prompt: string, metadata?: Record<string, unknown> }>
+    }): Promise<Execution[]> {
+        if (params.items.length === 0) {
+            return []
+        }
+
+        const newExecutions: Execution[] = params.items.map((item) => ({
+            id: apId(),
+            projectId: params.projectId,
+            platformId: params.platformId,
+            userId: params.userId ?? null,
+            status: ExecutionStatus.CREATED,
+            prompt: item.prompt,
+            metadata: item.metadata ?? {},
+            tokenUsage: null,
+            cost: null,
+            created: new Date().toISOString(),
+            updated: new Date().toISOString(),
+            finishTime: null,
+        }))
+
+        // One multi-VALUES INSERT for the whole burst. `insert()` is used
+        // instead of `save()` precisely because it always emits a single bulk
+        // statement; the deep-partial cast is only for the 'json' metadata
+        // column's insert typing (the values are plain Execution objects).
+        await executionRepo().insert(newExecutions as unknown as QueryDeepPartialEntity<ExecutionSchema>[])
+
+        for (const saved of newExecutions) {
+            await executionEventService.emit({
+                executionId: saved.id,
+                type: ExecutionEventType.ExecutionStarted,
+                payload: {
+                    executionId: saved.id,
+                    prompt: saved.prompt,
+                    timestamp: saved.created,
+                },
+            })
+        }
+
+        return newExecutions
     },
 
     async getOne({
