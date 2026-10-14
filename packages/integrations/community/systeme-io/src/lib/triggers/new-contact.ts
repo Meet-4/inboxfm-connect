@@ -81,8 +81,9 @@ export const newContact = createTrigger({
         const rawBody = context.payload.rawBody;
 
         if (!systemeIoCommon.verifyWebhookSignature(webhookSecret || undefined, webhookSignatureHeader, rawBody)) {
-            console.warn('Systeme.io webhook signature verification failed');
-            return [];
+            throw new Error(
+                'Webhook signature verification failed. This request may not be from Systeme.io.',
+            );
         }
 
         const payload = context.payload.body as any;
