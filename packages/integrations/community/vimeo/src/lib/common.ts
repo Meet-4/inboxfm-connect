@@ -22,11 +22,13 @@ export async function apiRequest({
   };
 
   if (body) {
-    if (body instanceof FormData) {
-      headers = { ...headers, 'Content-Type': 'multipart/form-data' };
-    } else if (body.constructor === Object) {
+    if (body.constructor === Object) {
       headers = { ...headers, 'Content-Type': 'application/json' };
     }
+    // FormData bodies need no manual Content-Type: fetch derives it from the
+    // body and appends the multipart boundary — a manual boundary-less
+    // 'multipart/form-data' header goes on the wire verbatim and makes the
+    // request unparseable.
   }
 
   try {
