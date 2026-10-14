@@ -59,22 +59,17 @@ const polling: Polling<
         },
       };
 
-      try {
-        const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
-          eventRequest
-        );
-        const event = eventResponse.body;
+      const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
+        eventRequest
+      );
+      const event = eventResponse.body;
 
-        const endTimeString = event.end?.dateTime ?? event.end?.date;
-        if (endTimeString) {
-          const endTime = new Date(endTimeString).getTime();
-          if (endTime > lastFetchEpochMS) {
-            events = [event];
-          }
+      const endTimeString = event.end?.dateTime ?? event.end?.date;
+      if (endTimeString) {
+        const endTime = new Date(endTimeString).getTime();
+        if (endTime > lastFetchEpochMS) {
+          events = [event];
         }
-      } catch (error) {
-        console.error('Error fetching specific event:', error);
-        return [];
       }
     } else {
       const request: HttpRequest = {

@@ -69,19 +69,14 @@ const polling: Polling<
         },
       };
 
-      try {
-        const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
-          eventRequest
-        );
-        const event = eventResponse.body;
+      const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
+        eventRequest
+      );
+      const event = eventResponse.body;
 
-        const updatedTime = new Date(event.updated ?? 0).getTime();
-        if (updatedTime > lastFetchEpochMS && event.status === 'cancelled') {
-          events = [event];
-        }
-      } catch (error) {
-        console.error('Error fetching specific event:', error);
-        return [];
+      const updatedTime = new Date(event.updated ?? 0).getTime();
+      if (updatedTime > lastFetchEpochMS && event.status === 'cancelled') {
+        events = [event];
       }
     } else {
       const allEvents = await getEvents(calendarId, true, auth, minUpdated);

@@ -73,24 +73,19 @@ const polling: Polling<
         },
       };
 
-      try {
-        const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
-          eventRequest
-        );
-        const event = eventResponse.body;
+      const eventResponse = await httpClient.sendRequest<GoogleCalendarEvent>(
+        eventRequest
+      );
+      const event = eventResponse.body;
 
-        // Check if this specific event falls within our time window
-        const eventStartTime = new Date(
-          event.start?.dateTime ?? event.start?.date ?? 0
-        ).getTime();
-        const triggerTime = eventStartTime - offset_ms;
+      // Check if this specific event falls within our time window
+      const eventStartTime = new Date(
+        event.start?.dateTime ?? event.start?.date ?? 0
+      ).getTime();
+      const triggerTime = eventStartTime - offset_ms;
 
-        if (triggerTime >= now && triggerTime <= now + pollingIntervalMs) {
-          events = [event];
-        }
-      } catch (error) {
-        console.error('Error fetching specific event:', error);
-        return [];
+      if (triggerTime >= now && triggerTime <= now + pollingIntervalMs) {
+        events = [event];
       }
     } else {
       const request: HttpRequest = {
