@@ -85,13 +85,11 @@ export const newCommission = createTrigger({
 
   async run(context): Promise<KoFiCommissionEvent[]> {
     const body = context.payload.body as KoFiWebhookBody;
-
-    let event: KoFiCommissionEvent;
-    try {
-      event = JSON.parse(body.data) as KoFiCommissionEvent;
-    } catch {
+    if (typeof body?.data !== 'string') {
       return [];
     }
+
+    const event = JSON.parse(body.data) as KoFiCommissionEvent;
 
     if (event.verification_token !== context.auth.secret_text) {
       return [];
