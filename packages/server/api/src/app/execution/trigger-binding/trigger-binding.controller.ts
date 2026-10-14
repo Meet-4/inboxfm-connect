@@ -1,4 +1,4 @@
-import { CreateTriggerBindingRequest, Permission, PrincipalType, UpdateTriggerBindingRequest } from '@inboxfm-connect/shared'
+import { CreateTriggerBindingRequest, ListTriggerBindingsRequestQuery, Permission, PrincipalType, UpdateTriggerBindingRequest } from '@inboxfm-connect/shared'
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
@@ -25,6 +25,8 @@ export const triggerBindingController: FastifyPluginAsyncZod = async (fastify) =
         return triggerBindingService.list({
             projectId,
             platformId,
+            cursorRequest: request.query.cursor ?? null,
+            limit: request.query.limit,
         })
     })
 
@@ -134,6 +136,9 @@ const ListTriggerBindingsRouteOptions = {
             Permission.READ_RUN,
             { type: ProjectResourceType.QUERY },
         ),
+    },
+    schema: {
+        querystring: ListTriggerBindingsRequestQuery,
     },
 }
 
