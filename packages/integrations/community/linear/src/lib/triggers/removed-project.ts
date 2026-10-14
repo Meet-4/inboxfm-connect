@@ -55,7 +55,7 @@ export const linearRemovedProject = createTrigger({
         }
       );
     } else {
-      console.error('Failed to create the webhook');
+      throw new Error('Failed to create the Linear webhook. The trigger cannot receive events until it is enabled successfully.');
     }
   },
   async onDisable(context) {
