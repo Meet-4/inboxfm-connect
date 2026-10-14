@@ -122,7 +122,13 @@ export const taskCompletedTrigger = createTrigger({
                 if (task.status === 'completed') {
                     completedTasks.push(task);
                 }
-            } catch (e) {
+            } catch (e: any) {
+                // A deleted task is expected mid-notification; anything else
+                // (network, auth, throttling) must fail the run instead of
+                // silently dropping the event.
+                if (e?.statusCode !== 404) {
+                    throw e;
+                }
                 console.warn(`Failed to fetch task ${taskId}, it may have been deleted.`);
             }
         }
