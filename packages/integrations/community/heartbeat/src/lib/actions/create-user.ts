@@ -58,7 +58,6 @@ export const heartBeatCreateUser = createAction({
             type: AuthenticationType.BEARER_TOKEN,
             token: auth.secret_text,
           },
-          body: {},
         });
 
         if (response.status === 200) {
@@ -108,7 +107,6 @@ export const heartBeatCreateUser = createAction({
             type: AuthenticationType.BEARER_TOKEN,
             token: auth.secret_text,
           },
-          body: {},
         });
 
         if (response.status === 200) {
