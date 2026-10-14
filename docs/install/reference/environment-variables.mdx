@@ -187,8 +187,24 @@ run timeouts, and the network egress posture for user code. Read
 | `AP_TRIGGER_TIMEOUT_SECONDS` | Maximum runtime for a trigger's polling, in seconds. | `60` |
 | `AP_DEFAULT_CONCURRENT_JOBS_LIMIT` | Default maximum concurrent runs per project. Can be overridden per project in settings. | `5` |
 | `AP_PROJECT_RATE_LIMITER_ENABLED` | Enforce per-project rate limits to prevent excessive usage. | `false` |
+| `AP_PROJECT_RATE_LIMITER_MAX_REQUESTS` | Requests per window, per project. Comfortably covers a busy flow-builder session plus normal webhook/API traffic for one project. Only read when `AP_PROJECT_RATE_LIMITER_ENABLED` is `true`. | `300` |
+| `AP_PROJECT_RATE_LIMITER_WINDOW_SECONDS` | Window (seconds) for `AP_PROJECT_RATE_LIMITER_MAX_REQUESTS`. | `60` |
+| `AP_PROJECT_EXECUTION_CONCURRENCY_LIMITER_ENABLED` | Cap how many executions a single project can keep in flight at once (each trigger RUN holds one slot for its duration). Disabled by default so an existing deployment never starts rejecting requests it didn't reject before. | `false` |
+| `AP_PROJECT_EXECUTION_CONCURRENCY_LIMIT` | Concurrent in-flight executions allowed per project when the limiter above is on. A project's concurrency-pool settings override this on the enterprise/cloud editions. | `5` |
+| `AP_PROJECT_EXECUTION_CONCURRENCY_SLOT_TTL_SECONDS` | Backstop TTL for a project's execution slots. Refreshed on every acquire, so a live execution never expires — it only matters when a process dies mid-execution without releasing its slot. Keep it above `AP_FLOW_TIMEOUT_SECONDS` plus queueing overhead. | `900` |
 | `AP_NETWORK_MODE` | Egress posture for user code. `STRICT` installs the engine's in-process SSRF guard, blocking outbound connections to private, loopback, link-local, and cloud-metadata IPs across every Node egress path (`axios`, `fetch`, `undici`, raw `http`/`net`). This is best-effort, in-process protection — enforce the real boundary in infrastructure (see [Network Security](/install/architecture/network-security)). `UNRESTRICTED` disables the guard. | `UNRESTRICTED` |
 | `AP_SSRF_ALLOW_LIST` | Comma-separated IPs or CIDR ranges that bypass `AP_NETWORK_MODE=STRICT`, e.g. `10.0.0.5,10.10.0.0/24`. Only applies when `AP_NETWORK_MODE=STRICT`. | `None` |
+
+#### Engine & sandbox internals
+
+Read by the sandboxed engine child process. Mostly plumbing — the sandbox host
+injects them per start, so there is normally no reason to set them by hand.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AP_BASE_CODE_DIRECTORY` | Directory the engine reads bundled flow-step code from. The sandbox host passes the per-flow code directory into the engine child; the default only applies when the engine runs without a sandbox host. | `./codes` |
+| `AP_SANDBOX_WS_PORT` | Port of the parent's sandbox RPC websocket, which the engine child connects back to (the host picks a port per sandbox start). Also allowlisted for loopback connections by the SSRF guard. | `12345` (fallback when not injected) |
+| `AP_SANDBOX_WS_TOKEN` | Token authenticating the engine child on the sandbox RPC websocket. Generated fresh by the sandbox host on every start — never set this manually. | `None` (auto-generated) |
 
 ---
 
@@ -265,6 +281,9 @@ Sign-in providers and SCIM provisioning.
 | `AP_GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret. Required together with `AP_GOOGLE_CLIENT_ID`. | `None` |
 | `AP_CLOUD_AUTH_ENABLED` | Use Inboxfm Connect-hosted OAuth2 apps for piece connections. Set to `false` to disable them. | `true` |
 | `AP_SCIM_DEFAULT_PROJECT_ROLE` | Default project role for members added via SCIM group sync. One of `Admin`, `Editor`, `Viewer`. | `Editor` |
+| `AP_ALLOW_OPEN_SIGN_UP` | When `true`, anyone can sign up with email/password to an existing platform. When unset, platform sign-up requires the email to be invited to the platform or one of its projects (the first user of a fresh instance signs up regardless). | `None` (invitation required) |
+| `AP_FIREBASE_HASH_PARAMETERS` | JSON object of Firebase SCRYPT parameters, used only to verify legacy `$scrypt$`-prefixed password hashes imported from Firebase Auth. Accounts with bcrypt hashes don't need it. | `None` |
+| `AP_PROJECT_REPLACE_SIGNING_SECRET` | Dedicated signing secret for project-replace plans (MCP project replacement). Falls back to the `PROJECT_REPLACE_SIGNING_SECRET` env var, then to `AP_JWT_SECRET`. | `None` (falls back to `AP_JWT_SECRET`) |
 
 #### Sign-up & sign-in abuse protection
 
@@ -288,6 +307,25 @@ is a no-op, same as before this feature existed.
 | `AP_API_SIGN_IN_EMAIL_THROTTLE_WINDOW_SECONDS` | Rolling window (seconds) for `AP_API_SIGN_IN_EMAIL_THROTTLE_MAX_ATTEMPTS`. | `900` (15 minutes) |
 | `AP_CAPTCHA_PROVIDER` | Optional CAPTCHA on sign-up: `hcaptcha` or `turnstile`. Unset by default — sign-up behaves exactly as before. Requires `AP_CAPTCHA_SECRET_KEY`; the server refuses to start if only one of the two is set. | `None` |
 | `AP_CAPTCHA_SECRET_KEY` | Secret key for the provider above, used server-side to verify the client-supplied token against the provider's `siteverify` endpoint. Only read when `AP_CAPTCHA_PROVIDER` is set. | `None` |
+| `AP_CLIENT_REAL_IP_HEADER` | Header used to extract the client's real IP behind a reverse proxy. All IP-based rate limiting, the sign-in email throttle, and audit events key on it; falls back to the socket address when the header is absent. The proxy **must** overwrite or sanitize this header, or clients can spoof their IP and drain rate-limit buckets. | `x-real-ip` |
+| `AP_API_RATE_LIMIT_SYNC_ENABLED` | Enable the IP-scoped tier on routes that synchronously run piece code or fan out to AI/search providers inside the API process: `execute`, executions list/create, `knowledge-search`, and the AI-provider routes. Shares the underlying `@fastify/rate-limit` plugin with the authentication tier, but can be toggled independently. | `true` |
+| `AP_API_RATE_LIMIT_SYNC_MAX` | Requests per window, per IP, for the sync tier above. | `60` |
+| `AP_API_RATE_LIMIT_SYNC_WINDOW` | Window for `AP_API_RATE_LIMIT_SYNC_MAX`, e.g. `1 minute`. | `1 minute` |
+
+#### Request rate limiting & API keys
+
+Per-principal limiters for authenticated traffic (all safe defaults) and the
+public-ingress limiter that is on by default.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AP_API_KEY_RATE_LIMITER_ENABLED` | Enable per-key rate limiting for requests authenticated with an API key (`sk-` platform keys and `cak-` connect keys). Buckets by the key's own id, so one compromised or misbehaving key is capped independently of every other key, project, or IP on the platform. | `false` |
+| `AP_API_KEY_RATE_LIMITER_MAX_REQUESTS` | Requests per window, per API key. Only read when `AP_API_KEY_RATE_LIMITER_ENABLED` is `true`. | `120` |
+| `AP_API_KEY_RATE_LIMITER_WINDOW_SECONDS` | Window (seconds) for `AP_API_KEY_RATE_LIMITER_MAX_REQUESTS`. | `60` |
+| `AP_API_KEY_ROTATION_GRACE_PERIOD_SECONDS` | How long a rotated-out API key keeps authenticating after `rotate` mints its replacement, giving callers a window to swap the new value in before the old one is rejected. Applies to `cak-` connect keys and `sk-` platform keys. | `86400` (24 hours) |
+| `AP_PUBLIC_INGRESS_RATE_LIMITER_ENABLED` | Enable the rate limit on the only unauthenticated route that mints executions: `POST /v1/trigger-bindings/:id/run`, bucketed per (binding id, client IP). On by default so a leaked capability URL cannot farm unlimited paid executions. | `true` |
+| `AP_PUBLIC_INGRESS_RATE_LIMITER_MAX_REQUESTS` | Requests per window, per binding and IP. Zero, negative, or non-numeric values fall back to this built-in default rather than rejecting everything. | `30` (built-in fallback) |
+| `AP_PUBLIC_INGRESS_RATE_LIMITER_WINDOW_SECONDS` | Window (seconds) for `AP_PUBLIC_INGRESS_RATE_LIMITER_MAX_REQUESTS`. Same fallback protection as above. | `60` (built-in fallback) |
 
 <Info>
 Enabling `AP_CAPTCHA_PROVIDER` only turns on **server-side verification** — the
