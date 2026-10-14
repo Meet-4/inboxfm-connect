@@ -120,9 +120,14 @@ Notes:
           if (inv?.Type === 'ACCREC') {
             results.push(inv);
           }
+        } else {
+          // Best-effort: keep the raw event (same shape as the
+          // fetch_full_invoice=false path) instead of losing it
+          results.push(ev);
         }
       } catch {
-        // ignore
+        // Best-effort: keep the raw event instead of losing it
+        results.push(ev);
       }
     }
 
