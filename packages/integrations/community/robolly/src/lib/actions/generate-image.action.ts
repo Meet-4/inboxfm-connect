@@ -118,7 +118,7 @@ export  const generateImage = createAction({
         const queryParams: Record<string, string> = {
         };
 
-        queryParams['json'] = ""
+        queryParams['json'] = "1"
 
        for (const key in propsValue.modifications) {
             const value = propsValue.modifications[key];
@@ -138,7 +138,6 @@ export  const generateImage = createAction({
             headers: {
                 'Authorization': `Bearer ${auth.secret_text}`
             },
-            body: propsValue.modifications
         });
 
 
