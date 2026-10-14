@@ -38,7 +38,11 @@ const polling: Polling<
       id: item.Key,
       data: item,
     }));
-    return items;
+    // S3 lists keys in ascending lexicographic order. The polling helper stores
+    // items[0] as the next cursor and only emits items above it, so the cursor
+    // must be the highest key — reverse to keep already-emitted files with
+    // smaller keys from being re-listed and re-emitted on every later poll.
+    return items.reverse();
   },
 };
 
