@@ -107,9 +107,11 @@ export const parseurCommon = {
         url:
           parseurCommon.baseUrl +
           parseurCommon.endpoints.createDocumentFromFile(parserId),
+        // No manual Content-Type: fetch derives it from the FormData body
+        // and appends the multipart boundary — a manual boundary-less header
+        // makes the request unparseable.
         headers: {
           ...parseurCommon.getHeaders(apiKey),
-          'Content-Type': 'multipart/form-data',
         },
         body: data,
       });
