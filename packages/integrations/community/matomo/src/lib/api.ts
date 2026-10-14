@@ -23,10 +23,10 @@ const matomoAPI = async (
 	method      : HttpMethod.POST,
 	url         : `${auth.domain}`,
 	queryParams : queryParams,
+	// No manual Content-Type: fetch derives it from the FormData body and
+	// appends the multipart boundary — a manual boundary-less header makes
+	// the request unparseable.
 	body        : formData,
-	headers     : {
-		'Content-Type': 'multipart/form-data',
-	},
   };
   const response = await httpClient.sendRequest(request);
 
