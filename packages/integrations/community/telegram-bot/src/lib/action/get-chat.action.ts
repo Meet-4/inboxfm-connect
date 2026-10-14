@@ -27,7 +27,13 @@ export const telegramGetChatAction = createAction({
       });
       return response.body;
     } catch (error) {
-      return (error as HttpError).errorMessage().response.body;
+      // Surface Telegram's error payload for API errors; rethrow anything
+      // else (timeout, DNS failure, ...) instead of crashing on a missing
+      // errorMessage().
+      if (error instanceof HttpError) {
+        return error.errorMessage().response.body;
+      }
+      throw error;
     }
   },
 });
