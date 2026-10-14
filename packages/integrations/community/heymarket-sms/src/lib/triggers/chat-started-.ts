@@ -58,54 +58,49 @@ const polling: Polling<
 > = {
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ propsValue, auth, lastFetchEpochMS }) => {
-    try {
-      const apiKey = auth.secret_text;
-      const { userId, inboxId } = propsValue;
+    const apiKey = auth.secret_text;
+    const { userId, inboxId } = propsValue;
 
-      if (!userId || !inboxId) {
-        console.warn('Conversation trigger: userId or inboxId not provided');
-        return [];
-      }
-
-      // Convert lastFetchEpochMS to RFC 3339 format for Heymarket API
-      const lastFetchDate = lastFetchEpochMS
-        ? dayjs(lastFetchEpochMS).toISOString()
-        : undefined;
-
-      // Prepare filters for conversation query
-      const filters: ConversationFilters = {
-        inboxes: [Number(inboxId)],
-        closed: false,
-      };
-
-      // Fetch conversations from Heymarket API
-      const requestBody = {
-        id: userId,
-        filters,
-        ...(lastFetchDate && { date: lastFetchDate }),
-      };
-
-      const response = await makeRequest(
-        apiKey,
-        HttpMethod.POST,
-        '/v1/conversations',
-        requestBody
-      );
-
-      if (!Array.isArray(response)) {
-        return [];
-      }
-
-      const conversations = response as HeymarketConversation[];
-
-      return conversations.map((conversation) => ({
-        epochMilliSeconds: dayjs(conversation.updated).valueOf(),
-        data: conversation,
-      }));
-    } catch (error) {
-      console.error('Error fetching conversations from Heymarket:', error);
+    if (!userId || !inboxId) {
+      console.warn('Conversation trigger: userId or inboxId not provided');
       return [];
     }
+
+    // Convert lastFetchEpochMS to RFC 3339 format for Heymarket API
+    const lastFetchDate = lastFetchEpochMS
+      ? dayjs(lastFetchEpochMS).toISOString()
+      : undefined;
+
+    // Prepare filters for conversation query
+    const filters: ConversationFilters = {
+      inboxes: [Number(inboxId)],
+      closed: false,
+    };
+
+    // Fetch conversations from Heymarket API
+    const requestBody = {
+      id: userId,
+      filters,
+      ...(lastFetchDate && { date: lastFetchDate }),
+    };
+
+    const response = await makeRequest(
+      apiKey,
+      HttpMethod.POST,
+      '/v1/conversations',
+      requestBody
+    );
+
+    if (!Array.isArray(response)) {
+      return [];
+    }
+
+    const conversations = response as HeymarketConversation[];
+
+    return conversations.map((conversation) => ({
+      epochMilliSeconds: dayjs(conversation.updated).valueOf(),
+      data: conversation,
+    }));
   },
 };
 
