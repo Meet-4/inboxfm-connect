@@ -47,40 +47,35 @@ const polling: Polling<TenzoAuthValue, DailyForecastTriggerProps> = {
 
     console.debug('Polling for new daily forecasts', { location_id, lastFetchEpochMS });
 
-    try {
-      const response = await tenzoApiCall<{
-        count: number;
-        next: string | null;
-        previous: string | null;
-        results: ForecastSalesByDay[];
-      }>({
-        method: HttpMethod.GET,
-        path: '/forecast/day/',
-        auth,
-        query: {
-          location_id: location_id.toString(),
-          page_size: '100', // Get more results to reduce API calls
-        },
-      });
+  const response = await tenzoApiCall<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: ForecastSalesByDay[];
+  }>({
+    method: HttpMethod.GET,
+    path: '/forecast/day/',
+    auth,
+    query: {
+      location_id: location_id.toString(),
+      page_size: '100', // Get more results to reduce API calls
+    },
+  });
 
-      // Filter forecasts created or modified since last fetch
-      const cutoffTime = lastFetchEpochMS ? new Date(lastFetchEpochMS) : new Date(0);
+  // Filter forecasts created or modified since last fetch
+  const cutoffTime = lastFetchEpochMS ? new Date(lastFetchEpochMS) : new Date(0);
 
-      const newForecasts = response.results.filter((forecast: ForecastSalesByDay) => {
-        const forecastTime = new Date(forecast.created_at || forecast.last_modified);
-        return forecastTime > cutoffTime;
-      });
+  const newForecasts = response.results.filter((forecast: ForecastSalesByDay) => {
+    const forecastTime = new Date(forecast.created_at || forecast.last_modified);
+    return forecastTime > cutoffTime;
+  });
 
-      console.debug(`Found ${newForecasts.length} new forecasts out of ${response.results.length} total`);
+  console.debug(`Found ${newForecasts.length} new forecasts out of ${response.results.length} total`);
 
-      return newForecasts.map((forecast: ForecastSalesByDay) => ({
-        epochMilliSeconds: new Date(forecast.created_at || forecast.last_modified).getTime(),
-        data: forecast,
-      }));
-    } catch (error) {
-      console.error('Error polling for daily forecasts:', error);
-      return [];
-    }
+  return newForecasts.map((forecast: ForecastSalesByDay) => ({
+    epochMilliSeconds: new Date(forecast.created_at || forecast.last_modified).getTime(),
+    data: forecast,
+  }));
   },
 };
 
