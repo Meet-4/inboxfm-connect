@@ -34,7 +34,8 @@ export const listEventsAction = createAction({
       method: HttpMethod.GET,
       url: `${outlookCalendarCommon.getBaseUrl(cloud)}/calendars/${propsValue.calendarId}/events`,
       queryParams,
-      body: {},
+      // GET requests must not carry a body; fetch throws 'Request with
+      // GET/HEAD method cannot have body' even for an empty object.
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
         token: auth['access_token'],
