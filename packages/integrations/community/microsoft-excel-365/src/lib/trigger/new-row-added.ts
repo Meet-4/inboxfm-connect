@@ -12,7 +12,6 @@ import {
   Polling,
   pollingHelper,
 } from '@inboxfm-connect/pieces-common';
-import { isNil } from '@inboxfm-connect/pieces-framework';
 import { excelAuth } from '../auth';
 
 const polling: Polling<
@@ -52,14 +51,15 @@ const polling: Polling<
 
     const items = currentValues
       .filter((f: any) => Object.keys(f.values).length > 0)
-      .map((item: any, index: number) => ({
-        id: index + 1,
+      .map((item: any) => ({
+        id: item.row,
         data: item,
-      }))
-      .filter(
-        (f: any) => isNil(lastItemId) || f.data.row > (lastItemId as number)
-      );
+      }));
 
+    // LAST_ITEM dedupe expects items ordered newest-to-oldest and must see the
+    // full list so it can slice at the stored cursor row. The previous code
+    // pre-filtered with a second id space (array position) that made the
+    // helper's findIndex miss the cursor and re-emit rows on every poll.
     return items.reverse();
   },
 };
