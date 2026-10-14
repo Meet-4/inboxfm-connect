@@ -13,7 +13,6 @@ import {
     Polling,
     pollingHelper,
 } from '@inboxfm-connect/pieces-common';
-import { isNil } from '@inboxfm-connect/pieces-framework';
 import { excelAuth } from '../auth';
 
 interface TableRow {
@@ -104,9 +103,12 @@ const polling: Polling<
             };
         });
 
-        // The polling helper will filter for new rows where the ID (row.index) is greater than lastItemId
-        const newItems = processedRows.filter(item => isNil(lastItemId) || item.id > (lastItemId as number));
-        return newItems;
+        // LAST_ITEM dedupe expects items ordered newest-to-oldest; the polling
+        // helper emits only the rows above the stored cursor itself, so the
+        // rows must be returned complete and in that order. Pre-filtering here
+        // (as the previous `id > lastItemId` filter did) makes the helper's
+        // findIndex miss the cursor and re-emit rows on every poll.
+        return processedRows.reverse();
     }
 };
 
