@@ -35,15 +35,14 @@ export const findUserProfileAction = createAction({
 				data: response.data,
 			};
 		} catch (e) {
-			const err = e as HttpError;
-			if (err.response.status === 404) {
+			if (e instanceof HttpError && e.response.status === 404) {
 				return {
 					found: false,
 					data: {},
 				};
 			}
 
-			throw err;
+			throw e;
 		}
 	},
 });
