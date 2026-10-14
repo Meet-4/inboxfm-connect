@@ -168,6 +168,7 @@ export const downloadView = createAction({
     const downloadResponse = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url: downloadUrl,
+      responseType: 'arraybuffer',
       headers: {
         'X-Tableau-Auth': authToken,
       },
