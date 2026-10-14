@@ -49,6 +49,12 @@ Variables marked ❗ are required for a self-hosted production deployment.
   <Card title="Logging & observability" icon="file-lines" href="#logging-&-observability">
     Log level, sampling, and log drains.
   </Card>
+  <Card title="Enterprise (EE & cloud)" icon="shield-check" href="#enterprise-ee-&-cloud">
+    Embed, billing, license keys, AI credits.
+  </Card>
+  <Card title="Legacy & removed" icon="tag" href="#legacy-&-removed">
+    Old names kept or refused for compatibility.
+  </Card>
 </CardGroup>
 
 ---
@@ -345,6 +351,44 @@ flow-authoring defaults.
 | Variable | Description | Default |
 |---|---|---|
 | `AP_PIECES_SYNC_MODE` | `OFFICIAL_AUTO` syncs piece metadata automatically from the cloud; `NONE` disables syncing. | `OFFICIAL_AUTO` |
+| `AP_DEV_PIECES` | Comma-separated piece names to load from source during development, e.g. `http,data-mapper`. The dev watcher hot-reloads them; in `AP_ENVIRONMENT=dev` the piece list only shows these; the list is also passed into sandboxed executions so dev pieces resolve there too. | `None` |
+| `AP_CUSTOM_PIECES_PATHS` | Colon-separated directories the engine scans for custom-installed pieces, checked before the standard locations. When a sandbox starts for a platform, the host injects the platform's custom-pieces mount automatically. | `None` |
+| `AP_USE_CDN_FOR_BUNDLES` | Serve official-piece bundles from the CDN when the bundle is not already in S3; falls back to the npm registry (or the local build) when the CDN copy 404s. | `false` |
+| `AP_APP_WEBHOOK_SECRETS` | JSON object mapping app/piece names to their webhook secret, e.g. `{"app-name":{"webhookSecret":"..."}}`. Defines which app-trigger webhooks are supported and the secret used to verify them. | `{}` |
+| `AP_TOOL_SEARCH_ENABLED` | Master switch for the tool-search engine. Read live per call, so flipping it takes effect without a process restart. When off, the search tools don't register and the cold-start backfill is a no-op. | `false` |
+| `AP_OPENAI_API_KEY` | When set, funds **all** tool-search embedding (backfill, reindex, and queries) with one key — the simplest setup for a single-tenant deployment. Falls back to the platform's configured OpenAI provider; when neither exists, tool search degrades to keyword matching. | `None` |
 | `AP_TRIGGER_DEFAULT_POLL_INTERVAL` | Minutes between checks for new data on pieces with scheduled triggers (e.g. new Google Contacts). | `5` |
 | `AP_ENABLE_FLOW_ON_PUBLISH` | Automatically enable a flow when a new version is published. | `true` |
 | `AP_LOAD_TRANSLATIONS_FOR_DEV_PIECES` | Load translations for dev pieces (configured via `AP_DEV_PIECES`). Affects development mode only. | `false` |
+
+---
+
+### Enterprise (EE & cloud)
+
+Only consumed when `AP_EDITION` is `ee` or `cloud` — the modules that read them
+register on those editions only.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AP_ALLOWED_EMBED_ORIGINS` | Comma-separated origins allowed to embed the console (drives the CSP `frame-ancestors` directive). Merged with each platform's own allowed-embed-origins setting; the enterprise flag endpoint also exposes it to the console. | `None` |
+| `AP_CLOUDFLARE_API_TOKEN` | Cloudflare API token used by the embed-subdomain service to create and verify custom hostnames (Cloudflare for SaaS). Required together with `AP_CLOUDFLARE_ZONE_ID` when the feature is used. | `None` |
+| `AP_CLOUDFLARE_ZONE_ID` | Cloudflare zone that hosts the SaaS fallback origin for custom hostnames. | `None` |
+| `AP_CLOUDFLARE_API_BASE` | Base URL of the Cloudflare API. | `https://api.cloudflare.com/client/v4` |
+| `AP_CLOUDFLARE_SAAS_FALLBACK_ORIGIN` | Fallback origin (the CNAME target) issued to verified custom hostnames. | `cloud.activepieces.com` |
+| `AP_STRIPE_SECRET_KEY` | Stripe secret key for platform billing. The billing surface only turns on when the edition is `cloud` and this is set. | `None` |
+| `AP_STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret, used to verify incoming billing webhooks. | `None` |
+| `AP_OPENROUTER_PROVISION_KEY` | OpenRouter key used to create, update, and inspect per-platform AI-credit keys. Setting it also flips the AI-credits flag on. | `None` |
+| `AP_SECRET_MANAGER_API_KEY` | API key sent to the upstream license-key service (`secrets.activepieces.com`) when managing trial licenses (activation, expiry extension). | `None` |
+| `AP_APPSUMO_TOKEN` | Shared secret for the AppSumo endpoints (`POST /v1/appsumo/token` and `/v1/appsumo/action`, cloud edition). When unset, both endpoints reject every request. | `None` |
+
+---
+
+### Legacy & removed
+
+Names the code still recognizes for backwards compatibility, plus knobs that
+were removed entirely. Do **not** use these in new deployments.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AP_QUEUE_MODE` | Legacy alias for `AP_REDIS_TYPE`. The only value still honored is `MEMORY`, translated to `AP_REDIS_TYPE=MEMORY` at startup (all other values are ignored). Set `AP_REDIS_TYPE` directly instead. | *(removed — use `AP_REDIS_TYPE`)* |
+| `AP_CODE_SANDBOX_TYPE` | Removed. The server refuses to start when it is set, directing you to `AP_EXECUTION_MODE` instead. | *(removed — use `AP_EXECUTION_MODE`)* |
