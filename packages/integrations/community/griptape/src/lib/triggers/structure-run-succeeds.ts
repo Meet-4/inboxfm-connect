@@ -25,29 +25,24 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof griptapeAuth>, S
   items: async ({ auth, propsValue, lastFetchEpochMS }) => {
     const { structure_id } = propsValue;
 
-    try {
-      const response = await makeRequest(
-        auth.secret_text,
-        HttpMethod.GET,
-        `/structures/${structure_id}/runs?status=SUCCEEDED&page_size=100`
-      );
+    const response = await makeRequest(
+      auth.secret_text,
+      HttpMethod.GET,
+      `/structures/${structure_id}/runs?status=SUCCEEDED&page_size=100`
+    );
 
-      const items = response.structure_runs || [];
+    const items = response.structure_runs || [];
 
-      const succeededRuns = items.filter(
-        (run: any) =>
-          run.status === 'SUCCEEDED' &&
-          dayjs(run.completed_at || run.updated_at).valueOf() > lastFetchEpochMS
-      );
+    const succeededRuns = items.filter(
+      (run: any) =>
+        run.status === 'SUCCEEDED' &&
+        dayjs(run.completed_at || run.updated_at).valueOf() > lastFetchEpochMS
+    );
 
-      return succeededRuns.map((run: any) => ({
-        epochMilliSeconds: dayjs(run.completed_at || run.updated_at).valueOf(),
-        data: run,
-      }));
-    } catch (error) {
-      console.error('Error fetching assistant runs:', error);
-      return [];
-    }
+    return succeededRuns.map((run: any) => ({
+      epochMilliSeconds: dayjs(run.completed_at || run.updated_at).valueOf(),
+      data: run,
+    }));
   },
 };
 

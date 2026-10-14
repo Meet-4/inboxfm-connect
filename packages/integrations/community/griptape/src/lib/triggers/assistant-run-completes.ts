@@ -24,29 +24,24 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof griptapeAuth>, S
   items: async ({ propsValue, auth, lastFetchEpochMS }) => {
     const { assistant_id } = propsValue;
 
-    try {
-      const response = await makeRequest(
-        auth.secret_text,
-        HttpMethod.GET,
-        `/assistants/${assistant_id}/runs?status=SUCCEEDED,FAILED,ERROR,CANCELLED&page_size=100`
-      );
+    const response = await makeRequest(
+      auth.secret_text,
+      HttpMethod.GET,
+      `/assistants/${assistant_id}/runs?status=SUCCEEDED,FAILED,ERROR,CANCELLED&page_size=100`
+    );
 
-      const items = response.assistant_runs || [];
+    const items = response.assistant_runs || [];
 
-      const completedRuns = items.filter(
-        (run: any) =>
-          ['SUCCEEDED', 'FAILED', 'ERROR', 'CANCELLED'].includes(run.status) &&
-          dayjs(run.completed_at || run.updated_at).valueOf() > lastFetchEpochMS
-      );
+    const completedRuns = items.filter(
+      (run: any) =>
+        ['SUCCEEDED', 'FAILED', 'ERROR', 'CANCELLED'].includes(run.status) &&
+        dayjs(run.completed_at || run.updated_at).valueOf() > lastFetchEpochMS
+    );
 
-      return completedRuns.map((run: any) => ({
-        epochMilliSeconds: dayjs(run.completed_at || run.updated_at).valueOf(),
-        data: run,
-      }));
-    } catch (error) {
-      console.error('Error fetching assistant runs:', error);
-      return [];
-    }
+    return completedRuns.map((run: any) => ({
+      epochMilliSeconds: dayjs(run.completed_at || run.updated_at).valueOf(),
+      data: run,
+    }));
   },
 };
 
