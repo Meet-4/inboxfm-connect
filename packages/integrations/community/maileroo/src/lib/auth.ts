@@ -61,7 +61,10 @@ export const mailerooAuth = PieceAuth.CustomAuth({
           },
         });
       } catch (e) {
-        const status = (e as HttpError).response.status;
+        if (!(e instanceof HttpError)) {
+          throw e;
+        }
+        const status = e.response.status;
 
         // It is safe to assume that that other 4xx status codes means the API key is valid
         if (status === 401) {
