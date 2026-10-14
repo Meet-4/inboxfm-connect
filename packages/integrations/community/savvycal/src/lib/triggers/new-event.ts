@@ -138,7 +138,7 @@ export const newEventTrigger = createTrigger({
     const secret = await context.store.get<string>('webhookSecret');
     const signature = context.payload.headers['x-savvycal-signature'] as string | undefined;
     if (secret && (!signature || !verifyWebhookSignature(secret, signature, context.payload.rawBody))) {
-      return [];
+      throw new Error('Webhook signature verification failed. This request may not be from SavvyCal.');
     }
 
     const body = context.payload.body as { type: string; payload: SavvyCalEvent };
