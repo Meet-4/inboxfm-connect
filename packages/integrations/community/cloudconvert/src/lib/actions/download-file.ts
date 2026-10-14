@@ -154,6 +154,7 @@ export const downloadFile = createAction({
                 const fileResponse = await httpClient.sendRequest({
                   method: HttpMethod.GET,
                   url: file.url,
+                  responseType: 'arraybuffer',
                 });
 
                 if (fileResponse.status === 200 && fileResponse.body) {

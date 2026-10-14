@@ -307,6 +307,7 @@ export const captureWebsite = createAction({
                 const fileResponse = await httpClient.sendRequest({
                   method: HttpMethod.GET,
                   url: downloadUrl,
+                  responseType: 'arraybuffer',
                 });
 
                 if (fileResponse.status === 200 && fileResponse.body) {
