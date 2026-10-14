@@ -7,6 +7,17 @@ export interface PromptHubClientOptions {
   initialBackoffMs?: number;
 }
 
+// Only idempotent methods are safe to retry on a 5xx: the request may have
+// been applied before the server errored, so re-sending a prompt-run POST
+// could double-run (and double-bill) the execution. 429 is always safe to
+// retry — the request was rejected before processing.
+const IDEMPOTENT_METHODS: readonly HttpMethod[] = [
+  HttpMethod.GET,
+  HttpMethod.HEAD,
+  HttpMethod.PUT,
+  HttpMethod.DELETE,
+];
+
 export class PromptHubClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
@@ -98,7 +109,13 @@ export class PromptHubClient {
         const status = err?.statusCode ?? err?.status;
         const isRateLimit = status === 429;
         const isAuth = status === 401 || status === 403;
-        const isServer = status >= 500 && status < 600;
+        // A 5xx does not guarantee the request wasn't applied — only
+        // idempotent methods retry on 5xx; 429 was rejected before
+        // processing, so it always retries.
+        const isServer =
+          status >= 500 &&
+          status < 600 &&
+          IDEMPOTENT_METHODS.includes(request.method);
         if (isAuth) {
           err.message = 'Unauthorized or forbidden. Check PromptHub token and permissions (team/project access).';
           throw err;
