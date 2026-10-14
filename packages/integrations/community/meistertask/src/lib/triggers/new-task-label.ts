@@ -27,23 +27,18 @@ const newTaskLabelPolling: Polling<
   items: async ({ auth, propsValue }) => {
     const token = getToken(auth);
 
-    try {
-      const tasksResponse = await makeRequest(
-        HttpMethod.GET,
-        `/task/${propsValue.section}/task_labels`,
-        token
-      );
+    const tasksResponse = await makeRequest(
+      HttpMethod.GET,
+      `/task/${propsValue.section}/task_labels`,
+      token
+    );
 
-      const taskLabels = tasksResponse.body || [];
+    const taskLabels = tasksResponse.body || [];
 
-      return taskLabels.map((label: any) => ({
-        epochMilliSeconds: dayjs(label.created_at || label.updated_at || new Date()).valueOf(),
-        data: label,
-      }));
-    } catch (error) {
-      console.error('Error fetching task labels:', error);
-      return [];
-    }
+    return taskLabels.map((label: any) => ({
+      epochMilliSeconds: dayjs(label.created_at || label.updated_at || new Date()).valueOf(),
+      data: label,
+    }));
   },
 };
 
