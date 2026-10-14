@@ -33,7 +33,9 @@ export const confirmMandateFunds = createAction({
       headers: {
         Authorization: `Bearer ${(ctx.auth as OAuth2PropertyValue).access_token}`,
       },
-      body: {
+      // Confirm funds is a GET: amount_in_minor and currency are required
+      // query parameters (TrueLayer Payments API v3 reference), not a body.
+      queryParams: {
         amount_in_minor: ctx.propsValue.amount_in_minor,
         currency: ctx.propsValue.currency,
       },
