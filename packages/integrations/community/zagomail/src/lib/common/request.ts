@@ -1,14 +1,16 @@
-import { HttpMethod, httpClient } from '@inboxfm-connect/pieces-common';
+import { HttpMethod, httpClient, QueryParams } from '@inboxfm-connect/pieces-common';
 import { API_ENDPOINTS, BASE_URL } from './constants';
 
 async function fireHttpRequest({
   method,
   path,
   body,
+  queryParams,
 }: {
   method: HttpMethod;
   path: string;
   body?: unknown;
+  queryParams?: QueryParams;
 }) {
   return await httpClient.sendRequest({
     method,
@@ -18,6 +20,7 @@ async function fireHttpRequest({
       'Content-Type': 'application/json',
     },
     body,
+    queryParams,
   }).then(res => res.body)
 }
 
@@ -96,7 +99,7 @@ export const zagoMailApiService = {
     const response = await fireHttpRequest({
       method: HttpMethod.GET,
       path: `${API_ENDPOINTS.GET_SUBSCRIBER}?list_uid=${listUid}&subscriber_uid=${subscriberUid}`,
-      body: {
+      queryParams: {
         publicKey,
       },
     });
@@ -110,7 +113,7 @@ export const zagoMailApiService = {
     const response = await fireHttpRequest({
       method: HttpMethod.GET,
       path: `${API_ENDPOINTS.GET_CAMPAIGNS}?campaign_uid=${campaignUid}`,
-      body: {
+      queryParams: {
         publicKey,
       },
     });
@@ -150,7 +153,7 @@ export const zagoMailApiService = {
     const response = await fireHttpRequest({
       method: HttpMethod.GET,
       path: API_ENDPOINTS.GET_TAGS,
-      body: {
+      queryParams: {
         publicKey,
       },
     })
@@ -193,7 +196,7 @@ export const zagoMailApiService = {
     const response =  await fireHttpRequest({
       method:HttpMethod.GET,
       path:`${API_ENDPOINTS.LIST_ALL_LISTS}`,
-      body:{
+      queryParams:{
         publicKey
       }
     })
@@ -204,7 +207,7 @@ export const zagoMailApiService = {
     const response =  await fireHttpRequest({
       method:HttpMethod.GET,
       path:`${API_ENDPOINTS.GET_LIST_FIELDS}?list_uid=${listUid}`,
-      body:{
+      queryParams:{
         publicKey
       }
     })
@@ -215,7 +218,7 @@ export const zagoMailApiService = {
     const response = await fireHttpRequest({
       method:HttpMethod.GET,
       path:`${API_ENDPOINTS.GET_CAMPAIGNS}`,
-    body:{
+    queryParams:{
         publicKey
       }
     })
