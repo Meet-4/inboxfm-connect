@@ -37,9 +37,11 @@ async function generateWithRetry(
 
       const errorAny = error as { response?: { status: number; body: unknown } };
       const statusCode = errorAny.response?.status;
-      const isRetryable =
-        statusCode === 429 ||
-        (statusCode !== undefined && statusCode >= 500);
+      // Retrying only on 429: the request is rejected before processing, so
+      // re-sending is safe. A 5xx does not guarantee the completion wasn't
+      // generated and billed — each call generates a new completion, so a
+      // 5xx retry can double-bill.
+      const isRetryable = statusCode === 429;
 
       if (!isRetryable || attempt === MAX_RETRIES - 1) {
         if (errorAny.response?.body) {
