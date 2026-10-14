@@ -23,7 +23,7 @@ export const bubbleGetThingAction = createAction({
     const { appname, token } = context.auth.props;
     const { typename, thing_id } = context.propsValue;
 
-    const server_url = `https://${appname}.bubbleapps.io/api/1.1/obj/${typename}`;
+    const server_url = `https://${appname}.bubbleapps.io/api/1.1/obj/${typename}/${thing_id}`;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
@@ -35,9 +35,6 @@ export const bubbleGetThingAction = createAction({
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
         token,
-      },
-      body: {
-        constraint: `id = ${thing_id}`,
       },
     });
 
