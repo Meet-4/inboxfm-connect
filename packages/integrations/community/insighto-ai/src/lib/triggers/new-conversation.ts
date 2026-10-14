@@ -99,13 +99,9 @@ export const newConversation = createTrigger({
   async run(context) {
     const payload = context.payload.body;
 
-    try {
-      // Validate webhook payload
-      const validatedPayload = ConversationWebhookSchema.parse(payload);
-      return [validatedPayload];
-    } catch {
-      return [];
-    }
+    // Validate webhook payload
+    const validatedPayload = ConversationWebhookSchema.parse(payload);
+    return [validatedPayload];
   },
 });
 

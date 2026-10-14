@@ -77,13 +77,9 @@ export const newCapturedForm = createTrigger({
   async run(context) {
     const payload = context.payload.body;
 
-    try {
-      // Validate webhook payload
-      const validatedPayload = CapturedFormWebhookSchema.parse(payload);
-      return [validatedPayload];
-    } catch {
-      return [];
-    }
+    // Validate webhook payload
+    const validatedPayload = CapturedFormWebhookSchema.parse(payload);
+    return [validatedPayload];
   },
 });
 
