@@ -125,18 +125,21 @@ export const gmailReplyToEmailAction = createAction({
 
       const currentUserEmail = await getUserEmail(context.auth, authClient);
 
+      // Only drop the sender's own address from the recipients; when the
+      // connected account's email is unknown, keep everyone instead of
+      // filtering every address out (`includes('')` matches all strings).
+      const selfAddress = currentUserEmail?.trim().toLowerCase() ?? '';
+      const isSelf = (email: string) =>
+        selfAddress !== '' && email.toLowerCase().includes(selfAddress);
+
       if (originalTo) {
         const toEmails = originalTo.split(',').map((email) => email.trim());
-        toRecipients.push(
-          ...toEmails.filter((email) => !email.includes(currentUserEmail || ''))
-        );
+        toRecipients.push(...toEmails.filter((email) => !isSelf(email)));
       }
 
       if (originalCc) {
         const ccEmails = originalCc.split(',').map((email) => email.trim());
-        ccRecipients.push(
-          ...ccEmails.filter((email) => !email.includes(currentUserEmail || ''))
-        );
+        ccRecipients.push(...ccEmails.filter((email) => !isSelf(email)));
       }
     } else {
       const senderEmail = originalReplyTo || originalFrom;
