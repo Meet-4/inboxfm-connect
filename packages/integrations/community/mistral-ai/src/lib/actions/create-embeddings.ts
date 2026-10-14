@@ -21,18 +21,17 @@ export const createEmbeddings = createAction({
 	async run(context) {
 		const { input, timeout } = context.propsValue;
 		const { baseUrl, headers } = mistralRequest.getConfig(context.auth);
-		let inputArr: string[] = [];
-		try {
-			if (typeof input === 'string') {
-				try {
-					inputArr = JSON.parse(input);
-				} catch {
-					inputArr = input;
-				}
+		// Property.Array can arrive as a JSON-encoded string from an upstream
+		// step; honor the parse instead of overwriting it with the raw input.
+		let inputArr: string[];
+		if (typeof input === 'string') {
+			try {
+				inputArr = JSON.parse(input);
+			} catch {
+				inputArr = input;
 			}
+		} else {
 			inputArr = input as string[];
-		} catch {
-			throw new Error('Input must be a non-empty string or a JSON array of non-empty strings');
 		}
 		const body = {
 			model: 'mistral-embed',
