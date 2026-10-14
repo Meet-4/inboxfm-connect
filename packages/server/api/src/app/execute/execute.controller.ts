@@ -63,7 +63,7 @@ export const executeRuntime = new HeadlessRuntime<AppConnectionSchema>({
 })
 
 export const executeController: FastifyPluginAsyncZod = async (fastify) => {
-    fastify.post('/', ExecuteRequestOptions, async (request) => {
+    fastify.post('/', ExecuteRequestOptions, async (request, reply) => {
         // The runtime builds sandbox-internal URLs (store entries, piece bundles) by appending
         // `v1/...` to this value, so it must carry the `/api` prefix. Raw AP_FRONTEND_URL was the
         // one call site skipping domainHelper — the mismatch produced `/api/api/...` paths (#440).
@@ -93,6 +93,16 @@ export const executeController: FastifyPluginAsyncZod = async (fastify) => {
                     message: error instanceof Error ? error.message : 'Failed to execute piece action',
                 },
             })
+        }
+        // Fastify sends a handler-returned string as-is with `text/plain`, bypassing
+        // the app-wide serializer, so a bare string action output would leave this
+        // route as raw bytes instead of a JSON body and break every JSON client of
+        // the documented "returns the raw action output" contract (the Connect SDK's
+        // `response.json()`, the smoke tests, the benchmark gate). JSON-encode string
+        // outputs here; every other payload type already goes through the serializer.
+        if (typeof data === 'string') {
+            reply.header('content-type', 'application/json')
+            return JSON.stringify(data)
         }
         return data
     })
