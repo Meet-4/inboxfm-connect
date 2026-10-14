@@ -58,7 +58,10 @@ test('sign in, create an automation, and execute a real integration action', asy
         await page.getByRole('button', { name: 'Execute Tool', exact: true }).click()
         const execution = await executionResponse
         expect(execution.ok()).toBe(true)
-        expect(await execution.text()).toBe('inboxfm-connect-browser-journey')
+        // /v1/execute returns the action output as a JSON body — the string comes
+        // back JSON-encoded (the contract the Connect SDK's response.json(), the
+        // smoke tests, and the benchmark gate all assert).
+        expect(await execution.json()).toBe('inboxfm-connect-browser-journey')
         await expect(page.getByTestId('execution-success')).toBeVisible()
         await expect(page.getByTestId('execution-panel')).toContainText('inboxfm-connect-browser-journey')
     }
