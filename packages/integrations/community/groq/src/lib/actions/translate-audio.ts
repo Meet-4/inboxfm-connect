@@ -111,9 +111,9 @@ export const translateAudio = createAction({
 				type: AuthenticationType.BEARER_TOKEN,
 				token: auth.secret_text
 			},
-			headers: {
-				'Content-Type': 'multipart/form-data',
-			},
+			// No manual Content-Type: fetch derives it from the FormData body and
+			// appends the multipart boundary — a manual boundary-less header makes
+			// the request unparseable.
 			body: formData,
 		});
 
