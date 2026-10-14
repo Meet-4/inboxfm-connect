@@ -40,24 +40,19 @@ const polling: Polling<
         queryString ? `?${queryString}` : ''
       }`;
 
-      try {
-        const response = await makeRequest(
-          getAccessTokenOrThrow(auth as OAuth2PropertyValue),
-          HttpMethod.GET,
-          path
-        );
+      const response = await makeRequest(
+        getAccessTokenOrThrow(auth as OAuth2PropertyValue),
+        HttpMethod.GET,
+        path
+      );
 
-        const items = response.items || [];
-        followers = followers.concat(items);
-        bookmark = response.bookmark;
+      const items = response.items || [];
+      followers = followers.concat(items);
+      bookmark = response.bookmark;
 
-        // Rate limiting awareness - add delay between requests
-        if (bookmark && pageCount < maxPages) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error('Error fetching followers:', error);
-        break;
+      // Rate limiting awareness - add delay between requests
+      if (bookmark && pageCount < maxPages) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } while (bookmark && pageCount < maxPages);
 

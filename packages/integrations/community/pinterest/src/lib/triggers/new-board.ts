@@ -52,32 +52,27 @@ const polling: Polling<
       const queryString = searchParams.toString();
       const path = `/boards${queryString ? `?${queryString}` : ''}`;
 
-      try {
-        const response = await makeRequest(
-          getAccessTokenOrThrow(auth as OAuth2PropertyValue),
-          HttpMethod.GET,
-          path
+      const response = await makeRequest(
+        getAccessTokenOrThrow(auth as OAuth2PropertyValue),
+        HttpMethod.GET,
+        path
+      );
+
+      const items = response.items || [];
+      boards = boards.concat(items);
+      bookmark = response.bookmark;
+
+      // Break early if we've found items older than last fetch
+      if (lastFetchEpochMS && items.length > 0) {
+        const hasNew = items.some(
+          (item: any) => dayjs(item.created_at).valueOf() > lastFetchEpochMS
         );
+        if (!hasNew) break;
+      }
 
-        const items = response.items || [];
-        boards = boards.concat(items);
-        bookmark = response.bookmark;
-
-        // Break early if we've found items older than last fetch
-        if (lastFetchEpochMS && items.length > 0) {
-          const hasNew = items.some(
-            (item: any) => dayjs(item.created_at).valueOf() > lastFetchEpochMS
-          );
-          if (!hasNew) break;
-        }
-
-        // Rate limiting awareness
-        if (bookmark && pageCount < maxPages) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error('Error fetching boards:', error);
-        break;
+      // Rate limiting awareness
+      if (bookmark && pageCount < maxPages) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } while (bookmark && pageCount < maxPages);
 
