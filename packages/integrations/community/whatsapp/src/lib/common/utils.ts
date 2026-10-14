@@ -66,7 +66,7 @@ export const commonProps = {
 					});
 				}
 
-				if (response.body.paging.next) {
+				if (response.body.paging?.next) {
 					(hasMore = true), (cursor = response.body.paging.cursors.after);
 				} else {
 					hasMore = false;
@@ -124,7 +124,7 @@ export const commonProps = {
 					});
 				}
 
-				if (response.body.paging.next) {
+				if (response.body.paging?.next) {
 					(hasMore = true), (cursor = response.body.paging.cursors.after);
 				} else {
 					hasMore = false;
