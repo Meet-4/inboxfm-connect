@@ -52,9 +52,7 @@ export const appCredentialService = {
         // id would silently re-own that row (and clobber its OAuth settings,
         // which connection-key creation consumes). Resolve the id inside the
         // caller's project first — an id that is not ours is a 404, never an
-        // update — then update in place. Reads back by primary key: the old
-        // readback keyed on (projectId, appName) has no unique index behind it
-        // and could return an older duplicate row instead of the saved one.
+        // update — then update in place and read back by primary key.
         if (!isNil(request.id)) {
             const owned = await appCredentialRepo().findOneBy({
                 id: request.id,
@@ -83,13 +81,30 @@ export const appCredentialService = {
             })
         }
 
-        const saved = await appCredentialRepo().save({
-            id: apId(),
-            appName: request.appName,
-            settings: request.settings,
+        // No caller-supplied id: create against the natural key (projectId,
+        // appName), backed by the unique index from migration
+        // AddAppCredentialProjectIdAppNameUniqueIndex. Two POSTs for the same
+        // app (double-click, retry, two operators) converge on one row — the
+        // explicit overwrite list only touches `settings`, so the row id is
+        // never rewritten. The row is read back by the natural key afterwards
+        // because the insert's identifiers echo the id generated for this
+        // call, not the one already stored for an existing key.
+        await appCredentialRepo()
+            .createQueryBuilder()
+            .insert()
+            .into(AppCredentialEntity)
+            .values({
+                id: apId(),
+                appName: request.appName,
+                settings: request.settings,
+                projectId,
+            })
+            .orUpdate(['settings'], ['projectId', 'appName'])
+            .execute()
+        return appCredentialRepo().findOneByOrFail({
             projectId,
+            appName: request.appName,
         })
-        return saved
     },
     async delete({ id, projectId }: DeleteParams): Promise<void> {
         await appCredentialRepo().delete({
