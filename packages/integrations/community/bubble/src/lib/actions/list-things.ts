@@ -23,28 +23,52 @@ export const bubbleListThingsAction = createAction({
       options: {
         options: [
           {
-            label: 'equals or not equal',
-            value: 'equals or not equal',
+            label: 'equals',
+            value: 'equals',
           },
           {
-            label: 'text contains or not text contains',
-            value: 'text contains or not text contains',
+            label: 'not equal',
+            value: 'not equal',
           },
           {
-            label: 'greater than or less than',
-            value: 'greater than or less than',
+            label: 'text contains',
+            value: 'text contains',
           },
           {
-            label: 'in or not in',
-            value: 'in or not in',
+            label: 'not text contains',
+            value: 'not text contains',
           },
           {
-            label: 'contains or not contains',
-            value: 'contains or not contains',
+            label: 'greater than',
+            value: 'greater than',
           },
           {
-            label: 'empty or not empty',
-            value: 'empty or not empty',
+            label: 'less than',
+            value: 'less than',
+          },
+          {
+            label: 'in',
+            value: 'in',
+          },
+          {
+            label: 'not in',
+            value: 'not in',
+          },
+          {
+            label: 'contains',
+            value: 'contains',
+          },
+          {
+            label: 'not contains',
+            value: 'not contains',
+          },
+          {
+            label: 'empty',
+            value: 'empty',
+          },
+          {
+            label: 'not empty',
+            value: 'not empty',
           },
           {
             label: 'geographic_search',
@@ -78,8 +102,19 @@ export const bubbleListThingsAction = createAction({
 
     const server_url = `https://${appname}.bubbleapps.io/api/1.1/obj/${typename}`;
 
+    // Bubble's Data API takes search constraints as a URL-encoded JSON array
+    // in the `constraints` query parameter on a GET request:
+    // [{"key": "<field>", "constraint_type": "<type>", "value": "<value>"}]
+    const constraints = JSON.stringify([
+      {
+        key: field,
+        constraint_type: constraint,
+        value: value,
+      },
+    ]);
+
     const response = await httpClient.sendRequest({
-      method: HttpMethod.POST,
+      method: HttpMethod.GET,
       url: server_url,
       headers: {
         'user-agent': 'activepieces',
@@ -89,12 +124,10 @@ export const bubbleListThingsAction = createAction({
         type: AuthenticationType.BEARER_TOKEN,
         token,
       },
-      body: {
-        constraint: constraint,
-        field: field,
-        value: value,
-        cursor: cursor,
-        limit: limit,
+      queryParams: {
+        constraints: constraints,
+        cursor: String(cursor),
+        limit: String(limit),
       },
     });
 
