@@ -6,6 +6,17 @@ const FIREBERRY_API_BASE_URL = 'https://api.fireberry.com';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
+// Only idempotent methods are safe to retry on a 5xx: the request may have
+// been applied before the server errored, so re-sending a POST could create
+// the records twice. 429 is always safe to retry — the request was rejected
+// before processing.
+const IDEMPOTENT_METHODS: readonly HttpMethod[] = [
+  HttpMethod.GET,
+  HttpMethod.HEAD,
+  HttpMethod.PUT,
+  HttpMethod.DELETE,
+];
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -45,8 +56,9 @@ export class FireberryClient {
     return 'Unknown error';
   }
 
-  private shouldRetry(status: number): boolean {
-    return status === 429 || (status >= 500 && status < 600);
+  private shouldRetry(status: number, method: HttpMethod): boolean {
+    if (status === 429) return true;
+    return status >= 500 && status < 600 && IDEMPOTENT_METHODS.includes(method);
   }
 
   async request<T = unknown>({
@@ -79,7 +91,7 @@ export class FireberryClient {
           return response.body;
         } else {
           const errorMsg = this.parseError({ response });
-          if (this.shouldRetry(response.status) && attempt < MAX_RETRIES - 1) {
+          if (this.shouldRetry(response.status, method) && attempt < MAX_RETRIES - 1) {
             await delay(RETRY_DELAY_MS * (attempt + 1));
             continue;
           }
@@ -87,7 +99,7 @@ export class FireberryClient {
         }
       } catch (error: any) {
         const status = error?.response?.status;
-        if (status && this.shouldRetry(status) && attempt < MAX_RETRIES - 1) {
+        if (status && this.shouldRetry(status, method) && attempt < MAX_RETRIES - 1) {
           await delay(RETRY_DELAY_MS * (attempt + 1));
           lastError = error;
           continue;
