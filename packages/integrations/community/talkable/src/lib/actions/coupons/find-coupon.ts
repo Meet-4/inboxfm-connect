@@ -27,7 +27,7 @@ export const findCoupon = createAction({
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',
         },
-        body: {
+        queryParams: {
           site_slug: site,
         },
       });
