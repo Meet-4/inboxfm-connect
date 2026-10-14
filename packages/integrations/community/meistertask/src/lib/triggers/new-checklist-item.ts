@@ -25,28 +25,23 @@ const newChecklistItemPolling: Polling<
   items: async ({ auth, propsValue }) => {
     const token = getToken(auth);
 
-    try {
-      const tasksResponse = await makeRequest(
-        HttpMethod.GET,
-        `/task/${propsValue.task_id}/checklist_items`,
-        token
-      );
+    const tasksResponse = await makeRequest(
+      HttpMethod.GET,
+      `/task/${propsValue.task_id}/checklist_items`,
+      token
+    );
 
-      const tasks = tasksResponse.body || [];
-      const checklistItems: any[] = [];
+    const tasks = tasksResponse.body || [];
+    const checklistItems: any[] = [];
 
-      if (tasks.length === 0) {
-        return [];
-      }
-
-      return tasks.map((item: any) => ({
-        id: item.id,
-        data: item,
-      }));
-    } catch (error) {
-      console.error('Error fetching checklist items:', error);
+    if (tasks.length === 0) {
       return [];
     }
+
+    return tasks.map((item: any) => ({
+      id: item.id,
+      data: item,
+    }));
   },
 };
 
