@@ -60,6 +60,19 @@ export const ExecutionEntity = new EntitySchema<ExecutionSchema>({
             name: 'idx_execution_created',
             columns: ['created'],
         },
+        {
+            // Hot path: `GET /v1/executions` builds
+            // `WHERE projectId = :projectId ORDER BY created DESC LIMIT limit+1`
+            // (execution.service#list via buildPaginator). The single-column
+            // idx_execution_project_id forces a sort of every execution in the
+            // project on each page fetch, and idx_execution_created cannot
+            // filter by tenant — the planner either scans the whole timeline
+            // or sorts the project's full history. The composite keeps the
+            // tenant filter and the cursor ordering in one index walk, so a
+            // page fetch touches only the rows it returns.
+            name: 'idx_execution_project_id_created',
+            columns: ['projectId', 'created'],
+        },
     ],
     relations: {
         project: {
