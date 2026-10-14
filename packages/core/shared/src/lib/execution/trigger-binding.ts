@@ -47,3 +47,19 @@ export const UpdateTriggerBindingRequest = z.object({
 export type TriggerBinding = z.infer<typeof TriggerBinding>
 export type CreateTriggerBindingRequest = z.infer<typeof CreateTriggerBindingRequest>
 export type UpdateTriggerBindingRequest = z.infer<typeof UpdateTriggerBindingRequest>
+
+/**
+ * Cursor pagination for `GET /v1/trigger-bindings`. The console already speaks
+ * this contract (automationsApi.listTriggerBindings sends cursor/limit and the
+ * infinite query follows `next`), but the route previously ignored the params
+ * and returned every binding of the project in one unbounded query. Defaults
+ * to the repo's established MAX_PAGE_SIZE so list views that render the whole
+ * page unchanged stay identical for every realistic project, while a project
+ * with more bindings gets a `next` cursor instead of an ever-growing payload.
+ */
+export const ListTriggerBindingsRequestQuery = z.object({
+    projectId: z.string().optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(500).optional().default(500),
+})
+export type ListTriggerBindingsRequestQuery = z.infer<typeof ListTriggerBindingsRequestQuery>
