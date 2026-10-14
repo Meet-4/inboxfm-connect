@@ -250,40 +250,35 @@ export const mailChimpNewOrderTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as any;
+    const request = context.payload.body as any;
 
-      if (request === undefined || request.type !== 'order') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'new_order',
-        event_category: 'Order Creation',
-        processed_at: new Date().toISOString(),
-        order_summary: getNewOrderEventSummary(request),
-        business_context: {
-          order_management: true,
-          ecommerce_tracking: true,
-          revenue_tracking: true,
-          customer_engagement: true,
-        },
-        order_insights: {
-          order_value: assessOrderValue(request.data),
-          order_items: extractOrderItems(request.data?.items),
-          shipping_address: extractOrderAddress(request.data?.shipping_address),
-          billing_address: extractOrderAddress(request.data?.billing_address),
-          automation_opportunities: identifyOrderOpportunities(request.data),
-          financial_metrics: calculateOrderMetrics(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing new order webhook: ${error.message || JSON.stringify(error)}`);
+    if (request === undefined || request.type !== 'order') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'new_order',
+      event_category: 'Order Creation',
+      processed_at: new Date().toISOString(),
+      order_summary: getNewOrderEventSummary(request),
+      business_context: {
+        order_management: true,
+        ecommerce_tracking: true,
+        revenue_tracking: true,
+        customer_engagement: true,
+      },
+      order_insights: {
+        order_value: assessOrderValue(request.data),
+        order_items: extractOrderItems(request.data?.items),
+        shipping_address: extractOrderAddress(request.data?.shipping_address),
+        billing_address: extractOrderAddress(request.data?.billing_address),
+        automation_opportunities: identifyOrderOpportunities(request.data),
+        financial_metrics: calculateOrderMetrics(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

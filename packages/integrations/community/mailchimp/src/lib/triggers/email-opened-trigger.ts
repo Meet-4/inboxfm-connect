@@ -180,38 +180,33 @@ export const mailChimpEmailOpenedTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as MailChimpOpenWebhookRequest;
+    const request = context.payload.body as MailChimpOpenWebhookRequest;
 
-      if (!request || request.type !== 'open') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'email_opened',
-        event_category: 'Email Engagement',
-        processed_at: new Date().toISOString(),
-        open_summary: getEmailOpenEventSummary(request),
-        business_context: {
-          email_engagement: true,
-          performance_tracking: true,
-          subscriber_behavior: true,
-          automation_trigger: true,
-        },
-        engagement_insights: {
-          device_type: extractDeviceInfo(request.data?.user_agent).device_type,
-          location: extractLocationData(request.data),
-          engagement_level: assessEngagementLevel(request.data),
-          automation_potential: identifyAutomationOpportunities(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing email opened webhook: ${error.message || JSON.stringify(error)}`);
+    if (!request || request.type !== 'open') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'email_opened',
+      event_category: 'Email Engagement',
+      processed_at: new Date().toISOString(),
+      open_summary: getEmailOpenEventSummary(request),
+      business_context: {
+        email_engagement: true,
+        performance_tracking: true,
+        subscriber_behavior: true,
+        automation_trigger: true,
+      },
+      engagement_insights: {
+        device_type: extractDeviceInfo(request.data?.user_agent).device_type,
+        location: extractLocationData(request.data),
+        engagement_level: assessEngagementLevel(request.data),
+        automation_potential: identifyAutomationOpportunities(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

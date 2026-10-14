@@ -141,26 +141,21 @@ export const mailChimpSubscriberUpdatedTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as any;
+    const request = context.payload.body as any;
 
-      if (request === undefined || !['profile', 'subscribe', 'upemail', 'cleaned'].includes(request.type)) {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'subscriber_updated',
-        event_category: getEventCategory(request.type),
-        processed_at: new Date().toISOString(),
-        subscriber_summary: getSubscriberSummary(request),
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing subscriber updated webhook: ${error.message || JSON.stringify(error)}`);
+    if (request === undefined || !['profile', 'subscribe', 'upemail', 'cleaned'].includes(request.type)) {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'subscriber_updated',
+      event_category: getEventCategory(request.type),
+      processed_at: new Date().toISOString(),
+      subscriber_summary: getSubscriberSummary(request),
+    };
+
+    return [enhancedRequest];
   },
 });
 

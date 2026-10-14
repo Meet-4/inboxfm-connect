@@ -177,37 +177,32 @@ export const mailChimpUnsubscriberTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as any;
+    const request = context.payload.body as any;
 
-      if (request === undefined || request.type !== 'unsubscribe') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'member_unsubscribed',
-        event_category: 'Unsubscribe Event',
-        processed_at: new Date().toISOString(),
-        unsubscribe_summary: getUnsubscribeEventSummary(request),
-        business_context: {
-          audience_churn: true,
-          retention_concern: true,
-          feedback_opportunity: true,
-          re_engagement_potential: 'medium',
-        },
-        retention_insights: {
-          subscriber_lifetime: calculateSubscriberLifetime(request),
-          engagement_level: assessEngagementLevel(request),
-          churn_risk_factors: identifyChurnFactors(request),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing unsubscribe webhook: ${error.message || JSON.stringify(error)}`);
+    if (request === undefined || request.type !== 'unsubscribe') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'member_unsubscribed',
+      event_category: 'Unsubscribe Event',
+      processed_at: new Date().toISOString(),
+      unsubscribe_summary: getUnsubscribeEventSummary(request),
+      business_context: {
+        audience_churn: true,
+        retention_concern: true,
+        feedback_opportunity: true,
+        re_engagement_potential: 'medium',
+      },
+      retention_insights: {
+        subscriber_lifetime: calculateSubscriberLifetime(request),
+        engagement_level: assessEngagementLevel(request),
+        churn_risk_factors: identifyChurnFactors(request),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

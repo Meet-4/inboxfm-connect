@@ -207,39 +207,34 @@ export const mailChimpLinkClickedTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as MailChimpClickWebhookRequest;
+    const request = context.payload.body as MailChimpClickWebhookRequest;
 
-      if (!request || request.type !== 'click') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'link_clicked',
-        event_category: 'Link Engagement',
-        processed_at: new Date().toISOString(),
-        click_summary: getLinkClickEventSummary(request),
-        business_context: {
-          link_engagement: true,
-          conversion_tracking: true,
-          subscriber_behavior: true,
-          automation_trigger: true,
-        },
-        click_insights: {
-          device_type: extractDeviceInfo(request.data?.user_agent).device_type,
-          location: extractLocationData(request.data),
-          engagement_level: assessClickEngagementLevel(request.data),
-          automation_potential: identifyClickAutomationOpportunities(request.data),
-          conversion_opportunity: assessConversionPotential(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing link clicked webhook: ${error.message || JSON.stringify(error)}`);
+    if (!request || request.type !== 'click') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'link_clicked',
+      event_category: 'Link Engagement',
+      processed_at: new Date().toISOString(),
+      click_summary: getLinkClickEventSummary(request),
+      business_context: {
+        link_engagement: true,
+        conversion_tracking: true,
+        subscriber_behavior: true,
+        automation_trigger: true,
+      },
+      click_insights: {
+        device_type: extractDeviceInfo(request.data?.user_agent).device_type,
+        location: extractLocationData(request.data),
+        engagement_level: assessClickEngagementLevel(request.data),
+        automation_potential: identifyClickAutomationOpportunities(request.data),
+        conversion_opportunity: assessConversionPotential(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 
