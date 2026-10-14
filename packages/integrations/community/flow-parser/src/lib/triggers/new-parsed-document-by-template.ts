@@ -32,50 +32,45 @@ const polling: Polling<
       return [];
     }
 
-    try {
-      const queryParams: Record<string, string> = {
-        status: 'parsed',
-        template_id: templateId,
-      };
+    const queryParams: Record<string, string> = {
+      status: 'parsed',
+      template_id: templateId,
+    };
 
-      if (lastFetchEpochMS) {
-        queryParams['since'] = new Date(lastFetchEpochMS).toISOString();
-      }
-
-      const response = await httpClient.sendRequest<
-        Array<{
-          id: string;
-          status: string;
-          [key: string]: any;
-        }>
-      >({
-        method: HttpMethod.GET,
-        url: `${BASE_URL}/documents/status-changes`,
-        headers: {
-          flow_api_key: auth.secret_text,
-        },
-        queryParams,
-      });
-
-      const statusChanges = Array.isArray(response.body) ? response.body : [];
-
-      // Filter to only include parsed status changes for this template
-      const parsedDocuments = statusChanges.filter(
-        (doc) => doc.status === 'parsed'
-      );
-
-      return parsedDocuments.map((doc) => {
-        // Use the status change timestamp or current time as fallback
-        const timestamp = doc['updatedAt'] || doc['createdAt'] || new Date().toISOString();
-        return {
-          epochMilliSeconds: dayjs(timestamp).valueOf(),
-          data: doc,
-        };
-      });
-    } catch (error: any) {
-      console.error('Error fetching parsed documents:', error);
-      return [];
+    if (lastFetchEpochMS) {
+      queryParams['since'] = new Date(lastFetchEpochMS).toISOString();
     }
+
+    const response = await httpClient.sendRequest<
+      Array<{
+        id: string;
+        status: string;
+        [key: string]: any;
+      }>
+    >({
+      method: HttpMethod.GET,
+      url: `${BASE_URL}/documents/status-changes`,
+      headers: {
+        flow_api_key: auth.secret_text,
+      },
+      queryParams,
+    });
+
+    const statusChanges = Array.isArray(response.body) ? response.body : [];
+
+    // Filter to only include parsed status changes for this template
+    const parsedDocuments = statusChanges.filter(
+      (doc) => doc.status === 'parsed'
+    );
+
+    return parsedDocuments.map((doc) => {
+      // Use the status change timestamp or current time as fallback
+      const timestamp = doc['updatedAt'] || doc['createdAt'] || new Date().toISOString();
+      return {
+        epochMilliSeconds: dayjs(timestamp).valueOf(),
+        data: doc,
+      };
+    });
   },
 };
 
