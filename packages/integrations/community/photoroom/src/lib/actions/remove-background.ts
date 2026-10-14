@@ -28,7 +28,9 @@ export const removeBackground = createAction({
       method: HttpMethod.POST,
       headers: {
         'x-api-key': auth.props.apiKey,
-        'Content-Type': 'multipart/form-data',
+        // No manual Content-Type: fetch derives it from the FormData body
+        // and appends the multipart boundary — a manual boundary-less
+        // header makes the request unparseable.
       },
       body: form,
     });
