@@ -133,7 +133,7 @@ export const postEvent = createTrigger({
       typeof signature !== 'string' ||
       !isValidSignature(secret, rawBody, signature)
     ) {
-      return [];
+      throw new Error('Webhook signature verification failed. This request may not be from Letmepost.');
     }
     const events = context.propsValue.events;
     if (events && events.length > 0) {
