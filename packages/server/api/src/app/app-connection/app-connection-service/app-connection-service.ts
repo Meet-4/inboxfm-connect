@@ -298,7 +298,17 @@ export const appConnectionService = (log: FastifyBaseLogger) => ({
     },
 
     async getManyConnectionStates(params: GetManyParams): Promise<{ externalId: string, pieceName: string, displayName: string }[]> {
+        // Select only the three scalar columns the response is mapped from.
+        // The previous full-row find dragged the encrypted `value` and
+        // `metadata` JSONB columns (large OAuth token blobs) plus every other
+        // column over the wire per connection, only to throw them away.
         const connections = await appConnectionsRepo().find({
+            select: {
+                id: true,
+                externalId: true,
+                pieceName: true,
+                displayName: true,
+            },
             where: {
                 projectIds: ArrayContains([params.projectId]),
             },
