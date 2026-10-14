@@ -55,47 +55,42 @@ const polling: Polling<
       const path = `/boards/${board_id}/pins${
         queryString ? `?${queryString}` : ''
       }`;
-      try {
-        const response = await makeRequest(
-          getAccessTokenOrThrow(auth as OAuth2PropertyValue),
-          HttpMethod.GET,
-          path
+      const response = await makeRequest(
+        getAccessTokenOrThrow(auth as OAuth2PropertyValue),
+        HttpMethod.GET,
+        path
+      );
+      const items = response.items || [];
+      bookmark = response.bookmark;
+
+      // If this is not the first run, filter items by timestamp immediately
+      if (lastFetchEpochMS) {
+        const newItems = items.filter(
+          (item: any) => dayjs(item.created_at).valueOf() > lastFetchEpochMS
         );
-        const items = response.items || [];
-        bookmark = response.bookmark;
 
-        // If this is not the first run, filter items by timestamp immediately
-        if (lastFetchEpochMS) {
-          const newItems = items.filter(
-            (item: any) => dayjs(item.created_at).valueOf() > lastFetchEpochMS
-          );
+        pins = pins.concat(newItems);
 
-          pins = pins.concat(newItems);
-
-          // Break early if no new items found in this page
-          if (newItems.length === 0) {
-            break;
-          }
-
-          // Break early if we found items older than last fetch
-          const hasOldItems = items.some(
-            (item: any) => dayjs(item.created_at).valueOf() <= lastFetchEpochMS
-          );
-          if (hasOldItems) {
-            break;
-          }
-
-          // Rate limiting awareness - add delay between requests
-          if (bookmark && pageCount < maxPages) {
-            await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
-          }
-        } else {
-          // First run - collect all items
-          pins = pins.concat(items);
+        // Break early if no new items found in this page
+        if (newItems.length === 0) {
+          break;
         }
-      } catch (error) {
-        console.error(`Error fetching pins for board ${board_id}:`, error);
-        break; // Stop pagination on error
+
+        // Break early if we found items older than last fetch
+        const hasOldItems = items.some(
+          (item: any) => dayjs(item.created_at).valueOf() <= lastFetchEpochMS
+        );
+        if (hasOldItems) {
+          break;
+        }
+
+        // Rate limiting awareness - add delay between requests
+        if (bookmark && pageCount < maxPages) {
+          await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
+        }
+      } else {
+        // First run - collect all items
+        pins = pins.concat(items);
       }
     } while (bookmark);
 
