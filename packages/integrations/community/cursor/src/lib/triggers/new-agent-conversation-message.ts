@@ -22,26 +22,22 @@ const polling: Polling<
   items: async ({ auth, propsValue, lastItemId }) => {
     const { agentId } = propsValue;
 
-    try {
-      const response = await makeCursorRequest<AgentConversationResponse>(
-        auth,
-        `/v0/agents/${agentId}/conversation`,
-        HttpMethod.GET
-      );
+    const response = await makeCursorRequest<AgentConversationResponse>(
+      auth,
+      `/v0/agents/${agentId}/conversation`,
+      HttpMethod.GET
+    );
 
-      if (!response.messages || response.messages.length === 0) {
-        return [];
-      }
-
-      const messages = [...response.messages].reverse();
-
-      return messages.map((message) => ({
-        id: message.id,
-        data: message,
-      }));
-    } catch (error) {
+    if (!response.messages || response.messages.length === 0) {
       return [];
     }
+
+    const messages = [...response.messages].reverse();
+
+    return messages.map((message) => ({
+      id: message.id,
+      data: message,
+    }));
   },
 };
 
