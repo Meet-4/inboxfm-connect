@@ -92,7 +92,9 @@ export function createMailgunWebhookTrigger({
       };
 
       if (!payload.signature) {
-        return [];
+        throw new Error(
+          'Mailgun webhook payload is missing its signature block; refusing unverified request.',
+        );
       }
       const isValid = verifyMailgunSignature(
         context.auth.props.api_key,
@@ -101,7 +103,9 @@ export function createMailgunWebhookTrigger({
         payload.signature.signature,
       );
       if (!isValid) {
-        return [];
+        throw new Error(
+          'Webhook signature verification failed. This request may not be from Mailgun.',
+        );
       }
 
       const eventData = payload['event-data'];
