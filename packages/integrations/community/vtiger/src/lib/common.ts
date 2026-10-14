@@ -70,7 +70,7 @@ export const instanceLogin = async (
       method: HttpMethod.POST,
       url: `${endpoint}`,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: {
         operation: 'login',
