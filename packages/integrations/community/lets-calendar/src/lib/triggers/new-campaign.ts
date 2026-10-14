@@ -35,27 +35,23 @@ const polling: Polling<
 > = {
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth }) => {
-    try {
-      const accessToken = await getAccessToken(
-        auth.props.client_key,
-        auth.props.secret_key
-      );
+    const accessToken = await getAccessToken(
+      auth.props.client_key,
+      auth.props.secret_key
+    );
 
-      const response = (await makeRequest(
-        accessToken,
-        HttpMethod.GET,
-        '/campaigns?page=1'
-      )) as CampaignsResponse;
+    const response = (await makeRequest(
+      accessToken,
+      HttpMethod.GET,
+      '/campaigns?page=1'
+    )) as CampaignsResponse;
 
-      const campaigns = response.campaigns.data || [];
+    const campaigns = response.campaigns.data || [];
 
-      return campaigns.map((campaign) => ({
-        epochMilliSeconds: dayjs(campaign.created_on).valueOf(),
-        data: campaign,
-      }));
-    } catch (error) {
-      return [];
-    }
+    return campaigns.map((campaign) => ({
+      epochMilliSeconds: dayjs(campaign.created_on).valueOf(),
+      data: campaign,
+    }));
   },
 };
 
