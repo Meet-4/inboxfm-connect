@@ -71,7 +71,10 @@ export const newTimeEntry = createTrigger({
     const payload = context.payload.body as any;
     
     if (payload?.payload === 'ping' || payload?.validation_code || payload?.validation_code_url) {
-      try {
+      if (payload?.validation_code_url) {
+        // Toggl only activates the webhook after the validation_code_url
+        // is fetched; a failed validation must surface instead of acking
+        // a webhook that will never deliver events.
         await httpClient.sendRequest({
           method: HttpMethod.GET,
           url: payload.validation_code_url,
@@ -79,9 +82,6 @@ export const newTimeEntry = createTrigger({
             'Content-Type': 'application/json',
           },
         });
-        
-      } catch (error) {
-        console.error('Failed to auto-validate webhook:', error);
       }
       
       return [

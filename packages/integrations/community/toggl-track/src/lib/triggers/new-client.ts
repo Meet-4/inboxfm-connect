@@ -64,7 +64,10 @@ export const newClient = createTrigger({
       payload?.validation_code ||
       payload?.validation_code_url
     ) {
-      try {
+      if (payload?.validation_code_url) {
+        // Toggl only activates the webhook after the validation_code_url
+        // is fetched; a failed validation must surface instead of acking
+        // a webhook that will never deliver events.
         await httpClient.sendRequest({
           method: HttpMethod.GET,
           url: payload.validation_code_url,
@@ -72,19 +75,15 @@ export const newClient = createTrigger({
             'Content-Type': 'application/json',
           },
         });
-
-        return [
-          {
-            message: 'Webhook validation successful',
-            timestamp: new Date().toISOString(),
-            status: 'validated',
-          },
-        ];
-      } catch (error) {
-        console.error('Failed to auto-validate webhook:', error);
       }
 
-      return [];
+      return [
+        {
+          message: 'Webhook validation successful',
+          timestamp: new Date().toISOString(),
+          status: 'validated',
+        },
+      ];
     }
 
     return [payload];
