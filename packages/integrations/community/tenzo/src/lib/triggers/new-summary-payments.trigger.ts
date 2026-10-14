@@ -46,56 +46,51 @@ const polling: Polling<TenzoAuthValue, SummaryPaymentsTriggerProps> = {
 
     console.debug('Polling for new summary payments', { location_id, area_id, include_deleted, lastFetchEpochMS });
 
-    try {
-      const queryParams: Record<string, string> = {
-        page_size: '100',
-        include_deleted: include_deleted.toString(),
-      };
+  const queryParams: Record<string, string> = {
+    page_size: '100',
+    include_deleted: include_deleted.toString(),
+  };
 
-      if (location_id) {
-        queryParams['location_id'] = location_id;
-      }
+  if (location_id) {
+    queryParams['location_id'] = location_id;
+  }
 
-      if (area_id) {
-        queryParams['area_id'] = area_id;
-      }
+  if (area_id) {
+    queryParams['area_id'] = area_id;
+  }
 
-      // Use last_modified parameter if we have a previous fetch time
-      if (lastFetchEpochMS) {
-        const lastModifiedDate = new Date(lastFetchEpochMS).toISOString();
-        queryParams['last_modified'] = lastModifiedDate;
-      }
+  // Use last_modified parameter if we have a previous fetch time
+  if (lastFetchEpochMS) {
+    const lastModifiedDate = new Date(lastFetchEpochMS).toISOString();
+    queryParams['last_modified'] = lastModifiedDate;
+  }
 
-      const response = await tenzoApiCall<{
-        count: number;
-        next: string | null;
-        previous: string | null;
-        results: SalesByDay[];
-      }>({
-        method: HttpMethod.GET,
-        path: '/sales/day/',
-        auth,
-        query: queryParams,
-      });
+  const response = await tenzoApiCall<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: SalesByDay[];
+  }>({
+    method: HttpMethod.GET,
+    path: '/sales/day/',
+    auth,
+    query: queryParams,
+  });
 
-      // Filter for new records based on last_modified timestamp
-      const cutoffTime = lastFetchEpochMS ? new Date(lastFetchEpochMS) : new Date(0);
+  // Filter for new records based on last_modified timestamp
+  const cutoffTime = lastFetchEpochMS ? new Date(lastFetchEpochMS) : new Date(0);
 
-      const newSalesData = response.results.filter((sales: SalesByDay) => {
-        const salesTime = new Date(sales.last_modified);
-        return salesTime > cutoffTime;
-      });
+  const newSalesData = response.results.filter((sales: SalesByDay) => {
+    const salesTime = new Date(sales.last_modified);
+    return salesTime > cutoffTime;
+  });
 
-      console.debug(`Found ${newSalesData.length} new sales records out of ${response.results.length} total`);
+  console.debug(`Found ${newSalesData.length} new sales records out of ${response.results.length} total`);
 
-      return newSalesData.map((sales: SalesByDay) => ({
-        epochMilliSeconds: new Date(sales.last_modified).getTime(),
-        data: sales,
-      }));
-    } catch (error) {
-      console.error('Error polling for summary payments:', error);
-      return [];
-    }
+  return newSalesData.map((sales: SalesByDay) => ({
+    epochMilliSeconds: new Date(sales.last_modified).getTime(),
+    data: sales,
+  }));
   },
 };
 
