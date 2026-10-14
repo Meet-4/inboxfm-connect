@@ -66,7 +66,9 @@ export const newCustomer = createTrigger({
     if (
       !verifyWebhookSignature(webhookSecret, webhookSignatureHeader, rawBody)
     ) {
-      return [];
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Help Scout.',
+      );
     }
 
     return [context.payload.body];
@@ -74,7 +76,7 @@ export const newCustomer = createTrigger({
   async test(context) {
     const response = await helpScoutApiRequest({
       method: HttpMethod.GET,
-      url: '/customers ',
+      url: '/customers',
       auth: context.auth,
     });
 

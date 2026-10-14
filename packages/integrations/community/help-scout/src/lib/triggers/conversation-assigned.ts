@@ -72,7 +72,9 @@ export const conversationAssigned = createTrigger({
     if (
       !verifyWebhookSignature(webhookSecret, webhookSignatureHeader, rawBody)
     ) {
-      return [];
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Help Scout.',
+      );
     }
 
     const payload = context.payload.body as { assignee: { id: number } };
