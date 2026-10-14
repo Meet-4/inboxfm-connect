@@ -30,13 +30,15 @@ export const uploaddocument = createAction({
     const blob = new Blob([fileBuffer], { type: mimeType });
     formData.append('file', blob, file.filename);
 
+    // No manual Content-Type: fetch derives it from the FormData body and
+    // appends the multipart boundary — a manual boundary-less header makes
+    // the request unparseable.
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
       url: 'https://api.documentpro.ai/v1/documents',
       headers: {
         'x-api-key': context.auth.secret_text,
-        'Content-Type': 'multipart/form-data',
-      }, 
+      },
       body: formData,
     });
 
