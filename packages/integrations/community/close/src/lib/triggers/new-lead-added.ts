@@ -69,7 +69,9 @@ export const newLeadAdded = createTrigger({
 		const rawBody = context.payload.rawBody;
 
 		if (!verifySignature(signatureKey, timestamp, rawBody, signatureHash)) {
-			return [];
+			throw new Error(
+				'Webhook signature verification failed. This request may not be from Close.'
+			);
 		}
 
 		const payload = context.payload.body as CloseCRMLeadWebhookPayload;
