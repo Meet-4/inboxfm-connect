@@ -129,32 +129,27 @@ export const mailChimpSubscribeTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as MailChimpSubscribeWebhookRequest;
+    const request = context.payload.body as MailChimpSubscribeWebhookRequest;
 
-      if (!request || request.type !== 'subscribe') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'member_subscribed',
-        event_category: 'New Subscription',
-        processed_at: new Date().toISOString(),
-        subscription_summary: getSubscribeEventSummary(request),
-        business_context: {
-          audience_growth: true,
-          new_lead: true,
-          marketing_opportunity: true,
-          engagement_potential: 'high',
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing subscribe webhook: ${error.message || JSON.stringify(error)}`);
+    if (!request || request.type !== 'subscribe') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'member_subscribed',
+      event_category: 'New Subscription',
+      processed_at: new Date().toISOString(),
+      subscription_summary: getSubscribeEventSummary(request),
+      business_context: {
+        audience_growth: true,
+        new_lead: true,
+        marketing_opportunity: true,
+        engagement_potential: 'high',
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

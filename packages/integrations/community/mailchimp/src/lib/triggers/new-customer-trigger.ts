@@ -194,38 +194,33 @@ export const mailChimpNewCustomerTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as any;
+    const request = context.payload.body as any;
 
-      if (!request || request.type !== 'customer') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'new_customer',
-        event_category: 'Customer Registration',
-        processed_at: new Date().toISOString(),
-        customer_summary: getNewCustomerEventSummary(request),
-        business_context: {
-          customer_acquisition: true,
-          ecommerce_tracking: true,
-          onboarding_automation: true,
-          customer_segmentation: true,
-        },
-        customer_insights: {
-          customer_value: assessCustomerValue(request.data),
-          address_details: extractCustomerAddress(request.data?.address),
-          automation_opportunities: identifyCustomerOpportunities(request.data),
-          marketing_potential: assessMarketingPotential(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing new customer webhook: ${error.message || JSON.stringify(error)}`);
+    if (!request || request.type !== 'customer') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'new_customer',
+      event_category: 'Customer Registration',
+      processed_at: new Date().toISOString(),
+      customer_summary: getNewCustomerEventSummary(request),
+      business_context: {
+        customer_acquisition: true,
+        ecommerce_tracking: true,
+        onboarding_automation: true,
+        customer_segmentation: true,
+      },
+      customer_insights: {
+        customer_value: assessCustomerValue(request.data),
+        address_details: extractCustomerAddress(request.data?.address),
+        automation_opportunities: identifyCustomerOpportunities(request.data),
+        marketing_potential: assessMarketingPotential(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

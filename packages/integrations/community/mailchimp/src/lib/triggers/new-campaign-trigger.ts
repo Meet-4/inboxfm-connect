@@ -121,30 +121,25 @@ export const mailChimpNewCampaignTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as MailChimpCampaignWebhookRequest;
+    const request = context.payload.body as MailChimpCampaignWebhookRequest;
 
-      if (!request || request.type !== 'campaign') {
-        return [];
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'campaign_event',
-        event_category: 'Campaign Activity',
-        processed_at: new Date().toISOString(),
-        campaign_summary: getCampaignEventSummary(request),
-        campaign_insights: {
-          campaign_type: inferCampaignType(request.data),
-          delivery_status: assessDeliveryStatus(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing campaign webhook: ${error.message || JSON.stringify(error)}`);
+    if (!request || request.type !== 'campaign') {
       return [];
     }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'campaign_event',
+      event_category: 'Campaign Activity',
+      processed_at: new Date().toISOString(),
+      campaign_summary: getCampaignEventSummary(request),
+      campaign_insights: {
+        campaign_type: inferCampaignType(request.data),
+        delivery_status: assessDeliveryStatus(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 

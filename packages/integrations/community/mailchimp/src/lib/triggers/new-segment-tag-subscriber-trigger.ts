@@ -239,49 +239,44 @@ export const mailChimpNewSegmentTagSubscriberTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
-    try {
-      const request = context.payload.body as any;
+    const request = context.payload.body as any;
 
-      if (request === undefined || !['segment', 'tag', 'profile', 'subscribe'].includes(request.type)) {
-        return [];
-      }
-
-      const webhookData = await context.store?.get<WebhookData>(WEBHOOK_DATA_STORE_KEY);
-      if (webhookData) {
-        if (webhookData.segmentId && request.data?.segment_id !== webhookData.segmentId) {
-          return [];
-        }
-        if (webhookData.tagName && request.data?.tag_name !== webhookData.tagName) {
-          return [];
-        }
-      }
-
-      const enhancedRequest = {
-        ...request,
-        trigger_type: 'segment_tag_subscriber',
-        event_category: getEventCategory(request.type),
-        processed_at: new Date().toISOString(),
-        segment_tag_summary: getSegmentTagEventSummary(request),
-        business_context: {
-          audience_segmentation: true,
-          targeted_marketing: true,
-          automation_trigger: true,
-          customer_insights: true,
-        },
-        segment_tag_insights: {
-          segment_info: extractSegmentInfo(request.data),
-          tag_info: extractTagInfo(request.data),
-          engagement_level: assessSegmentEngagement(request.data),
-          automation_opportunities: identifySegmentOpportunities(request.data),
-          segment_metrics: calculateSegmentMetrics(request.data),
-        },
-      };
-
-      return [enhancedRequest];
-    } catch (error: any) {
-      console.error(`Error processing segment tag subscriber webhook: ${error.message || JSON.stringify(error)}`);
+    if (request === undefined || !['segment', 'tag', 'profile', 'subscribe'].includes(request.type)) {
       return [];
     }
+
+    const webhookData = await context.store?.get<WebhookData>(WEBHOOK_DATA_STORE_KEY);
+    if (webhookData) {
+      if (webhookData.segmentId && request.data?.segment_id !== webhookData.segmentId) {
+        return [];
+      }
+      if (webhookData.tagName && request.data?.tag_name !== webhookData.tagName) {
+        return [];
+      }
+    }
+
+    const enhancedRequest = {
+      ...request,
+      trigger_type: 'segment_tag_subscriber',
+      event_category: getEventCategory(request.type),
+      processed_at: new Date().toISOString(),
+      segment_tag_summary: getSegmentTagEventSummary(request),
+      business_context: {
+        audience_segmentation: true,
+        targeted_marketing: true,
+        automation_trigger: true,
+        customer_insights: true,
+      },
+      segment_tag_insights: {
+        segment_info: extractSegmentInfo(request.data),
+        tag_info: extractTagInfo(request.data),
+        engagement_level: assessSegmentEngagement(request.data),
+        automation_opportunities: identifySegmentOpportunities(request.data),
+        segment_metrics: calculateSegmentMetrics(request.data),
+      },
+    };
+
+    return [enhancedRequest];
   },
 });
 
