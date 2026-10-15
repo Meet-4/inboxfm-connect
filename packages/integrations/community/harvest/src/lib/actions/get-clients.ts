@@ -1,9 +1,6 @@
 import { Property, createAction } from '@inboxfm-connect/pieces-framework';
 import { harvestAuth } from '../..';
-import {
-  getAccessTokenOrThrow,
-  HttpMethod,
-} from '@inboxfm-connect/pieces-common';
+import { HttpMethod } from '@inboxfm-connect/pieces-common';
 import { callHarvestApi, filterDynamicFields } from '../common';
 import { propsValidation } from '@inboxfm-connect/pieces-common';
 import * as z from 'zod/mini'
@@ -48,7 +45,7 @@ async run(context) {
   const response = await callHarvestApi(
       HttpMethod.GET,
       `clients`,
-      getAccessTokenOrThrow(context.auth),
+      context.auth,
       params
     );
 

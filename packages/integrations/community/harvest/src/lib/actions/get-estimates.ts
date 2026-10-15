@@ -1,9 +1,6 @@
 import { Property, createAction } from "@inboxfm-connect/pieces-framework";
 import { harvestAuth } from '../..';
-import {
-  getAccessTokenOrThrow,
-  HttpMethod,
-} from '@inboxfm-connect/pieces-common';
+import { HttpMethod } from '@inboxfm-connect/pieces-common';
 import { callHarvestApi, filterDynamicFields } from '../common';
 import { propsValidation } from '@inboxfm-connect/pieces-common';
 import * as z from 'zod/mini'
@@ -64,7 +61,7 @@ export const getEstimates = createAction({
     const response = await callHarvestApi(
         HttpMethod.GET,
         `estimates`,
-        getAccessTokenOrThrow(context.auth),
+        context.auth,
         params
       );
   
