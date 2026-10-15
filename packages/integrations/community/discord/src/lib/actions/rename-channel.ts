@@ -38,8 +38,11 @@ export const discordRenameChannel = createAction({
 
     const res = await httpClient.sendRequest<never>(request);
 
+    // Modify Channel returns the updated channel object with 200, not a 204 empty body
+    // (https://discord.com/developers/docs/resources/channel#modify-channel:
+    // "Update a channel's settings. Returns a channel on success").
     return {
-      success: res.status === 204,
+      success: res.status === 200,
     };
   },
 });
