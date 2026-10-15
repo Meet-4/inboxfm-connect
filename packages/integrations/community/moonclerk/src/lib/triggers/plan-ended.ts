@@ -25,8 +25,8 @@ export const planEnded = createTrigger({
                                 \`\`\`text
                                 {{webhookUrl}}
                                 \`\`\`
-                                5. Select the **Plan Created** event.
-                                5. Click Save Agent.
+                                5. Select the **Plan Ended** event.
+                                6. Click **Save**.
                                 `,
     }),
   },
