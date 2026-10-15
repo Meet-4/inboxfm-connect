@@ -59,12 +59,18 @@ export const discordCommon = {
           const resChannels = await httpClient.sendRequest<Channel[]>(
             requestChannels
           );
-          resChannels.body.forEach((channel) => {
-            options.options.push({
-              value: channel.id,
-              label: channel.name,
+          // Only list channels that can receive messages: GUILD_TEXT (0) and
+          // GUILD_ANNOUNCEMENT (5). Categories (4), voice/stage (2, 13),
+          // forum/media (15, 16) and directory (14) channels are not text targets.
+          // https://discord.com/developers/docs/resources/channel#channel-object-channel-types
+          resChannels.body
+            .filter((channel) => channel.type === 0 || channel.type === 5)
+            .forEach((channel) => {
+              options.options.push({
+                value: channel.id,
+                label: channel.name,
+              });
             });
-          });
         })
       );
 
