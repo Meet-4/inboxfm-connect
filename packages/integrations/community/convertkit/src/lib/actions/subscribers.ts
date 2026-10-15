@@ -28,6 +28,7 @@ import {
   fetchSubscriperById,
   fetchSubscriberByEmail,
   fetchSubscribedTags,
+  toConvertKitQueryParams,
 } from '../common/service';
 
 export const getSubscriberById = createAction({
@@ -105,22 +106,20 @@ export const listSubscribers = createAction({
 
     const url = SUBSCRIBERS_API_ENDPOINT;
 
-    const body = {
-      api_secret: context.auth.secret_text,
-      page,
-      from,
-      to,
-      updated_from: updatedFrom,
-      updated_to: updatedTo,
-      email_address: emailAddress,
-      sort_order: sortOrder,
-      sort_field: sortField,
-    };
-
     const request: HttpRequest = {
       url,
       method: HttpMethod.GET,
-      body,
+      queryParams: toConvertKitQueryParams({
+        api_secret: context.auth.secret_text,
+        page,
+        from,
+        to,
+        updated_from: updatedFrom,
+        updated_to: updatedTo,
+        email_address: emailAddress,
+        sort_order: sortOrder,
+        sort_field: sortField,
+      }),
     };
 
     const response = await httpClient.sendRequest<{

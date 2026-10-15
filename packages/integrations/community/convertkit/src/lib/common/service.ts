@@ -24,6 +24,21 @@ import {
   HttpRequest,
 } from '@inboxfm-connect/pieces-common';
 
+/**
+ * ConvertKit's v3 GET endpoints take authentication and filter parameters as
+ * query parameters. Optional values are dropped so they don't reach the wire
+ * as the string "undefined".
+ */
+export function toConvertKitQueryParams(
+  params: Record<string, unknown>
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)])
+  );
+}
+
 export const fetchBroadcasts = async (auth: string, page: number) => {
   const url = BROADCASTS_API_ENDPOINT;
   const request: HttpRequest = {
@@ -59,13 +74,9 @@ export const fetchCustomFields = async (
 ): Promise<CustomField[]> => {
   const url = CUSTOM_FIELDS_API_ENDPOINT;
 
-  const body = {
-    api_secret: auth,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
   const response = await httpClient.sendRequest<{
@@ -90,13 +101,9 @@ export const fetchCustomFields = async (
 export const fetchForms = async (auth: string) => {
   const url = FORMS_API_ENDPOINT;
 
-  const body = {
-    api_secret: auth,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
   const response = await httpClient.sendRequest<{ forms: Form[] }>(request);
@@ -119,14 +126,9 @@ export const fetchForms = async (auth: string) => {
 export const fetchPurchases = async (auth: string, page: number) => {
   const url = PURCHASES_API_ENDPOINT;
 
-  const body = {
-    api_secret: auth,
-    page,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth, page }),
     method: HttpMethod.GET,
   };
   const response = await httpClient.sendRequest<{ purchases: Purchase[] }>(
@@ -150,12 +152,9 @@ export const fetchPurchases = async (auth: string, page: number) => {
 
 export const fetchSequences = async (auth: string) => {
   const url = SEQUENCES_API_ENDPOINT;
-  const body = {
-    api_secret: auth,
-  };
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
   const response = await httpClient.sendRequest<{ courses: Sequence[] }>(
@@ -182,13 +181,9 @@ export const fetchSubscriperById = async (
 ) => {
   const url = `${SUBSCRIBERS_API_ENDPOINT}/${subscriberId}`;
 
-  const body = {
-    api_secret: auth,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
 
@@ -216,14 +211,9 @@ export const fetchSubscriberByEmail = async (
 ) => {
   const url = SUBSCRIBERS_API_ENDPOINT;
 
-  const body = {
-    api_secret: auth,
-    email_address,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth, email_address }),
     method: HttpMethod.GET,
   };
 
@@ -253,13 +243,9 @@ export const fetchSubscribedTags = async (
 ) => {
   const url = `${SUBSCRIBERS_API_ENDPOINT}/${subscriberId}/tags`;
 
-  const body = {
-    api_secret: auth,
-  };
-
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
 
@@ -281,12 +267,9 @@ export const fetchSubscribedTags = async (
 
 export const fetchTags = async (auth: string) => {
   const url = TAGS_API_ENDPOINT;
-  const body = {
-    api_secret: auth,
-  };
   const request: HttpRequest = {
     url,
-    body,
+    queryParams: toConvertKitQueryParams({ api_secret: auth }),
     method: HttpMethod.GET,
   };
 
