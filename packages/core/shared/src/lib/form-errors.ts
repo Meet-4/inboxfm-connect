@@ -1,19 +1,4 @@
-export const formErrors = {
-    required: 'required',
-    invalidGitRepoSlug: 'invalidGitRepoSlug',
-    invalidGitRepoBranch: 'invalidGitRepoBranch',
-    invalidGitRepoRemoteUrl: 'invalidGitRepoRemoteUrl',
-    invalidExternalId: 'invalidExternalId',
-    invalidFileName: 'invalidFileName',
-    invalidHexColor: 'invalidHexColor',
-    invalidBranchCondition: 'invalidBranchCondition',
-    messageRequiresContentOrFiles: 'messageRequiresContentOrFiles',
-    apiKeyExpiryMustBeFuture: 'apiKeyExpiryMustBeFuture',
-    activeFlowsLimitMin: 'activeFlowsLimitMin',
-    activeFlowsLimitMax: 'activeFlowsLimitMax',
-    invalidAiProviderBaseUrl: 'invalidAiProviderBaseUrl',
-    invalidAiProviderApiKeyHeader: 'invalidAiProviderApiKeyHeader',
-    invalidCloudflareAccountId: 'invalidCloudflareAccountId',
-    invalidCloudflareGatewayId: 'invalidCloudflareGatewayId',
-    invalidAzureResourceName: 'invalidAzureResourceName',
-} as const
+// The formErrors literal lives in @inboxfm-connect/core-utils; this re-export
+// removes the duplicated literal while keeping the internal relative imports
+// (../../form-errors) working.
+export { formErrors } from '@inboxfm-connect/core-utils'
