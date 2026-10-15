@@ -24,26 +24,48 @@ export const listWebsites = createAction({
   },
   async run(context) {
     const { limit } = context.propsValue;
+    const maxResults = limit ?? 100;
 
-    const response = await umamiApiCall<{
-      data: {
-        id: string;
-        name: string;
-        domain: string;
-        shareId: string | null;
-        createdAt: string;
-      }[];
-      count: number;
-    }>({
-      auth: context.auth as UmamiAuthValue,
-      method: HttpMethod.GET,
-      path: '/websites',
-      queryParams: {
-        pageSize: String(limit ?? 100),
-      },
-    });
+    // GET /websites is paginated (page/pageSize params; the response carries
+    // data/count/page/pageSize — docs.umami.is/docs/api/websites), so a
+    // single request returns at most one page. Page through until Max
+    // Results is reached or a short page signals the end of the list.
+    const pageSize = Math.min(100, maxResults);
+    const websites: {
+      id: string;
+      name: string;
+      domain: string;
+      shareId: string | null;
+      createdAt: string;
+    }[] = [];
+    let page = 1;
+    while (websites.length < maxResults && page <= 100) {
+      const response = await umamiApiCall<{
+        data: {
+          id: string;
+          name: string;
+          domain: string;
+          shareId: string | null;
+          createdAt: string;
+        }[];
+        count: number;
+      }>({
+        auth: context.auth as UmamiAuthValue,
+        method: HttpMethod.GET,
+        path: '/websites',
+        queryParams: {
+          page: String(page),
+          pageSize: String(pageSize),
+        },
+      });
+      websites.push(...response.body.data);
+      if (response.body.data.length < pageSize) {
+        break;
+      }
+      page++;
+    }
 
-    return response.body.data.map((w) => ({
+    return websites.slice(0, maxResults).map((w) => ({
       id: w.id,
       name: w.name,
       domain: w.domain,
