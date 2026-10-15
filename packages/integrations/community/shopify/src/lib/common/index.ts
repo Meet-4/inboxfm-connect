@@ -183,9 +183,16 @@ export async function getProducts(
         .split(',')
         .find((s) => s.includes('rel="next"'))
         ?.match(/<(.*?)>/)?.[1];
-      
+
       if (nextLink) {
+        // Shopify rejects requests that combine page_info with any other
+        // filter parameter ("title cannot be passed when page_info is
+        // present"), so the cursor page keeps page_info only - the cursor
+        // token already encodes the original filters.
         queryParams.page_info = new URL(nextLink).searchParams.get('page_info') || '';
+        delete queryParams.title;
+        delete queryParams.created_at_min;
+        delete queryParams.updated_at_min;
       } else {
         hasNextPage = false;
       }
