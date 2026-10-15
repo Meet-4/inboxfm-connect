@@ -5,7 +5,7 @@ import { humeAiAuth } from '../common/auth';
 
 const polling: Polling<AppConnectionValueForAuthProperty<typeof humeAiAuth>, Record<string, never>> = {
   strategy: DedupeStrategy.TIMEBASED,
-  items: async ({ auth, lastFetchEpochMS }) => {
+  items: async ({ auth, store, lastFetchEpochMS }) => {
     const client = new HumeClient({
       apiKey: auth.secret_text,
     });
@@ -19,14 +19,24 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof humeAiAuth>, Rec
       allVoices.push(voice);
     }
 
-    const newVoices = lastFetchEpochMS
-      ? allVoices.filter(voice => {
-          return true;
-        })
-      : allVoices;
+    // Hume's custom-voice list carries no created/updated timestamps (voice
+    // objects expose id/name/provider/generated only —
+    // https://dev.hume.ai/docs/text-to-speech-tts/custom-voice), so a
+    // TIMEBASED epoch cannot tell a new voice from an already-seen one. The
+    // old code stamped Date.now() on every voice and filtered with
+    // `return true`, re-emitting the entire list on every poll. Track seen
+    // voice ids in the trigger store instead.
+    const SEEN_VOICE_IDS_KEY = 'hume_new_voice_seen_ids';
+    const seenIds = new Set<string>(
+      (await store.get<string[]>(SEEN_VOICE_IDS_KEY)) ?? []
+    );
+    const newVoices = allVoices.filter(
+      (voice) => !seenIds.has(String(voice.id))
+    );
 
+    const now = Date.now();
     const items = newVoices.map((voice: any) => ({
-      epochMilliSeconds: Date.now(),
+      epochMilliSeconds: now,
       data: {
         id: voice.id,
         name: voice.name,
@@ -34,6 +44,15 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof humeAiAuth>, Rec
         compatibleOctaveModels: voice.compatibleOctaveModels,
       },
     }));
+
+    // `Test step` invokes items() with lastFetchEpochMS = 0; keep it
+    // side-effect free and only persist the seen set on real polls.
+    if (lastFetchEpochMS > 0) {
+      for (const voice of allVoices) {
+        seenIds.add(String(voice.id));
+      }
+      await store.put(SEEN_VOICE_IDS_KEY, Array.from(seenIds).slice(-5000));
+    }
 
     return items;
   },
