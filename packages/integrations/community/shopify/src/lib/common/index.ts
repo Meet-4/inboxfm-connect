@@ -424,7 +424,7 @@ export async function adjustInventoryLevel(
     },
   });
 
-  return (response.body as { order: unknown }).order;
+  return (response.body as { inventory_level: unknown }).inventory_level;
 }
 
 export async function createCollect(
