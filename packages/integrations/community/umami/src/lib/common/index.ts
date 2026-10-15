@@ -54,17 +54,33 @@ export const umamiCommon = {
         };
       }
       try {
-        const response = await umamiApiCall<{
-          data: { id: string; name: string; domain: string }[];
-        }>({
-          auth: auth as UmamiAuthValue,
-          method: HttpMethod.GET,
-          path: '/websites',
-          queryParams: { pageSize: '100' },
-        });
+        // GET /websites is paginated (docs.umami.is/docs/api/websites);
+        // follow pages so accounts with more than one page of websites can
+        // still select any of them (capped at 10 pages of 100).
+        const websites: { id: string; name: string; domain: string }[] = [];
+        const pageSize = 100;
+        let page = 1;
+        while (page <= 10) {
+          const response = await umamiApiCall<{
+            data: { id: string; name: string; domain: string }[];
+          }>({
+            auth: auth as UmamiAuthValue,
+            method: HttpMethod.GET,
+            path: '/websites',
+            queryParams: {
+              page: String(page),
+              pageSize: String(pageSize),
+            },
+          });
+          websites.push(...response.body.data);
+          if (response.body.data.length < pageSize) {
+            break;
+          }
+          page++;
+        }
         return {
           disabled: false,
-          options: response.body.data.map((w) => ({
+          options: websites.map((w) => ({
             label: `${w.name} (${w.domain})`,
             value: w.id,
           })),
