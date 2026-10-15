@@ -8,7 +8,6 @@ export const moonclerkAuth = PieceAuth.SecretText({
   required: true,
   validate: async ({ auth }) => {
     if (auth) {
-      console.log(auth)
       try {
         await httpClient.sendRequest({
           method: HttpMethod.GET,
