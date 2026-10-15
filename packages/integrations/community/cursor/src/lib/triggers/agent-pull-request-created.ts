@@ -34,52 +34,51 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof cursorAuth>, Rec
     const isTest = lastFetchEpochMS === 0;
     const limit = isTest ? 5 : 100;
 
-    try {
-      const response = await makeCursorRequest<ListAgentsResponse>(
-        auth,
-        '/v0/agents',
-        HttpMethod.GET,
-        undefined,
-        { limit }
-      );
+    const response = await makeCursorRequest<ListAgentsResponse>(
+      auth,
+      '/v0/agents',
+      HttpMethod.GET,
+      undefined,
+      { limit }
+    );
 
-      if (!response.agents || response.agents.length === 0) {
-        return [];
-      }
-
-      const storedAgentsWithPRs = await store.get<string>('agents_with_prs');
-      const agentsWithPRsSet = new Set<string>(
-        storedAgentsWithPRs ? JSON.parse(storedAgentsWithPRs) : []
-      );
-
-      const newPRs: Array<{ epochMilliSeconds: number; data: Agent }> = [];
-      const updatedAgentsWithPRs = new Set<string>(agentsWithPRsSet);
-
-      for (const agent of response.agents) {
-        if (agent.target?.prUrl) {
-          if (!agentsWithPRsSet.has(agent.id)) {
-            const epochMilliSeconds = Date.parse(agent.createdAt);
-            newPRs.push({
-              epochMilliSeconds,
-              data: agent,
-            });
-          }
-          updatedAgentsWithPRs.add(agent.id);
-        } else {
-          updatedAgentsWithPRs.delete(agent.id);
-        }
-      }
-
-      await store.put('agents_with_prs', JSON.stringify(Array.from(updatedAgentsWithPRs)));
-
-      if (isTest) {
-        return newPRs;
-      }
-
-      return newPRs.filter((item) => item.epochMilliSeconds > lastFetchEpochMS);
-    } catch (error) {
+    if (!response.agents || response.agents.length === 0) {
       return [];
     }
+
+    const storedAgentsWithPRs = await store.get<string>('agents_with_prs');
+    const agentsWithPRsSet = new Set<string>(
+      storedAgentsWithPRs ? JSON.parse(storedAgentsWithPRs) : []
+    );
+
+    const newPRs: Array<{ epochMilliSeconds: number; data: Agent }> = [];
+    const updatedAgentsWithPRs = new Set<string>(agentsWithPRsSet);
+
+    for (const agent of response.agents) {
+      if (agent.target?.prUrl) {
+        if (!agentsWithPRsSet.has(agent.id)) {
+          // The PR is observed now. Using the agent's createdAt would be
+          // older than the lastPoll cursor for agents created before the
+          // trigger was enabled, so their (later) PR would be filtered out
+          // after being marked as seen here.
+          newPRs.push({
+            epochMilliSeconds: Date.now(),
+            data: agent,
+          });
+        }
+        updatedAgentsWithPRs.add(agent.id);
+      } else {
+        updatedAgentsWithPRs.delete(agent.id);
+      }
+    }
+
+    await store.put('agents_with_prs', JSON.stringify(Array.from(updatedAgentsWithPRs)));
+
+    if (isTest) {
+      return newPRs;
+    }
+
+    return newPRs.filter((item) => item.epochMilliSeconds > lastFetchEpochMS);
   },
 };
 
@@ -114,7 +113,22 @@ export const agentPullRequestCreatedTrigger = createTrigger({
   },
   async onEnable(context) {
     const { store, auth, propsValue } = context;
-    await store.put('agents_with_prs', JSON.stringify([]));
+
+    // Seed the seen-set with agents that already have a PR so the trigger
+    // starts empty: PRs that existed at enable time are not emitted on the
+    // first poll (items() stamps events with the observation time).
+    const response = await makeCursorRequest<ListAgentsResponse>(
+      auth,
+      '/v0/agents',
+      HttpMethod.GET,
+      undefined,
+      { limit: 100 }
+    );
+    const agentsWithPRs = (response.agents ?? [])
+      .filter((agent) => agent.target?.prUrl)
+      .map((agent) => agent.id);
+    await store.put('agents_with_prs', JSON.stringify(agentsWithPRs));
+
     await pollingHelper.onEnable(polling, { store, auth, propsValue });
   },
   async onDisable(context) {
