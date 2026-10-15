@@ -1,5 +1,4 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
-import { BodyType, Message } from '@microsoft/microsoft-graph-types';
 import { microsoftOutlookAuth } from '../common/auth';
 import { outlookCommon } from '../common/client';
 import { messageIdDropdown } from '../common/props';
@@ -33,32 +32,27 @@ export const forwardEmailAction = createAction({
 
 		const client = outlookCommon.createClient(context.auth);
 
-		const message = await client.api(`${outlookCommon.mailboxPrefix(context.auth)}/messages/${messageId}`).get();
-
-		const messagePayload: Message = {
-			toRecipients: recipients.map((mail) => ({
-				emailAddress: {
-					address: mail,
-				},
-			})),
-			body: {
-				contentType: 'html',
-				content: (comment ?? '') + '<br><br>' + message.body.content,
-			},
-			attachments: message.attachments,
-		};
-
-		const response = await client
+		// Graph's forward action takes only `comment` and `toRecipients` in its
+		// JSON body (the service composes the FW: subject, the forwarded body and
+		// carries the original message's own attachments over by itself), and a
+		// successful call returns `202 Accepted` with no response body — so there
+		// is no new message id to read back.
+		// https://learn.microsoft.com/en-us/graph/api/message-forward?view=graph-rest-1.0
+		await client
 			.api(`${outlookCommon.mailboxPrefix(context.auth)}/messages/${messageId}/forward`)
 			.post({
-				message:messagePayload,
+				comment: comment ?? '',
+				toRecipients: recipients.map((mail) => ({
+					emailAddress: {
+						address: mail,
+					},
+				})),
 			});
 
 		return {
 			success: true,
 			message: 'Email forwarded successfully.',
-			messageId: response.id,
-			...response,
+			originalMessageId: messageId,
 		};
 	},
 });
