@@ -39,34 +39,34 @@ const polling: Polling< AppConnectionValueForAuthProperty<typeof cursorAuth>,
     const { agentId, status: targetStatus } = propsValue;
     const storeKey = `agent_status_${agentId}`;
 
-    try {
-      const agent = await makeCursorRequest<Agent>(
-        auth,
-        `/v0/agents/${agentId}`,
-        HttpMethod.GET
-      );
+    const agent = await makeCursorRequest<Agent>(
+      auth,
+      `/v0/agents/${agentId}`,
+      HttpMethod.GET
+    );
 
-      const lastStatus = await store.get<string>(storeKey);
+    const lastStatus = await store.get<string>(storeKey);
 
-      if (agent.status === targetStatus && agent.status !== lastStatus) {
-        await store.put(storeKey, agent.status);
+    if (agent.status === targetStatus && agent.status !== lastStatus) {
+      await store.put(storeKey, agent.status);
 
-        return [
-          {
-            epochMilliSeconds: Date.parse(agent.createdAt),
-            data: agent,
-          },
-        ];
-      }
-
-      if (agent.status !== lastStatus) {
-        await store.put(storeKey, agent.status);
-      }
-
-      return [];
-    } catch (error) {
-      return [];
+      return [
+        {
+          // The status transition is observed now. Using the agent's
+          // createdAt instead would always be older than the lastPoll
+          // cursor, so the TIMEBASED filter would drop every event and
+          // the trigger would never fire.
+          epochMilliSeconds: Date.now(),
+          data: agent,
+        },
+      ];
     }
+
+    if (agent.status !== lastStatus) {
+      await store.put(storeKey, agent.status);
+    }
+
+    return [];
   },
 };
 
@@ -114,16 +114,15 @@ export const agentStatusEqualsTrigger = createTrigger({
     const { agentId } = propsValue;
     const storeKey = `agent_status_${agentId}`;
 
-    try {
-      const agent = await makeCursorRequest<Agent>(
-        auth,
-        `/v0/agents/${agentId}`,
-        HttpMethod.GET
-      );
-      await store.put(storeKey, agent.status);
-    } catch (error) {
-      await store.put(storeKey, null);
-    }
+    // Record the agent's current status so the trigger starts empty. If the
+    // fetch fails, fail enablement instead of arming a trigger with unknown
+    // state that could emit a stale status on the first successful poll.
+    const agent = await makeCursorRequest<Agent>(
+      auth,
+      `/v0/agents/${agentId}`,
+      HttpMethod.GET
+    );
+    await store.put(storeKey, agent.status);
 
     await pollingHelper.onEnable(polling, { store, auth, propsValue });
   },
