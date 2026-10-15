@@ -10,6 +10,12 @@ export const secretManagersController: FastifyPluginAsyncZod = async (app) => {
     const service = secretManagersService(app.log)
 
     app.get('/', ListSecretManagerConnections, async (request) => {
+        // The list answers the same platform-admin settings console as every
+        // sibling route on this controller (create/update/delete are all
+        // platformAdminOnly). It used to accept any signed-in platform user and
+        // forwarded the client-supplied projectId to the service unchecked, so a
+        // mere platform member could enumerate other projects' secret managers
+        // (provider, name, scope, target projects, connection status).
         return service.list({
             platformId: request.principal.platform.id,
             projectId: request.query.projectId,
@@ -45,7 +51,12 @@ export const secretManagersController: FastifyPluginAsyncZod = async (app) => {
 
 const ListSecretManagerConnections = {
     config: {
-        security: securityAccess.publicPlatform([PrincipalType.USER]),
+        // Same audience as the sibling create/update/delete routes: platform
+        // admins (and platform-grade API keys, which bypass the admin check by
+        // design). A platform member must not enumerate secret managers, with
+        // or without naming a projectId — the rows describe other tenants'
+        // external secret stores.
+        security: securityAccess.platformAdminOnly([PrincipalType.USER, PrincipalType.SERVICE]),
     },
     schema: {
         querystring: z.object({
