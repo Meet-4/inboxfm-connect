@@ -69,7 +69,11 @@ export async function makeRequest(
     }
 
     if (error.response?.status === 429) {
-      throw new Error('Rate limit exceeded. Please wait and try again.');
+      throw new Error(
+        `Rate limit exceeded: ${
+          error.response?.body?.message || JSON.stringify(error.response?.body)
+        }`
+      );
     }
 
     if (error.response?.status >= 400 && error.response?.status < 500) {
