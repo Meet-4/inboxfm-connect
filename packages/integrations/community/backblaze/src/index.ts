@@ -13,8 +13,9 @@ const description = `
 This piece allows you to upload files to BackBlaze Bucket compatible services.
 
 BackBlaze Settings:
+Endpoint: your bucket's S3 endpoint, e.g. https://s3.us-west-004.backblazeb2.com — copy it from the bucket's S3 Endpoint field in the B2 console (Bucket Settings). Requests are sent to this endpoint, so leaving it blank sends them to AWS S3 and every call fails with your B2 credentials.
+Docs: https://www.backblaze.com/docs/en/cloud-storage-call-the-s3-compatible-api
 Regions: https://www.backblaze.com/apidocs/introduction-to-the-s3-compatible-api
-Endpoint: leave blank
 `;
 
 export const backBlazeS3Auth = PieceAuth.CustomAuth({
