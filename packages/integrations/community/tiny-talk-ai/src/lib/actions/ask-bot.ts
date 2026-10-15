@@ -42,8 +42,19 @@ export const askBotAction = createAction({
         })
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw Error(errorData.message);
+            const errorText = await response.text().catch(() => '');
+            let vendorMessage = '';
+            try {
+                vendorMessage =
+                    (JSON.parse(errorText) as { message?: string }).message ?? '';
+            } catch {
+                // Non-JSON error body (e.g. HTML from a gateway) — fall back to the raw text.
+            }
+            throw new Error(
+                `TinyTalk API request failed (HTTP ${response.status} ${response.statusText}): ${
+                    vendorMessage || errorText.slice(0, 500)
+                }`
+            );
         }
 
         const stream = response.body;
