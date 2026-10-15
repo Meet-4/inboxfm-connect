@@ -350,10 +350,19 @@ export const handleRun = async (
     : await resourceClient.start(body, runOptions);
 
   if (waitForFinish && run.defaultDatasetId) {
-    const datasetItems = await client.dataset(run.defaultDatasetId).listItems();
+    // Page through the run's dataset with the SDK's async iterator instead of
+    // a single unbounded request: each HTTP call is capped at 1000 items, and
+    // iteration continues until the dataset is exhausted, so large runs are
+    // not truncated by a one-shot fetch.
+    const datasetItems: unknown[] = [];
+    for await (const item of client
+      .dataset(run.defaultDatasetId)
+      .listItems({ chunkSize: 1000 })) {
+      datasetItems.push(item);
+    }
     return {
       run,
-      datasetItems: datasetItems.items
+      datasetItems
     };
   }
 
