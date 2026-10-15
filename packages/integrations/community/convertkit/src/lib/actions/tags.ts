@@ -23,7 +23,10 @@ import {
 import { Tag } from '../common/types';
 import { allFields } from '../common/custom-fields';
 import { TAGS_API_ENDPOINT } from '../common/constants';
-import { fetchTags } from '../common/service';
+import {
+  fetchTags,
+  toConvertKitQueryParams,
+} from '../common/service';
 
 export const listTags = createAction({
   auth: convertkitAuth,
@@ -237,17 +240,15 @@ export const listSubscriptionsToATag = createAction({
     const { tagId, page, sortOrder, subscriberState } = context.propsValue;
     const url = `${TAGS_API_ENDPOINT}/${tagId}/subscriptions?`;
 
-    const body = {
-      api_secret: context.auth.secret_text,
-      page,
-      sort_order: sortOrder,
-      subscriber_state: subscriberState,
-    };
-
     const request: HttpRequest = {
       url,
       method: HttpMethod.GET,
-      body,
+      queryParams: toConvertKitQueryParams({
+        api_secret: context.auth.secret_text,
+        page,
+        sort_order: sortOrder,
+        subscriber_state: subscriberState,
+      }),
     };
 
     const response = await httpClient.sendRequest<{

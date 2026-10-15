@@ -11,7 +11,10 @@ import { subscriberEmail, subscriberFirstName } from '../common/subscribers';
 import { allFields } from '../common/custom-fields';
 import { tags } from '../common/tags';
 import { SEQUENCES_API_ENDPOINT } from '../common/constants';
-import { fetchSequences } from '../common/service';
+import {
+  fetchSequences,
+  toConvertKitQueryParams,
+} from '../common/service';
 
 export const listSequences = createAction({
   auth: convertkitAuth,
@@ -96,14 +99,12 @@ export const listSubscriptionsToSequence = createAction({
   async run(context) {
     const url = `${SEQUENCES_API_ENDPOINT}/${context.propsValue.sequenceId}/subscriptions`;
 
-    const body = {
-      api_secret: context.auth.secret_text,
-    };
-
     const request: HttpRequest = {
       url,
       method: HttpMethod.GET,
-      body,
+      queryParams: toConvertKitQueryParams({
+        api_secret: context.auth.secret_text,
+      }),
     };
 
     const response = await httpClient.sendRequest<{
