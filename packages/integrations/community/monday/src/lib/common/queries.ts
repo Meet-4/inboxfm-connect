@@ -67,6 +67,14 @@ export const mondayGraphQLQueries = {
             email
         }
     }`,
+  getCurrentUser: `
+    query getCurrentUser
+    {
+        me
+        {
+            id
+        }
+    }`,
   getItemColumnValues: `
   query getItemColumnValues($boardId: ID!,$itemId: ID!,$columnIds: [String!])
   {
