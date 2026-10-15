@@ -81,7 +81,11 @@ export async function makeRequest(
     }
 
     if (error.response?.status >= 500) {
-      throw new Error('Server error from Klaviyo API. Please try again later.');
+      throw new Error(
+        `Server error: ${
+          error.response?.body?.message || JSON.stringify(error.response?.body)
+        }`
+      );
     }
 
     throw new Error(`Unexpected error: ${error.message || String(error)}`);
