@@ -54,7 +54,12 @@ export async function giteaPaginatedApiCall<T extends HttpMessageBody>({
 }: GiteaApiCallParams): Promise<T[]> {
   const qs = query ? { ...query } : {};
   qs['page'] = '1';
-  qs['per_page'] = '100';
+  // Gitea's API paginates with `page` and `limit` (default paging size is 30
+  // and the default max page size is 50); a GitHub-style `per_page` parameter
+  // is ignored, which previously truncated every paginated call to one page.
+  // https://docs.gitea.com/1.23/development/api-usage#pagination
+  const limit = 50;
+  qs['limit'] = limit.toString();
 
   const resultData: T[] = [];
   let hasMoreItems = true;
@@ -72,7 +77,7 @@ export async function giteaPaginatedApiCall<T extends HttpMessageBody>({
 
     resultData.push(...data);
 
-    if (data.length < 100) {
+    if (data.length < limit) {
       hasMoreItems = false;
     } else {
       qs['page'] = (parseInt(qs['page'] as string) + 1).toString();
