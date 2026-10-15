@@ -94,6 +94,11 @@ AppConnectionValueForAuthProperty<typeof xeroAuth>,
   },
 };
 
+// Keep only the newest ids/entries in the stored dedup sets so they cannot
+// grow unboundedly across polls (house pattern: coralogix
+// SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_IDS_LIMIT = 1000;
+
 export const xeroUpdatedQuote = createTrigger({
   auth: xeroAuth,
   name: 'xero_updated_quote',
@@ -163,7 +168,18 @@ export const xeroUpdatedQuote = createTrigger({
       }
     }
 
-    await context.store.put(prevMapKey, prevMap);
+    // Keep only the newest entries so the stored map cannot grow unboundedly
+    // across polls. An entry that falls out is re-emitted once if the quote
+    // is updated again later — the same trade-off the bounded coralogix
+    // seen-id set accepted.
+    await context.store.put(
+      prevMapKey,
+      Object.fromEntries(
+        Object.entries(prevMap)
+          .sort(([, aEpoch], [, bEpoch]) => bEpoch - aEpoch)
+          .slice(0, SEEN_IDS_LIMIT)
+      )
+    );
     return results;
   },
   sampleData: undefined,

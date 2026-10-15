@@ -105,6 +105,11 @@ AppConnectionValueForAuthProperty<typeof xeroAuth>,
   },
 };
 
+// Keep only the newest ids/entries in the stored dedup sets so they cannot
+// grow unboundedly across polls (house pattern: coralogix
+// SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_IDS_LIMIT = 1000;
+
 export const xeroNewReconciledPayment = createTrigger({
   auth: xeroAuth,
   name: 'xero_new_reconciled_payment',
@@ -163,7 +168,9 @@ export const xeroNewReconciledPayment = createTrigger({
     const items = (await pollingHelper.poll(polling, context)) as any[];
     const tenantId = context.propsValue['tenant_id'];
     const seenKey = `xero_payment_reconciled_seen_ids_${tenantId}`;
-    const seen: string[] = (await context.store.get(seenKey)) || [];
+    const storedSeenIds: string[] = (await context.store.get(seenKey)) || [];
+    const seenIds = new Set<string>(storedSeenIds);
+    const newIds: string[] = [];
 
     const previousStateKey = `xero_payment_prev_reconciled_state_${tenantId}`;
     const prevState: Record<string, boolean> = (await context.store.get(previousStateKey)) || {};
@@ -177,17 +184,27 @@ export const xeroNewReconciledPayment = createTrigger({
       const wasRec = Boolean(prevState[id]);
 
       // Fire only when first transitions to reconciled (false -> true)
-      if (isRec && !wasRec && !seen.includes(id)) {
+      if (isRec && !wasRec && !seenIds.has(id)) {
         results.push(p);
-        seen.push(id);
+        seenIds.add(id);
+        newIds.push(id);
       }
 
       // Track current state for next poll
       prevState[id] = isRec;
     }
 
-    await context.store.put(seenKey, seen);
-    await context.store.put(previousStateKey, prevState);
+    // Newest ids last, so the slice keeps the most recently seen ones and the
+    // stored sets cannot grow unboundedly across polls. Object key order is
+    // first-seen order, so the prevState slice keeps the newest payments.
+    await context.store.put(
+      seenKey,
+      Array.from(new Set([...storedSeenIds, ...newIds])).slice(-SEEN_IDS_LIMIT)
+    );
+    await context.store.put(
+      previousStateKey,
+      Object.fromEntries(Object.entries(prevState).slice(-SEEN_IDS_LIMIT))
+    );
     return results;
   },
   sampleData: undefined,

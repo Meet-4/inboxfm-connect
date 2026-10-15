@@ -107,6 +107,11 @@ const polling: Polling<
   },
 };
 
+// Keep only the newest ids/entries in the stored dedup sets so they cannot
+// grow unboundedly across polls (house pattern: coralogix
+// SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_IDS_LIMIT = 1000;
+
 export const xeroNewBill = createTrigger({
   auth: xeroAuth,
   name: 'xero_new_bill',
@@ -159,18 +164,26 @@ export const xeroNewBill = createTrigger({
     const items = (await pollingHelper.poll(polling, context)) as any[];
     const tenantId = context.propsValue['tenant_id'];
     const seenKey = `xero_bill_seen_ids_${tenantId}`;
-    const seen: string[] = (await context.store.get(seenKey)) || [];
+    const storedSeenIds: string[] = (await context.store.get(seenKey)) || [];
+    const seenIds = new Set<string>(storedSeenIds);
+    const newIds: string[] = [];
 
     const results: any[] = [];
     for (const inv of items) {
       const id = inv?.InvoiceID as string | undefined;
       if (!id) continue;
-      if (!seen.includes(id)) {
+      if (!seenIds.has(id)) {
         results.push(inv);
-        seen.push(id);
+        seenIds.add(id);
+        newIds.push(id);
       }
     }
-    await context.store.put(seenKey, seen);
+    // Newest ids last, so the slice keeps the most recently seen ones and the
+    // stored set cannot grow unboundedly across polls.
+    await context.store.put(
+      seenKey,
+      Array.from(new Set([...storedSeenIds, ...newIds])).slice(-SEEN_IDS_LIMIT)
+    );
     return results;
   },
   sampleData: undefined,

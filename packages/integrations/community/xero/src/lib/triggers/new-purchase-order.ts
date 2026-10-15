@@ -103,6 +103,11 @@ AppConnectionValueForAuthProperty<typeof xeroAuth>,
   },
 };
 
+// Keep only the newest ids/entries in the stored dedup sets so they cannot
+// grow unboundedly across polls (house pattern: coralogix
+// SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_IDS_LIMIT = 1000;
+
 export const xeroNewPurchaseOrder = createTrigger({
   auth: xeroAuth,
   name: 'xero_new_purchase_order',
@@ -169,10 +174,14 @@ export const xeroNewPurchaseOrder = createTrigger({
     const firstStatus: string | undefined = context.propsValue['first_time_status'];
 
     const seenIdsKey = `xero_po_seen_ids_${tenantId}`;
-    const seenIds: string[] = (await context.store.get(seenIdsKey)) || [];
+    const storedSeenIds: string[] = (await context.store.get(seenIdsKey)) || [];
+    const seenIds = new Set<string>(storedSeenIds);
+    const poNewIds: string[] = [];
 
     const statusSeenKey = firstStatus ? `xero_po_status_seen_${tenantId}_${firstStatus}` : '';
-    const statusSeenIds: string[] = firstStatus ? (await context.store.get(statusSeenKey)) || [] : [];
+    const storedStatusSeenIds: string[] = firstStatus ? (await context.store.get(statusSeenKey)) || [] : [];
+    const statusSeenIds = new Set<string>(storedStatusSeenIds);
+    const statusNewIds: string[] = [];
 
     const emittedIds = new Set<string>();
     const results: any[] = [];
@@ -182,27 +191,37 @@ export const xeroNewPurchaseOrder = createTrigger({
       if (!id) continue;
 
       // Emit for brand new purchase orders (first time seen)
-      if (!seenIds.includes(id)) {
+      if (!seenIds.has(id)) {
         if (!emittedIds.has(id)) {
           results.push(po);
           emittedIds.add(id);
         }
-        seenIds.push(id);
+        seenIds.add(id);
+        poNewIds.push(id);
       }
 
       // Emit when entering the specific status for the first time
-      if (firstStatus && po?.Status === firstStatus && !statusSeenIds.includes(id)) {
+      if (firstStatus && po?.Status === firstStatus && !statusSeenIds.has(id)) {
         if (!emittedIds.has(id)) {
           results.push(po);
           emittedIds.add(id);
         }
-        statusSeenIds.push(id);
+        statusSeenIds.add(id);
+        statusNewIds.push(id);
       }
     }
 
-    await context.store.put(seenIdsKey, seenIds);
+    // Newest ids last, so the slice keeps the most recently seen ones and the
+    // stored sets cannot grow unboundedly across polls.
+    await context.store.put(
+      seenIdsKey,
+      Array.from(new Set([...storedSeenIds, ...poNewIds])).slice(-SEEN_IDS_LIMIT)
+    );
     if (firstStatus) {
-      await context.store.put(statusSeenKey, statusSeenIds);
+      await context.store.put(
+        statusSeenKey,
+        Array.from(new Set([...storedStatusSeenIds, ...statusNewIds])).slice(-SEEN_IDS_LIMIT)
+      );
     }
 
     return results;

@@ -64,6 +64,11 @@ AppConnectionValueForAuthProperty<typeof xeroAuth>,
   },
 };
 
+// Keep only the newest ids/entries in the stored dedup sets so they cannot
+// grow unboundedly across polls (house pattern: coralogix
+// SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_IDS_LIMIT = 1000;
+
 export const xeroNewProject = createTrigger({
   auth: xeroAuth,
   name: 'xero_new_project',
@@ -109,7 +114,9 @@ export const xeroNewProject = createTrigger({
     const items = (await pollingHelper.poll(polling, context)) as any[];
     const tenantId = context.propsValue['tenant_id'];
     const seenKey = `xero_project_seen_ids_${tenantId}`;
-    const seen: string[] = (await context.store.get(seenKey)) || [];
+    const storedSeenIds: string[] = (await context.store.get(seenKey)) || [];
+    const seenIds = new Set<string>(storedSeenIds);
+    const newIds: string[] = [];
 
     const results: any[] = [];
     for (const it of items) {
@@ -117,12 +124,18 @@ export const xeroNewProject = createTrigger({
       const data = it?.data ?? it;
       const projectId = id as string | undefined;
       if (!projectId) continue;
-      if (!seen.includes(projectId)) {
+      if (!seenIds.has(projectId)) {
         results.push(data);
-        seen.push(projectId);
+        seenIds.add(projectId);
+        newIds.push(projectId);
       }
     }
-    await context.store.put(seenKey, seen);
+    // Newest ids last, so the slice keeps the most recently seen ones and the
+    // stored set cannot grow unboundedly across polls.
+    await context.store.put(
+      seenKey,
+      Array.from(new Set([...storedSeenIds, ...newIds])).slice(-SEEN_IDS_LIMIT)
+    );
     return results;
   },
   sampleData: undefined,
