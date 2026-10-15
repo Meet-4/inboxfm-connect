@@ -133,13 +133,39 @@ export async function getCustomerOrders(
   id: string,
   auth: ShopifyAuth
 ): Promise<ShopifyOrder[]> {
-  const response = await sendShopifyRequest({
-    auth: auth,
-    url: `/customers/${id}/orders.json`,
-    method: HttpMethod.GET,
-  });
+  const orders: ShopifyOrder[] = [];
+  const queryParams: QueryParams = {};
+  let hasNextPage = true;
 
-  return (response.body as { orders: ShopifyOrder[] }).orders;
+  while (hasNextPage) {
+    const response = await sendShopifyRequest({
+      auth: auth,
+      url: `/customers/${id}/orders.json`,
+      method: HttpMethod.GET,
+      queryParams,
+    });
+
+    orders.push(...(response.body as { orders: ShopifyOrder[] }).orders);
+
+    const linkHeader = response.headers?.['link'];
+    if (linkHeader && typeof linkHeader === 'string' && linkHeader.includes('rel="next"')) {
+      // Extract the URL for the next page from the Link header
+      const nextLink = linkHeader
+        .split(',')
+        .find((s) => s.includes('rel="next"'))
+        ?.match(/<(.*?)>/)?.[1];
+
+      if (nextLink) {
+        queryParams.page_info = new URL(nextLink).searchParams.get('page_info') || '';
+      } else {
+        hasNextPage = false;
+      }
+    } else {
+      hasNextPage = false;
+    }
+  }
+
+  return orders;
 }
 
 export async function getProducts(
