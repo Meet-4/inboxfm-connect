@@ -103,7 +103,7 @@ export const updatePerson = createAction({
     const personUpdateResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.PUT,
-        url: `${TALKABLE_API_URL}/people/${email}`,
+        url: `${TALKABLE_API_URL}/people/${encodeURIComponent(email)}`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

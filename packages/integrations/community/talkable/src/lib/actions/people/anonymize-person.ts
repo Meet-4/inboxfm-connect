@@ -22,7 +22,7 @@ export const anonymizePerson = createAction({
     const personAnonymizeResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.POST,
-        url: `${TALKABLE_API_URL}/people/${context.propsValue['email']}/anonymize`,
+        url: `${TALKABLE_API_URL}/people/${encodeURIComponent(context.propsValue['email'])}/anonymize`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

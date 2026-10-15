@@ -80,7 +80,7 @@ export const createTask = createAction({
             wedofCommon.baseUrl +
             '/activities/' +
             context.propsValue.entityClass +
-            '/'+ context.propsValue.externalId,
+            '/'+ encodeURIComponent(context.propsValue.externalId),
           body: message,
           headers: {
             'Content-Type': 'application/json',

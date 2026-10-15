@@ -42,7 +42,7 @@ export const retrieveRedditPost = createAction({
     }),
   },
   async run(context) {
-    const baseUrl = `https://oauth.reddit.com/r/${context.propsValue.subreddit}/${context.propsValue.post_category}`;
+    const baseUrl = `https://oauth.reddit.com/r/${encodeURIComponent(context.propsValue.subreddit)}/${context.propsValue.post_category}`;
     const limit = context.propsValue.size || 10;
 
     const response = await httpClient.sendRequest({

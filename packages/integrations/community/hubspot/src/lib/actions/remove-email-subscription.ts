@@ -21,7 +21,7 @@ export const removeEmailSubscriptionAction = createAction({
        // https://developers.hubspot.com/docs/reference/api/marketing/subscriptions-preferences/v1#update-email-subscription-status-for-an-email-address
 		const response = await httpClient.sendRequest({
 			method: HttpMethod.PUT,
-			url: `https://api.hubapi.com/email/public/v1/subscriptions/${email}`,
+			url: `https://api.hubapi.com/email/public/v1/subscriptions/${encodeURIComponent(email)}`,
 			authentication: {
 				type: AuthenticationType.BEARER_TOKEN,
 				token: context.auth.access_token,

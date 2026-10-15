@@ -33,7 +33,7 @@ export const refund = createAction({
     const refundResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.POST,
-        url: `${TALKABLE_API_URL}/origins/${origin_slug}/refund`,
+        url: `${TALKABLE_API_URL}/origins/${encodeURIComponent(origin_slug)}/refund`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

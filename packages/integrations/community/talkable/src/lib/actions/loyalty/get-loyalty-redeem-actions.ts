@@ -22,7 +22,7 @@ export const getLoyaltyRedeemActions = createAction({
     const getLoyaltyRedeemActionsResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.GET,
-        url: `${TALKABLE_API_URL}/loyalty/members/${context.propsValue['person_email']}/redeem_actions`,
+        url: `${TALKABLE_API_URL}/loyalty/members/${encodeURIComponent(context.propsValue['person_email'])}/redeem_actions`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',
