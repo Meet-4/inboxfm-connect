@@ -9,6 +9,10 @@ import { makeRequest } from '../common/client';
 
 const STORE_KEY = 'coralogix_seen_incident_ids';
 
+// Keep only the newest ids in the dedup set so it cannot grow unboundedly across
+// polls (10 poll pages of history still cover the severity-filter-change case).
+const SEEN_INCIDENT_IDS_LIMIT = 1000;
+
 export const newIncident = createTrigger({
   auth: coralogixAuth,
   name: 'newIncident',
@@ -86,8 +90,11 @@ export const newIncident = createTrigger({
     const newIncidents = incidents.filter((i) => !seenIds.includes(i.id));
 
     const allIds = incidents.map((i) => i.id);
-    // merge: keep old seen IDs + new ones so we don't re-trigger if severity filter changes
-    const mergedIds = Array.from(new Set([...seenIds, ...allIds]));
+    // merge: keep old seen IDs + new ones so we don't re-trigger if severity filter
+    // changes; bounded to the newest ids so the stored set can't grow unboundedly
+    const mergedIds = Array.from(new Set([...seenIds, ...allIds])).slice(
+      -SEEN_INCIDENT_IDS_LIMIT
+    );
     await context.store.put<string[]>(STORE_KEY, mergedIds);
 
     return newIncidents;
