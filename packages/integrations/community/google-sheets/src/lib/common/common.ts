@@ -278,8 +278,11 @@ async function clearSheet(
 						range: {
 							sheetId: sheetId,
 							dimension: 'ROWS',
+							// DimensionRange is half-open: "the start index is inclusive and
+							// the end index is exclusive" — endIndex = startIndex + numOfRows
+							// deletes exactly numOfRows rows (the previous +1 deleted one row too many).
 							startIndex: rowIndex,
-							endIndex: rowIndex + numOfRows + 1,
+							endIndex: rowIndex + numOfRows,
 						},
 					},
 				},
