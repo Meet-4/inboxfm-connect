@@ -1,5 +1,10 @@
 import { createCustomApiCallAction } from '@inboxfm-connect/pieces-common';
 import {
+  AuthenticationType,
+  HttpMethod,
+  httpClient,
+} from '@inboxfm-connect/pieces-common';
+import {
   OAuth2PropertyValue,
   PieceAuth,
   createPiece,
@@ -22,6 +27,31 @@ export const zoomAuth = PieceAuth.OAuth2({
   required: true,
   // scope: ['meeting:write:admin', 'meeting:write'],
   scope: [],
+  validate: async ({ auth }) => {
+    try {
+      await httpClient.sendRequest({
+        method: HttpMethod.GET,
+        // Same call and scope the meeting dropdown relies on, so a connection
+        // that passes validation can actually use the piece
+        url: 'https://api.zoom.us/v2/users/me/meetings',
+        queryParams: {
+          type: 'scheduled',
+          page_size: '1',
+        },
+        authentication: {
+          type: AuthenticationType.BEARER_TOKEN,
+          token: auth.access_token,
+        },
+      });
+      return { valid: true };
+    } catch (e) {
+      return {
+        valid: false,
+        error:
+          'Invalid Zoom connection. Reconnect and make sure your Zoom app has the meeting:read:list_meetings scope.',
+      };
+    }
+  },
 });
 
 export const zoom = createPiece({
