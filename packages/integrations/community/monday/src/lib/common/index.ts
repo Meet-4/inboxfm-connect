@@ -29,7 +29,7 @@ auth: mondayAuth,
         const res = await client.listWorkspcaes();
         return {
           disabled: false,
-          options: res.data.workspaces.map((workspace) => {
+          options: (res.data?.workspaces ?? []).map((workspace) => {
             return {
               label: workspace.name,
               value: workspace.id,
@@ -61,7 +61,7 @@ auth: mondayAuth,
 
         return {
           disabled: false,
-          options: res.data.boards
+          options: (res.data?.boards ?? [])
             .filter((board) => board.type === 'board')
             .map((board) => {
               return {
@@ -93,13 +93,10 @@ auth: mondayAuth,
         });
         return {
           disabled: false,
-          options:
-            res.data.boards.length > 0
-              ? res.data.boards[0]?.groups.map((group) => ({
-                  label: group.title,
-                  value: group.id,
-                }))
-              : [],
+          options: (res.data?.boards?.[0]?.groups ?? []).map((group) => ({
+            label: group.title,
+            value: group.id,
+          })),
         };
       },
     }),
@@ -123,7 +120,7 @@ auth: mondayAuth,
           boardId: board_id as string,
         });
 
-        const items = res.data.boards[0]?.items_page.items;
+        const items = res.data?.boards?.[0]?.items_page?.items ?? [];
         return {
           disabled: false,
           options: items.map((item) => {
@@ -158,7 +155,7 @@ auth: mondayAuth,
         });
         return {
           disabled: false,
-          options: res.data.boards[0].columns.map((column) => {
+          options: (res.data?.boards?.[0]?.columns ?? []).map((column) => {
             return {
               label: column.title,
               value: column.id,
@@ -196,7 +193,7 @@ auth: mondayAuth,
                 required: false,
                 options: {
                   disabled: false,
-                  options: userData.data.users.map((user) => {
+                  options: (userData.data?.users ?? []).map((user) => {
                     return {
                       label: `${user.name} (${user.email})`,
                       value: user.id,
