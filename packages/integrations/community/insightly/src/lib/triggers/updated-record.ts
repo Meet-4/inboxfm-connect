@@ -73,6 +73,13 @@ export const updatedRecord = createTrigger({
             }
         ];
     },
-    sampleData: {}
+    sampleData: {
+        CONTACT_ID: 123456,
+        FIRST_NAME: 'John',
+        LAST_NAME: 'Doe',
+        EMAIL_ADDRESS: 'john.doe.updated@example.com',
+        DATE_CREATED_UTC: '2025-10-03T23:29:42.815Z',
+        DATE_UPDATED_UTC: '2026-10-15T10:30:00.000Z'
+    }
 });
 

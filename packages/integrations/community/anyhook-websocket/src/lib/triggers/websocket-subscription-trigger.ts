@@ -65,6 +65,9 @@ export const websocketSubscriptionTrigger = createTrigger({
       },
     ];
   },
-  sampleData: {},
+  sampleData: {
+    event: 'Websocket event data',
+    details: 'Details of the event',
+  },
 });
 

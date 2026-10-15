@@ -114,7 +114,24 @@ Not sure what to write? Open Jira → Filters → Advanced search, build the fil
 			defaultValue: true,
 		}),
 	},
-	sampleData: {},
+	sampleData: {
+		issue: {
+			id: '10001',
+			key: 'SUP-42',
+			summary: 'Login page returns 500 after deploy'
+		},
+		comment: {
+			id: '10023',
+			self: 'https://your-domain.atlassian.net/rest/api/3/issue/10001/comment/10023',
+			body: 'Investigating - looks like a regression from the last deploy.',
+			created: '2026-10-15T10:30:00.000+0000',
+			updated: '2026-10-15T10:30:00.000+0000',
+			author: {
+				accountId: '5b10a2844c20165700ede21g',
+				displayName: 'Jane Doe'
+			}
+		}
+	},
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, context);
 	},

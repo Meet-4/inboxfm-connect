@@ -74,6 +74,12 @@ export const newRecord = createTrigger({
             }
         ];
     },
-    sampleData: {} // Webhook triggers don't need sample data in the same way
+    sampleData: {
+        CONTACT_ID: 123456,
+        FIRST_NAME: 'John',
+        LAST_NAME: 'Doe',
+        EMAIL_ADDRESS: 'john.doe@example.com',
+        DATE_CREATED_UTC: '2026-10-03T23:29:42.815Z'
+    }
 });
 

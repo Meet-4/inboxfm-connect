@@ -161,10 +161,12 @@ export const queryJobCompletedTrigger = createTrigger({
   sampleData: {
     job_id: 'job_abc123',
     project_id: 'my-project',
+    location: 'US',
     query: 'SELECT * FROM my_dataset.my_table LIMIT 10',
     completed_at: '2024-01-15T10:30:00Z',
-    bytes_processed: '1024',
+    bytes_processed: 1024,
     cache_hit: false,
+    user_email: 'user@example.com',
     row_count: 2,
     rows: [
       { id: '1', name: 'Alice' },

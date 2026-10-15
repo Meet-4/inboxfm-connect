@@ -73,6 +73,7 @@ export const scheduledReportFetchWqlBatch = createTrigger({
 	sampleData: {
 		total_count: 1,
 		records: [{ employee_id: 'worker-001', name: 'Jane Doe', status: 'Active' }],
+		fetched_at: '2026-10-15T10:30:00.000Z',
 	},
 	type: TriggerStrategy.POLLING,
 	async test(ctx) {

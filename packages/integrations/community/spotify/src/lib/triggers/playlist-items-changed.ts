@@ -18,7 +18,29 @@ export default createTrigger({
   props: {
     playlist_id: spotifyCommon.playlist_id(true),
   },
-  sampleData: {},
+  sampleData: {
+    total: 2,
+    items: [
+      {
+        added_at: '2026-10-01T10:30:00Z',
+        is_local: false,
+        track: {
+          id: '4iV5W9uYEdYUVa79Axb7Rh',
+          name: 'Never Gonna Give You Up',
+          uri: 'spotify:track:4iV5W9uYEdYUVa79Axb7Rh',
+        },
+      },
+      {
+        added_at: '2026-10-10T08:15:00Z',
+        is_local: false,
+        track: {
+          id: '0VjIjW4GlUZg7UpZCm8P6w',
+          name: 'Blinding Lights',
+          uri: 'spotify:track:0VjIjW4GlUZg7UpZCm8P6w',
+        },
+      },
+    ],
+  },
   onEnable: async ({ store, auth, propsValue }) => {
     const client = makeClient({ auth });
     const items = await client.getAllPlaylistItems(

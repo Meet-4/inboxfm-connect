@@ -144,6 +144,12 @@ export const deletedRecord = createTrigger({
             }
         ];
     },
-    sampleData: {}
+    sampleData: {
+        recordId: '123456',
+        recordName: 'Test Deleted Record',
+        deletedAt: '2026-10-15T10:45:00.000Z',
+        objectType: 'Contacts',
+        lastSeenAt: '2026-10-15T10:20:00.000Z'
+    }
 });
 

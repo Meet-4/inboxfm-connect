@@ -86,5 +86,32 @@ export const conversationOpenedTrigger = createTrigger({
     ];
   },
 
-  sampleData: {},
+  sampleData: {
+    event_type: 'conversation.opened',
+    event_id: '8b9c2905-7a38-4aad-a6b7-b9120dc140fe',
+    contact: {
+      id: 1,
+      firstName: 'John',
+      lastName: 'Doe',
+      phone: '+601****6789',
+      email: 'johndoe@sample.com',
+      language: 'en',
+      profilePic: 'https://cdn.chatapi.net/johndoe.png',
+      countryCode: 'MY',
+      status: 'open',
+      assignee: {
+        id: 2,
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'johndoe@sample.com',
+      },
+      created_at: 1663274081,
+    },
+    conversation: {
+      source: 'api',
+      conversationOpenedAt: 1663274081,
+      firstIncomingMessage: 'hello',
+      firstIncomingMessageChannelId: 1,
+    },
+  },
 });

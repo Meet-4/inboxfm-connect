@@ -80,7 +80,19 @@ export const newRecord = createTrigger({
   auth: quickbaseAuth,
   props,
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    id: '6-2026-10-15T10:30:00Z',
+    created_at: '2026-10-15T10:30:00Z',
+    updated_at: '2026-10-15T11:00:00Z',
+    recordId: 6,
+    tableId: 'bck7gp8ph',
+    appId: 'bck7gp8pb',
+    fields: {
+      '6': 'Jane Doe',
+      '7': 'jane.doe@example.com',
+      '8': 'Active'
+    }
+  },
   async onEnable(context) {
     const { store, auth, propsValue } = context;
     await pollingHelper.onEnable(polling, { store, auth, propsValue });
