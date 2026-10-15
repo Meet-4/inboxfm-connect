@@ -7,7 +7,7 @@ import { OAuth2PropertyValue, Property } from '@inboxfm-connect/pieces-framework
 import { facebookPagesAuth } from '../..';
 
 export const facebookPagesCommon = {
-  baseUrl: 'https://graph.facebook.com/v17.0',
+  baseUrl: 'https://graph.facebook.com/v23.0',
   page: Property.Dropdown<FacebookPageDropdown,true,typeof facebookPagesAuth>({
     auth: facebookPagesAuth,
     displayName: 'Page',
