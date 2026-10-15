@@ -79,7 +79,14 @@ export const newReleaseTrigger = createTrigger({
   async run(context) {
     const payload = context.payload.body as { action?: string };
 
-    if (payload.action === 'created') {
+    // `published` is the action GitHub delivers when a release is published
+    // (including pre-releases published from drafts); `created` only fires
+    // when a draft release is saved. Watching only `created` meant the
+    // trigger never fired for actual releases.
+    // https://docs.github.com/webhooks/webhook-events-and-payloads/#release
+    const newReleaseActions = ['created', 'published', 'prereleased', 'released'];
+
+    if (newReleaseActions.includes(payload.action ?? '')) {
       return [context.payload.body];
     }
 
