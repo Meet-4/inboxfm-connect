@@ -17,7 +17,15 @@ async function getMimeType(
           Authorization: `Bearer ${accessToken}`,
         },
       }
-    ).then((res) => res.json())
+    ).then(async (res) => {
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        throw new Error(
+          `Failed to get Google Drive file metadata (HTTP ${res.status} ${res.statusText}): ${errorText.slice(0, 500)}`
+        );
+      }
+      return res.json();
+    })
   )['mimeType'] as string;
   return mimeType;
 }
@@ -37,9 +45,15 @@ const googledlCall = async (
       Authorization: `Bearer ${accessToken}`,
     },
   })
-    .then((response) =>
-      response.ok ? response.blob() : Promise.reject(response)
-    )
+    .then(async (response) => {
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(
+          `HTTP ${response.status} ${response.statusText}: ${errorText.slice(0, 500)}`
+        );
+      }
+      return response.blob();
+    })
     .catch((error) =>
       Promise.reject(
         new Error(
