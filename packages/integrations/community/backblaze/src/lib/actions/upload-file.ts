@@ -23,6 +23,8 @@ export const backBlazes3UploadFileAction = createAction({
     acl: Property.StaticDropdown({
       displayName: 'ACL',
       required: false,
+      description:
+        'Backblaze B2 only supports the "private" and "public-read" canned ACLs; objects inherit their bucket\'s ACL and setting a different value than the bucket\'s returns 403 Forbidden. Leave unset to inherit the bucket ACL.',
       options: {
         options: [
           {
@@ -32,26 +34,6 @@ export const backBlazes3UploadFileAction = createAction({
           {
             label: 'public-read',
             value: 'public-read',
-          },
-          {
-            label: 'public-read-write',
-            value: 'public-read-write',
-          },
-          {
-            label: 'authenticated-read',
-            value: 'authenticated-read',
-          },
-          {
-            label: 'aws-exec-read',
-            value: 'aws-exec-read',
-          },
-          {
-            label: 'bucket-owner-read',
-            value: 'bucket-owner-read',
-          },
-          {
-            label: 'bucket-owner-full-control',
-            value: 'bucket-owner-full-control',
           },
         ],
       },
