@@ -25,9 +25,15 @@ export const readFile = createAction({
                 Authorization: `Bearer ${auth.access_token}`,
             },
         })
-            .then((response) =>
-                response.ok ? response.blob() : Promise.reject(response)
-            )
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => '');
+                    throw new Error(
+                        `HTTP ${response.status} ${response.statusText}: ${errorText.slice(0, 500)}`
+                    );
+                }
+                return response.blob();
+            })
             .catch((error) =>
                 Promise.reject(
                     new Error(
