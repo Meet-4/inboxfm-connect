@@ -156,15 +156,10 @@ export async function getUsers(
     name: string;
   }[]
 > {
-  const response = (
-    await callAsanaApi<{
-      data: {
-        gid: string;
-        name: string;
-      }[];
-    }>(HttpMethod.GET, 'users?workspace=' + workspace, accessToken, undefined)
-  ).body;
-  return response.data;
+  return await getAsanaPagedList<{ gid: string; name: string }>(
+    'users?workspace=' + workspace,
+    accessToken
+  );
 }
 
 export async function getTags(
@@ -176,20 +171,49 @@ export async function getTags(
     name: string;
   }[]
 > {
-  const response = (
-    await callAsanaApi<{
-      data: {
-        gid: string;
-        name: string;
-      }[];
-    }>(
-      HttpMethod.GET,
-      'workspaces/' + workspace + '/tags',
-      accessToken,
-      undefined
-    )
-  ).body;
-  return response.data;
+  return await getAsanaPagedList<{ gid: string; name: string }>(
+    'workspaces/' + workspace + '/tags',
+    accessToken
+  );
+}
+
+type AsanaPaginatedList<T> = {
+  data: T[];
+  next_page?: { offset: string; path: string; uri: string } | null;
+};
+
+/**
+ * Fetches every page of an Asana list endpoint. Asana only returns a
+ * `next_page` object (with the `offset` token for the next request) once
+ * pagination is enabled via the `limit` parameter (max 100); without it,
+ * results may be truncated server-side.
+ * https://developers.asana.com/docs/pagination
+ */
+async function getAsanaPagedList<T>(
+  apiUrl: string,
+  accessToken: string
+): Promise<T[]> {
+  const items: T[] = [];
+  const firstPageUrl = `${apiUrl}${apiUrl.includes('?') ? '&' : '?'}limit=100`;
+  let nextOffset: string | undefined;
+  do {
+    const url = nextOffset
+      ? `${firstPageUrl}&offset=${encodeURIComponent(nextOffset)}`
+      : firstPageUrl;
+    const body = (
+      await callAsanaApi<AsanaPaginatedList<T>>(
+        HttpMethod.GET,
+        url,
+        accessToken,
+        undefined
+      )
+    ).body;
+    if (Array.isArray(body?.data)) {
+      items.push(...body.data);
+    }
+    nextOffset = body?.next_page?.offset;
+  } while (nextOffset);
+  return items;
 }
 
 export async function callAsanaApi<T extends HttpMessageBody = any>(
