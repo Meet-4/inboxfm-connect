@@ -73,6 +73,14 @@ export const flowisePredict = createAction({
       headers,
       body: JSON.stringify(body),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Flowise prediction failed (HTTP ${response.status} ${response.statusText}): ${errorBody.slice(0, 500)}`
+      );
+    }
+
     const data = await response.json();
     return data;
   },
