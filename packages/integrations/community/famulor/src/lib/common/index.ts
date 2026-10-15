@@ -370,22 +370,61 @@ export const famulorCommon = {
   },
 
   listLeads: async ({ auth }: { auth: string }): Promise<ListLeadsResponse> => {
-    const response = await httpClient.sendRequest<ListLeadsResponse | LeadListItem[]>({
-      method: HttpMethod.GET,
-      url: `${baseApiUrl}api/user/leads`,
-      headers: famulorCommon.baseHeaders(auth),
-    });
+    // GET /api/user/leads is paginated (page/per_page, default 15 per page,
+    // Laravel-style last_page — docs.famulor.io). The old code made a single
+    // unpaginated call and only unwrapped array/{leads} shapes, so accounts
+    // with more leads than the default page — or whose response uses the
+    // documented {data: ...} envelope, as the assistants endpoint does —
+    // got a truncated or empty list. Walk all pages like
+    // fetchAllAssistantPages and unwrap every documented shape.
+    const MAX_PAGES = 50;
+    const PER_PAGE = 100;
+    const allLeads: LeadListItem[] = [];
+    let page = 1;
 
-    throwIfFamulorNotOk(response, 'Failed to fetch leads');
+    while (page <= MAX_PAGES) {
+      const response = await httpClient.sendRequest<
+        LeadListItem[] | { leads?: LeadListItem[]; data?: LeadListItem[]; last_page?: number }
+      >({
+        method: HttpMethod.GET,
+        url: `${baseApiUrl}api/user/leads`,
+        headers: famulorCommon.baseHeaders(auth),
+        queryParams: {
+          per_page: PER_PAGE.toString(),
+          page: page.toString(),
+        },
+      });
 
-    const body = response.body;
-    if (Array.isArray(body)) {
-      return { leads: body };
+      throwIfFamulorNotOk(response, 'Failed to fetch leads');
+
+      const body = response.body;
+      let leads: LeadListItem[] = [];
+      let lastPage: number | undefined;
+      if (Array.isArray(body)) {
+        leads = body;
+      } else if (body && typeof body === 'object') {
+        if (Array.isArray(body.data)) {
+          leads = body.data;
+        } else if (Array.isArray(body.leads)) {
+          leads = body.leads;
+        }
+        if (typeof body.last_page === 'number') {
+          lastPage = body.last_page;
+        }
+      }
+
+      allLeads.push(...leads);
+
+      if (leads.length === 0) {
+        break;
+      }
+      if (lastPage !== undefined ? page >= lastPage : leads.length < PER_PAGE) {
+        break;
+      }
+      page++;
     }
-    if (body && typeof body === 'object' && Array.isArray(body.leads)) {
-      return { leads: body.leads };
-    }
-    return { leads: [] };
+
+    return { leads: allLeads };
   },
 
   listCampaigns: async ({ auth }: { auth: string }) => {
