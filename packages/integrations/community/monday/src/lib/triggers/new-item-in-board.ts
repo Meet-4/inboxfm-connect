@@ -66,18 +66,23 @@ export const newItemInBoardTrigger = createTrigger({
   async run(context) {
     const payload = context.payload.body as MondayWebhookPayload;
     const transformedValues: Record<string, any> = {};
-    try {
-      const client = makeClient(context.auth);
-      const res = await client.getItemColumnValues({
-        boardId: payload.event.boardId,
-        itemId: payload.event.pulseId,
-      });
-      const item = res.data.boards[0].items_page.items[0];
-      for (const column of item.column_values) {
+    const client = makeClient(context.auth);
+    const res = await client.getItemColumnValues({
+      boardId: payload.event.boardId,
+      itemId: payload.event.pulseId,
+    });
+    // monday-sdk-js resolves GraphQL error bodies (bad token, deleted board or
+    // item) instead of throwing, so guard the envelope: a missing item keeps
+    // delivery intact while genuine request failures still propagate.
+    const item = res.data?.boards?.[0]?.items_page?.items?.[0];
+    if (item == null) {
+      console.error(
+        `monday new-item-in-board: no column values for board ${payload.event.boardId} item ${payload.event.pulseId}, delivering event without column enrichment`
+      );
+    } else {
+      for (const column of item.column_values ?? []) {
         transformedValues[column.id] = parseMondayColumnValue(column);
       }
-    } catch (e) {
-      console.error(e);
     }
 
     const enriched = [
