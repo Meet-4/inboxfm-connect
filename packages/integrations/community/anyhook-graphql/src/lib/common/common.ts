@@ -25,6 +25,14 @@ export const graphqlCommon = {
       },
       body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `AnyHook GraphQL request failed (HTTP ${response.status} ${response.statusText}): ${errorBody.slice(0, 500)}`
+      );
+    }
+
     return response.json();
   },
 };

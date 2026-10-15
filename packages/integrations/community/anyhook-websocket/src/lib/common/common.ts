@@ -25,6 +25,14 @@ export const websocketCommon = {
       },
       body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `AnyHook WebSocket request failed (HTTP ${response.status} ${response.statusText}): ${errorBody.slice(0, 500)}`
+      );
+    }
+
     return response.json();
   },
 };
