@@ -26,7 +26,9 @@ export const findMember = createAction({
         Authorization: `Ghost ${common.jwtFromApiKey(context.auth.props.apiKey)}`,
       },
       queryParams: {
-        filter: `email:${context.propsValue.email}`,
+        // Ghost NQL string syntax: quote the value and escape embedded quotes
+        // so emails containing +, spaces, or quotes filter correctly
+        filter: `email:'${context.propsValue.email.replace(/(['"])/g, '\\$1')}'`,
       },
     });
 
