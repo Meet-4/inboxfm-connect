@@ -1,9 +1,5 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
-import {
-  httpClient,
-  HttpMethod,
-  AuthenticationType,
-} from '@inboxfm-connect/pieces-common';
+import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { mixpanelAuth } from '../auth';
 
 const API_URL = 'https://api.mixpanel.com';
@@ -40,13 +36,16 @@ export const trackEvent = createAction({
     }),
   },
   async run(context) {
-    const projectToken = context.auth;
     const { event, distinct_id, event_properties } = context.propsValue;
 
+    // /track authenticates with the project token inside the event payload
+    // (no HTTP auth). /import would require a service account or project
+    // secret and rejects the project token this piece collects.
     const eventPayload = [
       {
         event,
         properties: {
+          token: context.auth.secret_text,
           time: Math.floor(Date.now() / 1000),
           distinct_id,
           ...event_properties,
@@ -56,15 +55,10 @@ export const trackEvent = createAction({
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `${API_URL}/import`,
+      url: `${API_URL}/track`,
       body: eventPayload,
       headers: {
         'Content-Type': 'application/json',
-      },
-      authentication: {
-        type: AuthenticationType.BASIC,
-        username: projectToken.secret_text,
-        password: '',
       },
     });
 
