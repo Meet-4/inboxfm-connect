@@ -31,32 +31,93 @@ export const githubCreateDiscussionCommentAction = createAction({
     const { discussion_number, body } = propsValue;
     const { owner, repo } = propsValue.repository!;
 
-    // GitHub Discussions API requires GraphQL for most operations
-    const query = `
-		mutation AddDiscussionComment {
-			addDiscussionComment(input: {
-				discussionId: "${discussion_number}",
-				repositoryName: "${repo}",
-				repositoryOwner: "${owner}",
-				body: "${body.replace(/"/g, '\\"')}"
-			}) {
-				comment {
-					id
-					body
-					createdAt
-					url
-				}
-			}
-		}`;
-
-    const response = await githubApiCall({
+    // `addDiscussionComment` only accepts `body` and the discussion's GraphQL
+    // node ID (`AddDiscussionCommentInput` has no repositoryName/repositoryOwner
+    // fields), so the discussion number must be resolved to its node ID first.
+    // https://docs.github.com/en/graphql/reference/mutations#adddiscussioncomment
+    const discussionIdLookup = await githubApiCall<{
+      data?: { repository?: { discussion?: { id?: string } | null } | null };
+      errors?: Array<{ message: string }>;
+    }>({
       auth,
       method: HttpMethod.POST,
       resourceUri: '/graphql',
       body: {
-        query,
+        query: `
+          query GetDiscussionId($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              discussion(number: $number) {
+                id
+              }
+            }
+          }`,
+        variables: {
+          owner,
+          repo,
+          number: discussion_number,
+        },
       },
     });
+
+    if (discussionIdLookup.body.errors?.length) {
+      throw new Error(
+        `Failed to look up discussion #${discussion_number}: ${discussionIdLookup.body.errors[0].message}`
+      );
+    }
+
+    const discussionId =
+      discussionIdLookup.body.data?.repository?.discussion?.id;
+    if (!discussionId) {
+      throw new Error(
+        `Discussion #${discussion_number} was not found in ${owner}/${repo}. Check that the repository has Discussions enabled and the discussion number is correct.`
+      );
+    }
+
+    const response = await githubApiCall<{
+      data?: {
+        addDiscussionComment?: {
+          comment?: {
+            id?: string;
+            body?: string;
+            createdAt?: string;
+            url?: string;
+          };
+        };
+      };
+      errors?: Array<{ message: string }>;
+    }>({
+      auth,
+      method: HttpMethod.POST,
+      resourceUri: '/graphql',
+      body: {
+        // Pass the body through variables instead of interpolating it into the
+        // query string: markdown bodies contain newlines and quotes that would
+        // break the GraphQL string literal.
+        query: `
+          mutation AddDiscussionComment($input: AddDiscussionCommentInput!) {
+            addDiscussionComment(input: $input) {
+              comment {
+                id
+                body
+                createdAt
+                url
+              }
+            }
+          }`,
+        variables: {
+          input: {
+            discussionId,
+            body,
+          },
+        },
+      },
+    });
+
+    if (response.body.errors?.length) {
+      throw new Error(
+        `Failed to add comment to discussion #${discussion_number}: ${response.body.errors[0].message}`
+      );
+    }
 
     return response;
   },
