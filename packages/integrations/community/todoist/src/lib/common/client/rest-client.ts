@@ -142,7 +142,10 @@ export const todoistRestClient = {
 
         const request: HttpRequest = {
           method: HttpMethod.GET,
-          url: `${API}/tasks/completed`,
+          // v1 has no plain /tasks/completed; the documented endpoint is
+          // "Tasks Completed By Completion Date":
+          // GET /api/v1/tasks/completed/by_completion_date (developer.todoist.com/api/v1)
+          url: `${API}/tasks/completed/by_completion_date`,
           authentication: { type: AuthenticationType.BEARER_TOKEN, token },
           queryParams,
         };

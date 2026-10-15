@@ -15,16 +15,16 @@ import {
 import { todoistRestClient } from '../common/client/rest-client';
 import { TodoistCompletedTask } from '../common/models';
 
-const ISO_FORMAT = 'YYYY-MM-DDTHH:mm:ss';
-
 const polling: Polling<AppConnectionValueForAuthProperty<typeof todoistAuth>, { project_id?: string }> = {
 	strategy: DedupeStrategy.TIMEBASED,
 	async items({ auth, propsValue, lastFetchEpochMS }) {
+		// The docs require UTC ISO-8601 timestamps ("since=2025-02-01T00:00:00Z"),
+		// so use dayjs toISOString() instead of a naive local-time format.
 		const since =
 			lastFetchEpochMS === 0
-				? dayjs().subtract(5, 'minutes').format(ISO_FORMAT)
-				: dayjs(lastFetchEpochMS).format(ISO_FORMAT);
-		const until = dayjs().format(ISO_FORMAT);
+				? dayjs().subtract(5, 'minutes').toISOString()
+				: dayjs(lastFetchEpochMS).toISOString();
+		const until = dayjs().toISOString();
 
 		const tasks = await todoistRestClient.tasks.listCompleted({
 			token: auth.access_token,
