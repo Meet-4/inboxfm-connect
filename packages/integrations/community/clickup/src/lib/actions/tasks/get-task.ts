@@ -26,13 +26,16 @@ export const getClickupTask = createAction({
   },
   outputSchema: taskOutputSchema,
   async run(configValue) {
-    const { task_id } = configValue.propsValue;
+    const { task_id, include_subtasks } = configValue.propsValue;
 
     const response = await callClickUpApi(
       HttpMethod.GET,
       `task/${task_id}`,
       getAccessTokenOrThrow(configValue.auth),
-      undefined
+      undefined,
+      // Documented query param: "include_subtasks — Include subtasks, default false"
+      // https://developer.clickup.com/reference/gettask
+      { include_subtasks: include_subtasks ?? false }
     );
 
     return response.body;
