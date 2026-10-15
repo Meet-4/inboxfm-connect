@@ -14,7 +14,7 @@ export const textToImage = createAction({
   audience: 'both',
   aiMetadata: {
     description:
-      'Generates one or more images from a text prompt using a Stable Diffusion engine (selectable via the required Engine ID, e.g. SDXL or older v1/v2 models). Use to create original imagery from a description; optionally steer output with a style preset, dimensions, sampling steps, and prompt-adherence (cfg_scale). Not idempotent: each call invokes the generative model and returns fresh images, so repeating the same input yields different results.',
+      'Generates one or more images from a text prompt using the Stability AI v1 REST API (the only engine still served there is Stable Diffusion XL 1.0). Use to create original imagery from a description; optionally steer output with a style preset, dimensions, sampling steps, and prompt-adherence (cfg_scale). Not idempotent: each call invokes the generative model and returns fresh images, so repeating the same input yields different results.',
     idempotent: false,
   },
   props: {
@@ -33,13 +33,13 @@ export const textToImage = createAction({
     height: Property.Number({
       displayName: 'height',
       description:
-        'Height of the image in pixels. Must be in increments of 64 and >= 128',
+        'Height of the image in pixels. SDXL 1.0 only accepts these dimensions: 1024x1024, 1152x896, 1216x832, 1344x768, 1536x640, 640x1536, 768x1344, 832x1216, or 896x1152. Defaults to 1024 when omitted.',
       required: false,
     }),
     width: Property.Number({
       displayName: 'width',
       description:
-        'Width of the image in pixels. Must be in increments of 64 and >= 128',
+        'Width of the image in pixels. SDXL 1.0 only accepts these dimensions: 1024x1024, 1152x896, 1216x832, 1344x768, 1536x640, 640x1536, 768x1344, 832x1216, or 896x1152. Defaults to 1024 when omitted.',
       required: false,
     }),
     samples: Property.ShortText({
@@ -49,7 +49,7 @@ export const textToImage = createAction({
     }),
     steps: Property.Number({
       displayName: 'steps',
-      description: 'Number of diffusion steps to run (MIN:10; MAX:150)',
+      description: 'Number of diffusion steps to run (MIN:10; MAX:50)',
       required: false,
     }),
     weight: Property.Number({
@@ -174,35 +174,13 @@ export const textToImage = createAction({
     engine_id: Property.StaticDropdown({
       displayName: 'Engine ID',
       required: true,
+      description:
+        'Stable Diffusion XL 1.0 is the only engine still served by the Stability AI v1 API; the v1, v1-5, and 2.0/2.1 engines were retired in October 2024 (and SD 1.6 in July 2025).',
       options: {
         options: [
           {
             label: 'stable-diffusion-xl-1024-v1-0',
             value: 'stable-diffusion-xl-1024-v1-0',
-          },
-          {
-            label: 'stable-diffusion-768-v2-1',
-            value: 'stable-diffusion-768-v2-1',
-          },
-          {
-            label: 'stable-diffusion-512-v2-1',
-            value: 'stable-diffusion-512-v2-1',
-          },
-          {
-            label: 'stable-diffusion-768-v2-0',
-            value: 'stable-diffusion-768-v2-0',
-          },
-          {
-            label: 'stable-diffusion-512-v2-0',
-            value: 'stable-diffusion-512-v2-0',
-          },
-          {
-            label: 'stable-diffusion-v1-5',
-            value: 'stable-diffusion-v1-5',
-          },
-          {
-            label: 'stable-diffusion-v1',
-            value: 'stable-diffusion-v1',
           },
         ],
       },
@@ -222,7 +200,7 @@ export const textToImage = createAction({
       weight,
     } = context.propsValue;
 
-    const engineId = engine_id || 'stable-diffusion-v1-5';
+    const engineId = engine_id || 'stable-diffusion-xl-1024-v1-0';
     const apiHost = 'https://api.stability.ai';
 
     const apiKey = context.auth.props.api_key;
@@ -236,8 +214,8 @@ export const textToImage = createAction({
       ],
       cfg_scale: Number(cfg_scale) || 7,
       clip_guidance_preset: clip_guidance_preset || 'NONE',
-      height: Number(height) || getDefaultSize(engine_id),
-      width: Number(width) || getDefaultSize(engine_id),
+      height: Number(height) || 1024,
+      width: Number(width) || 1024,
       samples: Number(samples) || 1,
       steps: Number(steps) || 50,
       style_preset,
@@ -269,24 +247,3 @@ export const textToImage = createAction({
     );
   },
 });
-
-function getDefaultSize(engineId: string) {
-  switch (engineId) {
-    case 'stable-diffusion-xl-1024-v1-0':
-      return 1024;
-    case 'stable-diffusion-768-v2-1':
-      return 768;
-    case 'stable-diffusion-512-v2-1':
-      return 512;
-    case 'stable-diffusion-768-v2-0':
-      return 768;
-    case 'stable-diffusion-512-v2-0':
-      return 512;
-    case 'stable-diffusion-v1-5':
-      return 512;
-    case 'stable-diffusion-v1':
-      return 512;
-    default:
-      return 512;
-  }
-}
