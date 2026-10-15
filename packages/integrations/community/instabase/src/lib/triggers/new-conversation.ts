@@ -9,9 +9,15 @@ type Conversation = {
   description?: string;
 };
 
+// Keep only the newest ids in the dedup set so it cannot grow unboundedly
+// across polls (house pattern: coralogix SEEN_INCIDENT_IDS_LIMIT).
+const SEEN_CONVERSATION_IDS_LIMIT = 1000;
+const SEEN_CONVERSATION_IDS_KEY = 'seen_conversation_ids';
+const SEEN_CONVERSATION_IDS_SEEDED_KEY = 'seen_conversation_ids_seeded';
+
 const polling: Polling<AppConnectionValueForAuthProperty<typeof instabaseAuth>, Record<string, never>> = {
   strategy: DedupeStrategy.TIMEBASED,
-  items: async ({ auth }) => {
+  items: async ({ auth, store, lastFetchEpochMS }) => {
     const response = await makeInstabaseApiCall<{ conversations: Conversation[] }>(
       auth,
       '/v2/conversations',
@@ -19,13 +25,51 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof instabaseAuth>, 
     );
 
     const conversations = response.conversations || [];
+    const isTest = lastFetchEpochMS === 0;
 
-    const items = conversations.map((conversation) => ({
+    const storedSeenIds = (await store.get<string[]>(SEEN_CONVERSATION_IDS_KEY)) || [];
+    const seeded = await store.get<boolean>(SEEN_CONVERSATION_IDS_SEEDED_KEY);
+
+    // Start-empty guard: the conversation list carries no timestamps, so the
+    // trigger dedupes by identity and stamps events with the observation
+    // time (always newer than the lastPoll cursor, so the polling helper's
+    // time filter passes them). Without this guard, the first poll after
+    // enable would emit every pre-existing conversation; the same stamping
+    // would then re-emit the whole list on every subsequent poll.
+    if (!seeded) {
+      if (isTest) {
+        // Test path before the first poll: show the current list without
+        // initializing the dedupe set.
+        return conversations.map((conversation) => ({
+          epochMilliSeconds: Date.now(),
+          data: conversation,
+        }));
+      }
+      await store.put(
+        SEEN_CONVERSATION_IDS_KEY,
+        conversations.map((conversation) => conversation.id).slice(-SEEN_CONVERSATION_IDS_LIMIT)
+      );
+      await store.put(SEEN_CONVERSATION_IDS_SEEDED_KEY, true);
+      return [];
+    }
+
+    const seenIds = new Set<string>(storedSeenIds);
+    const newConversations = conversations.filter((conversation) => !seenIds.has(conversation.id));
+
+    if (!isTest) {
+      // Newest ids last, so the slice keeps the most recently seen ones.
+      const mergedIds = Array.from(
+        new Set([...storedSeenIds, ...conversations.map((conversation) => conversation.id)])
+      ).slice(-SEEN_CONVERSATION_IDS_LIMIT);
+      await store.put(SEEN_CONVERSATION_IDS_KEY, mergedIds);
+    }
+
+    const items = newConversations.map((conversation) => ({
       epochMilliSeconds: Date.now(),
       data: conversation,
     }));
 
-    return items;
+    return isTest ? items : items.filter((item) => item.epochMilliSeconds > lastFetchEpochMS);
   },
 };
 
