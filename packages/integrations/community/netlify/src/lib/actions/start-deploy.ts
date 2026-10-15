@@ -86,16 +86,23 @@ export const startDeploy = createAction({
       throw new Error("Access token is required");
     }
 
+    // Netlify's deploy-creation body (`deployFiles`) has no `clear_cache`
+    // field — the documented way to clear the build cache is the build
+    // trigger (POST /sites/{site_id}/builds with `clear_cache: true`, per
+    // the `buildSetup` schema in Netlify's OpenAPI spec). Sending it on the
+    // deploys endpoint was silently ignored.
+    const url = clearCache
+      ? `https://api.netlify.com/api/v1/sites/${siteId}/builds`
+      : `https://api.netlify.com/api/v1/sites/${siteId}/deploys`;
+
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `https://api.netlify.com/api/v1/sites/${siteId}/deploys`,
+      url,
       headers: {
         "Authorization": `Bearer ${auth.access_token}`,
         "Content-Type": "application/json",
       },
-      body: {
-        clear_cache: clearCache,
-      },
+      body: clearCache ? { clear_cache: true } : {},
     });
 
     if (response.status === 200 || response.status === 201) {
