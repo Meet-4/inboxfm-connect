@@ -14,6 +14,8 @@ const FOLDER_DROPDOWN_PAGE_SIZE = 1000;
 const escapeDriveQueryLiteral = (value: string): string =>
   value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+export { escapeDriveQueryLiteral };
+
 export const common = {
   properties: {
     parentFolder: Property.Dropdown({

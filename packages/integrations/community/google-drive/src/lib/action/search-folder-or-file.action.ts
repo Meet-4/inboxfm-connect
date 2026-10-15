@@ -1,7 +1,7 @@
 import { googleDriveAuth, createGoogleClient } from '../auth';
 import { Property, createAction } from '@inboxfm-connect/pieces-framework';
 import { drive as googleDrive } from '@googleapis/drive';
-import { common } from '../common';
+import { common, escapeDriveQueryLiteral } from '../common';
 import { searchFolderActionOutputSchema } from '../output-schemas';
 
 export const googleDriveSearchFolder = createAction({
@@ -65,7 +65,13 @@ export const googleDriveSearchFolder = createAction({
     const drive = googleDrive({ version: 'v3', auth: authClient });
     const operator = context.propsValue.operator ?? 'contains';
     const queryTerm = context.propsValue.queryTerm ?? 'name';
-    let finalQuery = `${queryTerm} ${operator} '${context.propsValue.query}'`;
+    // Drive query literals must have backslashes and apostrophes escaped with a
+    // backslash, e.g. name contains 'quinn\'s paper\\essay' — an unescaped quote in
+    // the user's text produces an "Invalid query" 400
+    // (https://developers.google.com/workspace/drive/api/guides/search-files).
+    let finalQuery = `${queryTerm} ${operator} '${escapeDriveQueryLiteral(
+      context.propsValue.query
+    )}'`;
     if (context.propsValue.parentFolder) {
       finalQuery = `${finalQuery} and '${context.propsValue.parentFolder}' in parents`;
     }
