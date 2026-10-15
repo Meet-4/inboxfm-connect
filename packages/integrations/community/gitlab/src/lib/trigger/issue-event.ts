@@ -143,7 +143,10 @@ export const issuesEventTrigger = createTrigger({
     );
     if (response !== null && response !== undefined) {
       const client = makeClient({ auth });
-      client.unsubscribeProjectWebhook(response.projectId, response.webhookId);
+      await client.unsubscribeProjectWebhook(
+        response.projectId,
+        response.webhookId
+      );
     }
   },
 
