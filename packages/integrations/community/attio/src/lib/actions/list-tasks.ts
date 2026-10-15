@@ -44,9 +44,10 @@ export const listTasksAction = createAction({
 	async run(context) {
 		const { linked_object, linked_record_id, assignee, is_completed } = context.propsValue;
 
+		const TASKS_PAGE_SIZE = 500;
+
 		const query: Record<string, string | number | undefined> = {
-			limit: 500,
-			offset: 0,
+			limit: TASKS_PAGE_SIZE,
 		};
 
 		if (linked_object) query['linked_object'] = linked_object;
@@ -54,16 +55,33 @@ export const listTasksAction = createAction({
 		if (assignee) query['assignee'] = assignee;
 		if (is_completed && is_completed !== 'all') query['is_completed'] = is_completed;
 
-		const response = await attioApiCall<{ data: Array<Record<string, unknown>> }>({
-			accessToken: context.auth.secret_text,
-			method: HttpMethod.GET,
-			resourceUri: '/tasks',
-			query,
-		});
+		const tasks: Array<Record<string, unknown>> = [];
+		let offset = 0;
+
+		// The action claims to return all tasks, but Attio caps one page at
+		// 500 results, so keep walking pages until a short page comes back.
+		while (true) {
+			const response = await attioApiCall<{ data: Array<Record<string, unknown>> }>({
+				accessToken: context.auth.secret_text,
+				method: HttpMethod.GET,
+				resourceUri: '/tasks',
+				query: { ...query, offset },
+			});
+
+			const page: Array<Record<string, unknown>> = Array.isArray(response.data)
+				? response.data
+				: [];
+			tasks.push(...page);
+
+			if (page.length < TASKS_PAGE_SIZE) {
+				break;
+			}
+			offset += page.length;
+		}
 
 		return {
-			found: response.data.length > 0,
-			result: response.data,
+			found: tasks.length > 0,
+			result: tasks,
 		};
 	},
 });
