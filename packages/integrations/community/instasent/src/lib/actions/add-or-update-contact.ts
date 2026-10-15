@@ -92,8 +92,8 @@ export const addOrUpdateContact = createAction({
                     }
 
                     return properties;
-                } catch (error) {
-                    throw new Error('Failed to load contact properties');
+                } catch (error: any) {
+                    throw new Error(`Failed to load contact properties: ${error.message || JSON.stringify(error)}`);
                 }
             }
         }),
