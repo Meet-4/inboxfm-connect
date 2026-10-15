@@ -25,9 +25,17 @@ export const discordFindGuildMemberByUsername = createAction({
   },
 
   async run(configValue) {
+    // The "Search" prop must reach the API: the documented way to filter members is
+    // GET /guilds/{id}/members/search with a `query` param, and both member endpoints
+    // return only 1 member when `limit` is omitted
+    // (https://discord.com/developers/docs/resources/guild#search-guild-members).
     const request: HttpRequest<any> = {
       method: HttpMethod.GET,
-      url: `https://discord.com/api/v9/guilds/${configValue.propsValue.guild_id}/members`,
+      url: `https://discord.com/api/v9/guilds/${configValue.propsValue.guild_id}/members/search`,
+      queryParams: {
+        query: `${configValue.propsValue.shortText}`,
+        limit: '1000',
+      },
       headers: {
         authorization: `Bot ${configValue.auth.secret_text}`,
         'Content-Type': 'application/json',
