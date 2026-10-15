@@ -1,6 +1,8 @@
 export interface ListProjectsRequest {
   membership?: boolean;
   simple?: boolean;
+  page?: number;
+  per_page?: number;
 }
 export interface ProjectWebhookRequest {
   url: string;
