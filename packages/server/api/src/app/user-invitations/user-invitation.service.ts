@@ -1,7 +1,7 @@
 import { ActivepiecesError, apId, assertEqual, assertNotNullOrUndefined, ErrorCode, isNil, ProjectRole, SeekPage, spreadIfDefined, unique } from '@inboxfm-connect/core-utils'
-import { InvitationStatus, InvitationType, PlatformRole, UserInvitation, UserInvitationWithLink } from '@inboxfm-connect/shared'
+import { InvitationStatus, InvitationType, PlatformRole, ProjectType, UserInvitation, UserInvitationWithLink } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
-import { In, IsNull } from 'typeorm'
+import { Brackets, In, IsNull } from 'typeorm'
 import { userIdentityService } from '../authentication/user-identity/user-identity-service'
 import { repoFactory } from '../core/db/repo-factory'
 import { distributedLock } from '../database/redis-connections'
@@ -327,6 +327,7 @@ export const userInvitationsService = (log: FastifyBaseLogger) => ({
                 ...spreadIfDefined('status', params.status),
                 ...spreadIfDefined('type', params.type),
             })
+        applyListingAccessScope(queryBuilder, params)
         const { data, cursor } = await paginator.paginate(queryBuilder)
         const projectRoleIds = unique(data.map((invitation) => invitation.projectRoleId).filter((id): id is string => !isNil(id)))
         const projectRoleById = await getProjectRolesByIds(projectRoleIds)
@@ -448,6 +449,54 @@ type ListUserParams = {
     status?: InvitationStatus
     limit: number
     cursor: string | null
+    /**
+     * Tenant scope for project-type listings, derived from the authenticated
+     * principal — never from the request. When the caller names a project the
+     * permission check has already run (see the controller); this scopes the
+     * platform-wide fallback ("no projectId in the query") so it can only ever
+     * return invitations of projects the caller can already see.
+     */
+    accessScope?: ListingAccessScope
+}
+
+export type ListingAccessScope = {
+    userId: string
+    // Platform admins and operators keep the platform-wide view; other callers
+    // only see invitations of projects they own or are members of.
+    isPrivileged: boolean
+    // Set for project-scoped Connect API keys: the key may only ever touch the
+    // project it was minted for, mirroring assertServicePrincipalScope.
+    boundProjectId: string | null
+}
+
+type UserInvitationQueryBuilder = ReturnType<ReturnType<typeof repo>['createQueryBuilder']>
+
+function applyListingAccessScope(queryBuilder: UserInvitationQueryBuilder, params: ListUserParams): void {
+    const accessScope = params.accessScope
+    if (isNil(accessScope)) {
+        return
+    }
+    const { userId, isPrivileged, boundProjectId } = accessScope
+    if (!isNil(boundProjectId)) {
+        queryBuilder.andWhere('user_invitation."projectId" = :boundProjectId', { boundProjectId })
+        return
+    }
+    if (isPrivileged) {
+        return
+    }
+    // Same predicate as applyProjectsAccessFilters in project-service: a caller
+    // without a platform-wide grant may only reach rows of projects they own
+    // (personal) or hold a project_member row for.
+    queryBuilder.andWhere(new Brackets(qb => qb
+        .where(
+            'user_invitation."projectId" IN (SELECT "id" FROM project WHERE "ownerId" = :userId AND "type" = :personalType)',
+            { userId, personalType: ProjectType.PERSONAL },
+        )
+        .orWhere(
+            'user_invitation."projectId" IN (SELECT "projectId" FROM project_member WHERE "userId" = :userId AND "platformId" = :platformId)',
+            { userId, platformId: params.platformId },
+        ),
+    ))
 }
 
 type HasAnyAcceptedInvitationsParams = {

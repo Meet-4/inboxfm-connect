@@ -13,6 +13,7 @@ import { assertRoleHasPermission } from '../ee/authentication/project-role/rbac-
 import { projectRoleService } from '../ee/projects/project-role/project-role.service'
 import { projectService } from '../project/project-service'
 import { userService } from '../user/user-service'
+import { ListingAccessScope } from './user-invitation.service'
 import { userInvitationsService } from './user-invitation.service'
 
 export const invitationModule: FastifyPluginAsyncZod = async (app) => {
@@ -53,6 +54,24 @@ const invitationController: FastifyPluginAsyncZod = async (app) => {
         if (!isNil(request.query.projectId) && request.query.type === InvitationType.PROJECT) {
             await projectMustBeTeamType.call(app, request, reply)
         }
+        if (request.query.type === InvitationType.PLATFORM) {
+            // Platform-wide invitation listings are the platform-admin console,
+            // exactly like POST / for the same audience. Platform-grade API keys
+            // (SERVICE without a bound project) keep their platform-wide view;
+            // project-scoped Connect keys are pinned to their project instead.
+            const boundProjectId = request.principal.type === PrincipalType.SERVICE
+                ? request.principal.projectId
+                : undefined
+            if (!isNil(boundProjectId)) {
+                throw new ActivepiecesError({
+                    code: ErrorCode.AUTHORIZATION,
+                    params: {
+                        message: 'This API key is scoped to a different project',
+                    },
+                })
+            }
+            await platformMustBeOwnedByCurrentUser.call(app, request, reply)
+        }
         const projectId = await getProjectIdAndAssertPermission(app, request, reply, request.principal, request.query)
         const invitations = await userInvitationsService(request.log).list({
             platformId: request.principal.platform.id,
@@ -61,6 +80,7 @@ const invitationController: FastifyPluginAsyncZod = async (app) => {
             status: request.query.status,
             cursor: request.query.cursor ?? null,
             limit: request.query.limit ?? 10,
+            accessScope: await resolveListingAccessScope(request),
         })
         await reply.status(StatusCodes.OK).send(invitations)
     })
@@ -111,13 +131,27 @@ const getProjectRoleAndAssertIfFound = async (platformId: string, request: SendU
     })
     return projectRole
 }
-async function getProjectIdAndAssertPermission<R extends Principal>(
+async function getProjectIdAndAssertPermission<R extends Principal & { platform: { id: string } }>(
     app: FastifyInstance,
     request: FastifyRequest,
     reply: FastifyReply,
     principal: R,
     requestQuery: ListUserInvitationsRequest,
 ): Promise<string | null> {
+    // A project-scoped Connect API key may only ever name its bound project,
+    // mirroring assertServicePrincipalScope in the authz middleware.
+    if (principal.type === PrincipalType.SERVICE && !isNil(principal.projectId)) {
+        if (!isNil(requestQuery.projectId) && requestQuery.projectId !== principal.projectId) {
+            throw new ActivepiecesError({
+                code: ErrorCode.AUTHORIZATION,
+                params: {
+                    message: 'This API key is scoped to a different project',
+                },
+            })
+        }
+        await assertPrincipalHasPermissionToProject(app, request, reply, principal, principal.projectId, Permission.READ_INVITATION)
+        return principal.projectId
+    }
     if (principal.type === PrincipalType.SERVICE) {
         if (isNil(requestQuery.projectId)) {
             return null
@@ -125,7 +159,39 @@ async function getProjectIdAndAssertPermission<R extends Principal>(
         await assertPrincipalHasPermissionToProject(app, request, reply, principal, requestQuery.projectId, Permission.READ_INVITATION)
         return requestQuery.projectId
     }
-    return requestQuery.projectId ?? null
+    // USER principals: the tenant scope must come from the caller's own access
+    // to the project, never from the client-supplied projectId alone.
+    if (!isNil(requestQuery.projectId)) {
+        await assertPrincipalHasPermissionToProject(app, request, reply, principal, requestQuery.projectId, Permission.READ_INVITATION)
+        return requestQuery.projectId
+    }
+    return null
+}
+
+/**
+ * Derives the listing scope from the authenticated principal so the
+ * platform-wide fallback (a project-type listing without a projectId) can only
+ * return invitations of projects the caller can already see. Platform admins,
+ * operators and platform-grade API keys keep the platform-wide view.
+ */
+async function resolveListingAccessScope(request: FastifyRequest): Promise<ListingAccessScope | undefined> {
+    const principal = request.principal as Principal
+    if (principal.type === PrincipalType.SERVICE) {
+        return {
+            userId: principal.id,
+            isPrivileged: isNil(principal.projectId),
+            boundProjectId: principal.projectId ?? null,
+        }
+    }
+    if (principal.type === PrincipalType.USER) {
+        const user = await userService(request.log).getOneOrFail({ id: principal.id })
+        return {
+            userId: user.id,
+            isPrivileged: userService(request.log).isUserPrivileged(user),
+            boundProjectId: null,
+        }
+    }
+    return undefined
 }
 
 async function shouldAutoAcceptInvitation(principal: Principal, request: SendUserInvitationRequest, platformId: string, log: FastifyBaseLogger): Promise<boolean> {
