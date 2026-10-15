@@ -79,9 +79,9 @@ export const newEvent = createTrigger({
   props,
   sampleData: {
     id: 'abc123',
-    event_name: 'signup-button-click',
-    url_path: '/pricing',
-    created_at: '2024-01-15T10:30:00Z',
+    eventName: 'signup-button-click',
+    urlPath: '/pricing',
+    createdAt: '2024-01-15T10:30:00Z',
   },
   type: TriggerStrategy.POLLING,
   async test(context) {
