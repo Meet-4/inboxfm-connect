@@ -42,7 +42,7 @@ export const specificColumnValueUpdatedTrigger = createTrigger({
         });
         return {
           disabled: false,
-          options: res.data.boards[0].columns
+          options: (res.data?.boards?.[0]?.columns ?? [])
             .filter(
               (column) => !MondayNotWritableColumnType.includes(column.type)
             )
@@ -97,6 +97,11 @@ export const specificColumnValueUpdatedTrigger = createTrigger({
       event: MondayWebhookEventType.CHANGE_SPECIFIC_COLUMN_VALUE,
       config: JSON.stringify({ columnId: column_id }),
     });
+    if (res.data?.id == null) {
+      throw new Error(
+        'Failed to create the monday.com webhook. The trigger cannot receive events until it is enabled successfully.'
+      );
+    }
     await context.store.put<WebhookInformation>(
       'monday_specific_column_updated',
       res.data
