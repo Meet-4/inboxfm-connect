@@ -1,6 +1,8 @@
 import { HttpMethod, httpClient } from '@inboxfm-connect/pieces-common';
 import { bigCommerceAuth, GET_BASE_URL } from './constants';
 
+const PAGINATION_LIMIT = 250;
+
 async function fireHttpRequest({
   method,
   path,
@@ -16,8 +18,8 @@ async function fireHttpRequest({
 }) {
   const BASE_URL = GET_BASE_URL(auth.storeHash);
 
-  const cleanBody = filter && body ? (Array.isArray(body) 
-    ? body.map(item => filterNulls(item)) 
+  const cleanBody = filter && body ? (Array.isArray(body)
+    ? body.map(item => filterNulls(item))
     : filterNulls(body)) : body;
 
 
@@ -38,6 +40,54 @@ async function fireHttpRequest({
         `Error in request to ${path}: ${err.message || JSON.stringify(err)}`
       );
     });
+}
+
+/**
+ * Page through a v3 list endpoint ({ data, meta.pagination.links.next })
+ * until the last page, preserving the envelope shape while merging `data`.
+ * (Returns the same loose shape the unpaginated helper returned.)
+ */
+async function fetchAllV3Pages({
+  auth,
+  basePath,
+  queryString,
+}: {
+  auth: bigCommerceAuth;
+  basePath: string;
+  queryString?: string;
+}): Promise<any> {
+  const params = new URLSearchParams(queryString ?? '');
+  params.set('limit', String(PAGINATION_LIMIT));
+  params.set('page', '1');
+
+  const first = (await fireHttpRequest({
+    auth,
+    path: `${basePath}?${params.toString()}`,
+    method: HttpMethod.GET,
+  })) as {
+    data?: unknown[];
+    meta?: { pagination?: { links?: { next?: string | null } } };
+  };
+
+  const data = [...(first?.data ?? [])];
+  let next = first?.meta?.pagination?.links?.next ?? null;
+
+  while (next) {
+    const nextPage = next.startsWith('?') ? `${basePath}${next}` : next;
+    const batch = (await fireHttpRequest({
+      auth,
+      path: nextPage,
+      method: HttpMethod.GET,
+    })) as {
+      data?: unknown[];
+      meta?: { pagination?: { links?: { next?: string | null } } };
+    };
+
+    data.push(...(batch?.data ?? []));
+    next = batch?.meta?.pagination?.links?.next ?? null;
+  }
+
+  return { ...first, data };
 }
 
 export const bigCommerceApiService = {
@@ -80,10 +130,10 @@ export const bigCommerceApiService = {
     auth: bigCommerceAuth;
     queryString?: string;
   }) {
-    return await fireHttpRequest({
+    return await fetchAllV3Pages({
       auth,
-      path: `/v3/customers${queryString ? `?${queryString}` : ''}`,
-      method: HttpMethod.GET,
+      basePath: '/v3/customers',
+      queryString,
     });
   },
   async fetchCustomerAddresses({
@@ -93,10 +143,10 @@ export const bigCommerceApiService = {
     auth: bigCommerceAuth;
     queryString?: string;
   }) {
-    return await fireHttpRequest({
+    return await fetchAllV3Pages({
       auth,
-      path: `/v3/customers/addresses${queryString ? `?${queryString}` : ''}`,
-      method: HttpMethod.GET,
+      basePath: '/v3/customers/addresses',
+      queryString,
     });
   },
   async fetchProducts({
@@ -106,10 +156,10 @@ export const bigCommerceApiService = {
     auth: bigCommerceAuth;
     queryString?: string;
   }) {
-    return await fireHttpRequest({
+    return await fetchAllV3Pages({
       auth,
-      path: `/v3/catalog/products${queryString ? `?${queryString}` : ''}`,
-      method: HttpMethod.GET,
+      basePath: '/v3/catalog/products',
+      queryString,
     });
   },
   async createProduct({
@@ -164,11 +214,31 @@ export const bigCommerceApiService = {
     auth: bigCommerceAuth;
     queryString?: string;
   }) {
-    return await fireHttpRequest({
-      auth,
-      path: `/v2/orders${queryString ? `?${queryString}` : ''}`,
-      method: HttpMethod.GET,
-    });
+    // v2 list endpoints answer with a bare array, so walk page numbers until
+    // a short page (BigCommerce: "requests sent without parameters will only
+    // return 50 orders").
+    const orders: unknown[] = [];
+    for (let page = 1; ; page++) {
+      const params = new URLSearchParams(queryString ?? '');
+      params.set('limit', String(PAGINATION_LIMIT));
+      params.set('page', String(page));
+
+      const batch = await fireHttpRequest({
+        auth,
+        path: `/v2/orders?${params.toString()}`,
+        method: HttpMethod.GET,
+      });
+
+      if (!Array.isArray(batch)) {
+        return batch;
+      }
+
+      orders.push(...batch);
+      if (batch.length < PAGINATION_LIMIT) {
+        break;
+      }
+    }
+    return orders;
   },
   async fetchOrder({
     auth,
@@ -190,10 +260,10 @@ export const bigCommerceApiService = {
     auth: bigCommerceAuth;
     queryString?: string;
   }) {
-    return await fireHttpRequest({
+    return await fetchAllV3Pages({
       auth,
-      path: `/v3/catalog/categories${queryString ? `?${queryString}` : ''}`,
-      method: HttpMethod.GET,
+      basePath: '/v3/catalog/categories',
+      queryString,
     });
   },
   async createBlogPost({
