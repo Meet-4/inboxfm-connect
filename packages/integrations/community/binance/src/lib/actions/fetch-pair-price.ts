@@ -35,7 +35,9 @@ async function fetchCryptoPairPriceImpl(symbol: string): Promise<number> {
     .replace(' ', '')
     .toUpperCase();
 
-  const url = `https://api.binance.com/api/v3/ticker/price?symbol=${formattedSymbol}`;
+  const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(
+    formattedSymbol
+  )}`;
 
   try {
     const response = await httpClient.sendRequest({
