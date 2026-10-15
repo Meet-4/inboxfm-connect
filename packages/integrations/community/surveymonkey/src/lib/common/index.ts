@@ -32,21 +32,32 @@ export const smCommon = {
     },
   }),
   getSurveys: async (accessToken: string) => {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `${smCommon.baseUrl}/surveys`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: accessToken,
-      },
-    };
-    const response = await httpClient.sendRequest(request);
-    const newValues = response.body['data'].map((survey: any) => {
-      return {
-        label: survey.title,
-        value: survey.id,
+    const newValues: any[] = [];
+    // SurveyMonkey paginates list endpoints (default 50 per page); the
+    // response's `links.next` is only present while more pages remain.
+    let url: string | null = `${smCommon.baseUrl}/surveys`;
+    while (url != null) {
+      const request: HttpRequest = {
+        method: HttpMethod.GET,
+        url,
+        authentication: {
+          type: AuthenticationType.BEARER_TOKEN,
+          token: accessToken,
+        },
       };
-    });
+      const response = await httpClient.sendRequest(request);
+      const surveys = (response.body['data'] ?? []) as any[];
+      newValues.push(
+        ...surveys.map((survey: any) => {
+          return {
+            label: survey.title,
+            value: survey.id,
+          };
+        })
+      );
+      const next: string | undefined = response.body['links']?.['next'];
+      url = next ? next : null;
+    }
 
     return newValues;
   },
