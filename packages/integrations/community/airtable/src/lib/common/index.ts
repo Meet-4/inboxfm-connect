@@ -214,6 +214,13 @@ async function findRecord({
   baseId,
   limitToView,
 }: Params) {
+  // Escape per Airtable's formula string-literal rules (backslash first, then
+  // double quote) so a search value containing " or \ yields a valid formula
+  // instead of a 422 INVALID_FORMULA error.
+  const escapedSearchValue = (searchValue as string)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+
   const request: HttpRequest = {
     method: HttpMethod.GET,
     url: `https://api.airtable.com/v0/${baseId}/${tableId}`,
@@ -222,7 +229,7 @@ async function findRecord({
       token,
     },
     queryParams: {
-      filterByFormula: `FIND("${searchValue}",{${searchField}})`,
+      filterByFormula: `FIND("${escapedSearchValue}",{${searchField}})`,
       view: limitToView ?? '',
     },
   };
