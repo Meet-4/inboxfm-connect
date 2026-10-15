@@ -155,7 +155,7 @@ export const listPartnerStats = createAction({
     if (sort) queryParams['sort'] = sort;
     if (state) queryParams['state'] = state;
 
-    const url = `${wedofCommon.baseUrl}/certifications/${certifInfo}/partners/details`;
+    const url = `${wedofCommon.baseUrl}/certifications/${encodeURIComponent(certifInfo)}/partners/details`;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,

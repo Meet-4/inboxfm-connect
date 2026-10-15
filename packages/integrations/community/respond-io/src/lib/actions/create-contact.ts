@@ -125,7 +125,7 @@ export const createContact = createAction({
 
     return await respondIoApiCall({
       method: HttpMethod.POST,
-      url: `/contact/${identifier}`,
+      url: `/contact/${encodeURIComponent(identifier)}`,
       auth: auth,
       body,
     });

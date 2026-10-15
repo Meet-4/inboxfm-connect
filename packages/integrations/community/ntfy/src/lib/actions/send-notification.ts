@@ -87,7 +87,7 @@ export const sendNotification = createAction({
 
     return await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `${baseUrl}/${topic}`,
+      url: `${baseUrl}/${encodeURIComponent(topic)}`,
       ...(accessToken && {
         authentication: {
           type: AuthenticationType.BEARER_TOKEN,

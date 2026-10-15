@@ -151,7 +151,7 @@ export const newFormResponse = createTrigger({
             context.propsValue.organizationId as string,
             (context.auth as any).access_token as string,
             HttpMethod.PUT,
-            `/forms/${context.propsValue.formId}/webhooks/${context.propsValue.tag}`,
+            `/forms/${context.propsValue.formId}/webhooks/${encodeURIComponent(context.propsValue.tag)}`,
             {
                 url: context.webhookUrl,
                 event_types: ['form_response']
@@ -163,7 +163,7 @@ export const newFormResponse = createTrigger({
             context.propsValue.organizationId as string,
             (context.auth as any).access_token as string,
             HttpMethod.DELETE,
-            `/forms/${context.propsValue.formId}/webhooks/${context.propsValue.tag}`
+            `/forms/${context.propsValue.formId}/webhooks/${encodeURIComponent(context.propsValue.tag)}`
         );
     },
     async run(context) {

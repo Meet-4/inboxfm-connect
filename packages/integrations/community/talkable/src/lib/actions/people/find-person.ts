@@ -55,7 +55,7 @@ export const findPerson = createAction({
     const personInfoResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.GET,
-        url: `${TALKABLE_API_URL}/people/${context.propsValue['email']}${context.propsValue['scope']}`,
+        url: `${TALKABLE_API_URL}/people/${encodeURIComponent(context.propsValue['email'])}${context.propsValue['scope']}`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

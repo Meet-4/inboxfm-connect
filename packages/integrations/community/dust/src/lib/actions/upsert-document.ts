@@ -59,7 +59,7 @@ export const upsertDocument = createAction({
       method: HttpMethod.POST,
       url: `${DUST_BASE_URL[dustAuth.region || 'us']}/${
         dustAuth.workspaceId
-      }/data_sources/${propsValue.datasource}/documents/${encodeURIComponent(
+      }/data_sources/${encodeURIComponent(propsValue.datasource)}/documents/${encodeURIComponent(
         propsValue.documentId
       )}`,
       headers: {

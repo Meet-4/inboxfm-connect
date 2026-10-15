@@ -34,7 +34,7 @@ export const updateReferralStatus = createAction({
     const updateReferralStatusResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.POST,
-        url: `${TALKABLE_API_URL}/origins/${context.propsValue['origin_slug']}/referral`,
+        url: `${TALKABLE_API_URL}/origins/${encodeURIComponent(context.propsValue['origin_slug'])}/referral`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

@@ -22,7 +22,7 @@ export const unsubscribePerson = createAction({
     const personUnsubscribeResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.POST,
-        url: `${TALKABLE_API_URL}/people/${context.propsValue['email']}/unsubscribe`,
+        url: `${TALKABLE_API_URL}/people/${encodeURIComponent(context.propsValue['email'])}/unsubscribe`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',

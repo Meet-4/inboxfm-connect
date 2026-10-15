@@ -61,7 +61,7 @@ export const sendFile = createAction({
         try {
           const res = await httpClient.sendRequest({
             method: HttpMethod.GET,
-            url: `${wedofCommon.baseUrl}/${entityClass}/${externalId}/files`,
+            url: `${wedofCommon.baseUrl}/${entityClass}/${encodeURIComponent(externalId as string)}/files`,
             headers: {
               'Content-Type': 'application/json',
               'X-Api-Key': auth as unknown as string,
@@ -158,7 +158,7 @@ export const sendFile = createAction({
             wedofCommon.baseUrl +
             '/' +
             context.propsValue.entityClass +
-            '/'+ context.propsValue.externalId + '/files',
+            '/'+ encodeURIComponent(context.propsValue.externalId) + '/files',
           body: message,
           headers: {
             'Content-Type': 'multipart/form-data',

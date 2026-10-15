@@ -127,7 +127,7 @@ export const createOrUpdateContact = createAction({
 
     return await respondIoApiCall({
       method: HttpMethod.POST,
-      url: `/contact/create_or_update/${identifier}`,
+      url: `/contact/create_or_update/${encodeURIComponent(identifier)}`,
       auth: auth,
       body,
     });

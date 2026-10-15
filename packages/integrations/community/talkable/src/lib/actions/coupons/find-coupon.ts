@@ -22,7 +22,7 @@ export const findCoupon = createAction({
     const couponInfoResponse = await httpClient
       .sendRequest<string[]>({
         method: HttpMethod.GET,
-        url: `${TALKABLE_API_URL}/coupons/${context.propsValue['code']}`,
+        url: `${TALKABLE_API_URL}/coupons/${encodeURIComponent(context.propsValue['code'])}`,
         headers: {
           Authorization: `Bearer ${api_key}`,
           'Content-Type': 'application/json',
