@@ -83,6 +83,55 @@ export const fetchAllWorkspaceUsers = async (
   return { users, truncated };
 };
 
+export type NotionDatabasesListResponse = {
+  results: Array<{
+    id: string;
+    title?: Array<{ plain_text?: string | null }>;
+    [key: string]: unknown;
+  }>;
+  has_more?: boolean | null;
+  next_cursor?: string | null;
+};
+
+export type NotionDatabasesClient = {
+  search: (args: {
+    filter?: { property: 'object'; value: 'database' };
+    page_size?: number;
+    start_cursor?: string;
+  }) => Promise<NotionDatabasesListResponse>;
+};
+
+export const fetchAllDatabases = async (
+  notion: Pick<Client, 'search'> | NotionDatabasesClient
+): Promise<NotionDatabasesListResponse['results']> => {
+  const databases: NotionDatabasesListResponse['results'] = [];
+  let cursor: string | undefined = undefined;
+  let hasMore = true;
+  const MAX_PAGES = 50; // Safety cap: up to 5,000 databases
+  let pageCount = 0;
+
+  while (hasMore && pageCount < MAX_PAGES) {
+    pageCount++;
+    // Notion search paginates with start_cursor/next_cursor:
+    // https://developers.notion.com/reference/post-search
+    const response: NotionDatabasesListResponse = await notion.search({
+      filter: { property: 'object', value: 'database' },
+      page_size: 100,
+      start_cursor: cursor,
+    });
+    if (Array.isArray(response.results)) {
+      databases.push(...response.results);
+    }
+    hasMore = response.has_more ?? false;
+    cursor = response.next_cursor ?? undefined;
+    if (hasMore && !cursor) {
+      break;
+    }
+  }
+
+  return databases;
+};
+
 export const notionCommon = {
   baseUrl: 'https://api.notion.com/v1',
   database_id: Property.Dropdown<string, true, typeof notionAuth>({
@@ -104,17 +153,12 @@ export const notionCommon = {
         auth: getNotionToken(auth as NotionAuthValue),
         notionVersion: '2022-02-22',
       });
-      const databases = await notion.search({
-        filter: {
-          property: 'object',
-          value: 'database',
-        },
-      });
+      const databases = await fetchAllDatabases(notion);
       return {
         placeholder: 'Select a database',
-        options: databases.results
-          .filter((f: any) => f.title.length > 0)
-          .map((database: any) => ({
+        options: databases
+          .filter((f) => (f.title?.length ?? 0) > 0)
+          .map((database) => ({
             label: database.title?.[0]?.plain_text ?? 'Unknown title',
             value: database.id,
           })),

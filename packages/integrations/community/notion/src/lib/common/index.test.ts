@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fetchAllWorkspaceUsers, NotionUsersClient } from './index';
+import {
+  fetchAllDatabases,
+  fetchAllWorkspaceUsers,
+  NotionDatabasesClient,
+  NotionUsersClient,
+} from './index';
 
 describe('fetchAllWorkspaceUsers', () => {
   it('should fetch single page of users when has_more is false', async () => {
@@ -167,5 +172,99 @@ describe('fetchAllWorkspaceUsers', () => {
     expect(mockNotion.users.list).toHaveBeenCalledTimes(50);
     expect(result.users).toHaveLength(5000);
     expect(result.truncated).toBe(true);
+  });
+});
+
+describe('fetchAllDatabases', () => {
+  it('should fetch a single page of databases when has_more is false', async () => {
+    const mockDatabases = [
+      { id: 'db-1', title: [{ plain_text: 'Tasks DB' }] },
+      { id: 'db-2', title: [{ plain_text: 'Wiki DB' }] },
+    ];
+    const mockNotion: NotionDatabasesClient = {
+      search: vi.fn().mockResolvedValue({
+        results: mockDatabases,
+        has_more: false,
+        next_cursor: null,
+      }),
+    };
+
+    const result = await fetchAllDatabases(mockNotion);
+    expect(result).toHaveLength(2);
+    expect(result).toEqual(mockDatabases);
+    expect(mockNotion.search).toHaveBeenCalledTimes(1);
+    expect(mockNotion.search).toHaveBeenCalledWith({
+      filter: { property: 'object', value: 'database' },
+      page_size: 100,
+      start_cursor: undefined,
+    });
+  });
+
+  it('should follow next_cursor across pages until has_more is false', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({
+      id: `db-${i}`,
+      title: [{ plain_text: `Database ${i}` }],
+    }));
+    const page2 = [{ id: 'db-100', title: [{ plain_text: 'Database 100' }] }];
+
+    const mockNotion: NotionDatabasesClient = {
+      search: vi
+        .fn()
+        .mockResolvedValueOnce({
+          results: page1,
+          has_more: true,
+          next_cursor: 'cursor-page-2',
+        })
+        .mockResolvedValueOnce({
+          results: page2,
+          has_more: false,
+          next_cursor: null,
+        }),
+    };
+
+    const result = await fetchAllDatabases(mockNotion);
+    expect(result).toHaveLength(101);
+    expect(mockNotion.search).toHaveBeenCalledTimes(2);
+    expect(mockNotion.search).toHaveBeenNthCalledWith(1, {
+      filter: { property: 'object', value: 'database' },
+      page_size: 100,
+      start_cursor: undefined,
+    });
+    expect(mockNotion.search).toHaveBeenNthCalledWith(2, {
+      filter: { property: 'object', value: 'database' },
+      page_size: 100,
+      start_cursor: 'cursor-page-2',
+    });
+  });
+
+  it('should stop paging when has_more is true but next_cursor is missing', async () => {
+    const mockNotion: NotionDatabasesClient = {
+      search: vi.fn().mockResolvedValue({
+        results: [{ id: 'db-1', title: [{ plain_text: 'Only DB' }] }],
+        has_more: true,
+        next_cursor: null,
+      }),
+    };
+
+    const result = await fetchAllDatabases(mockNotion);
+    expect(result).toHaveLength(1);
+    expect(mockNotion.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('should stop after reaching the MAX_PAGES cap to prevent infinite loops', async () => {
+    const mockNotion: NotionDatabasesClient = {
+      search: vi.fn().mockResolvedValue({
+        results: Array.from({ length: 100 }, (_, i) => ({
+          id: `db-${i}`,
+          title: [{ plain_text: `Database ${i}` }],
+        })),
+        has_more: true,
+        next_cursor: 'endless-cursor',
+      }),
+    };
+
+    const result = await fetchAllDatabases(mockNotion);
+    expect(mockNotion.search).toHaveBeenCalledTimes(50);
+    expect(result).toHaveLength(5000);
   });
 });
