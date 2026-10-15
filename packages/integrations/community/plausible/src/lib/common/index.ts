@@ -38,15 +38,51 @@ export async function plausibleApiCall<T>({
   return response.body;
 }
 
+export async function plausibleListAll<T>({
+  apiKey,
+  endpoint,
+  listKey,
+  queryParams,
+  maxPages = 100,
+}: {
+  apiKey: string;
+  endpoint: string;
+  listKey: string;
+  queryParams?: Record<string, string>;
+  maxPages?: number;
+}): Promise<T[]> {
+  // All Plausible list endpoints are cursor-paginated: they accept an `after`
+  // cursor and return `meta.after` pointing at the next page (null when the
+  // page just fetched is the last one). Docs: https://plausible.io/docs/sites-api
+  // "The limit parameter must remain the same when paginating" — we never pass
+  // a limit, so every page uses the default (100).
+  const items: T[] = [];
+  let after: string | null | undefined;
+  let pages = 0;
+  do {
+    const response = await plausibleApiCall<Record<string, unknown>>({
+      apiKey,
+      method: HttpMethod.GET,
+      endpoint,
+      queryParams: after ? { ...(queryParams ?? {}), after } : queryParams,
+    });
+    const pageItems = response[listKey];
+    if (Array.isArray(pageItems)) {
+      items.push(...(pageItems as T[]));
+    }
+    after =
+      (response as { meta?: { after?: string | null } }).meta?.after ?? null;
+    pages++;
+  } while (after && pages < maxPages);
+  return items;
+}
+
 export async function getSites(apiKey: string) {
-  const response = await plausibleApiCall<{
-    sites: { domain: string; timezone: string }[];
-  }>({
+  return plausibleListAll<{ domain: string; timezone: string }>({
     apiKey,
-    method: HttpMethod.GET,
     endpoint: '/sites',
+    listKey: 'sites',
   });
-  return response.sites;
 }
 
 export const siteIdDropdown = Property.Dropdown({
@@ -75,14 +111,11 @@ export const siteIdDropdown = Property.Dropdown({
 });
 
 export async function getTeams(apiKey: string) {
-  const response = await plausibleApiCall<{
-    teams: { id: string; name: string; api_available: boolean }[];
-  }>({
+  return plausibleListAll<{ id: string; name: string; api_available: boolean }>({
     apiKey,
-    method: HttpMethod.GET,
     endpoint: '/sites/teams',
+    listKey: 'teams',
   });
-  return response.teams;
 }
 
 export const teamIdDropdown = Property.Dropdown({
@@ -113,21 +146,18 @@ export const teamIdDropdown = Property.Dropdown({
 });
 
 export async function getGoals(apiKey: string, siteId: string) {
-  const response = await plausibleApiCall<{
-    goals: {
-      id: string;
-      goal_type: string;
-      display_name: string;
-      event_name: string | null;
-      page_path: string | null;
-    }[];
+  return plausibleListAll<{
+    id: string;
+    goal_type: string;
+    display_name: string;
+    event_name: string | null;
+    page_path: string | null;
   }>({
     apiKey,
-    method: HttpMethod.GET,
     endpoint: '/sites/goals',
+    listKey: 'goals',
     queryParams: { site_id: siteId },
   });
-  return response.goals;
 }
 
 export const goalIdDropdown = Property.Dropdown({
@@ -163,15 +193,12 @@ export const goalIdDropdown = Property.Dropdown({
 });
 
 export async function getCustomProperties(apiKey: string, siteId: string) {
-  const response = await plausibleApiCall<{
-    custom_properties: { property: string }[];
-  }>({
+  return plausibleListAll<{ property: string }>({
     apiKey,
-    method: HttpMethod.GET,
     endpoint: '/sites/custom-props',
+    listKey: 'custom_properties',
     queryParams: { site_id: siteId },
   });
-  return response.custom_properties;
 }
 
 export const customPropertyDropdown = Property.Dropdown({
@@ -207,15 +234,12 @@ export const customPropertyDropdown = Property.Dropdown({
 });
 
 export async function getGuests(apiKey: string, siteId: string) {
-  const response = await plausibleApiCall<{
-    guests: { email: string; role: string; status: string }[];
-  }>({
+  return plausibleListAll<{ email: string; role: string; status: string }>({
     apiKey,
-    method: HttpMethod.GET,
     endpoint: '/sites/guests',
+    listKey: 'guests',
     queryParams: { site_id: siteId },
   });
-  return response.guests;
 }
 
 export const guestEmailDropdown = Property.Dropdown({
