@@ -25,17 +25,13 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const response = (
-        await callAsanaApi<{
-          data: {
-            gid: string;
-            name: string;
-          }[];
-        }>(HttpMethod.GET, 'workspaces', accessToken, undefined)
-      ).body;
+      const workspaces = await fetchAllAsanaPages<{
+        gid: string;
+        name: string;
+      }>(HttpMethod.GET, 'workspaces', accessToken);
       return {
         disabled: false,
-        options: response.data.map((workspace) => {
+        options: workspaces.map((workspace) => {
           return {
             label: workspace.name,
             value: workspace.gid,
@@ -66,22 +62,13 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const response = (
-        await callAsanaApi<{
-          data: {
-            gid: string;
-            name: string;
-          }[];
-        }>(
-          HttpMethod.GET,
-          'projects?workspace=' + workspace,
-          accessToken,
-          undefined
-        )
-      ).body;
+      const projects = await fetchAllAsanaPages<{
+        gid: string;
+        name: string;
+      }>(HttpMethod.GET, 'projects?workspace=' + workspace, accessToken);
       return {
         disabled: false,
-        options: response.data.map((project) => {
+        options: projects.map((project) => {
           return {
             label: project.name,
             value: project.gid,
@@ -220,5 +207,45 @@ export async function callAsanaApi<T extends HttpMessageBody = any>(
     },
     body: body,
   });
+}
+
+type AsanaPaginatedResponse<T> = {
+  data: T[];
+  next_page?: { offset: string; path: string; uri: string } | null;
+};
+
+/**
+ * Fetches every page of an Asana list endpoint. Asana only returns a
+ * `next_page` object (with the `offset` token for the next request) once
+ * pagination is enabled via the `limit` parameter (max 100); without it,
+ * results may be truncated server-side.
+ * https://developers.asana.com/docs/pagination
+ */
+export async function fetchAllAsanaPages<T>(
+  method: HttpMethod,
+  apiUrl: string,
+  accessToken: string
+): Promise<T[]> {
+  const items: T[] = [];
+  const firstPageUrl = `${apiUrl}${apiUrl.includes('?') ? '&' : '?'}limit=100`;
+  let nextOffset: string | undefined;
+  do {
+    const url = nextOffset
+      ? `${firstPageUrl}&offset=${encodeURIComponent(nextOffset)}`
+      : firstPageUrl;
+    const body = (
+      await callAsanaApi<AsanaPaginatedResponse<T>>(
+        method,
+        url,
+        accessToken,
+        undefined
+      )
+    ).body;
+    if (Array.isArray(body?.data)) {
+      items.push(...body.data);
+    }
+    nextOffset = body?.next_page?.offset;
+  } while (nextOffset);
+  return items;
 }
 
