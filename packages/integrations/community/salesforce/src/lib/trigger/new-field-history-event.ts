@@ -75,22 +75,17 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof salesforceAuth>,
             LIMIT 200
         `;
 
-        try {
-            const response = await querySalesforceApi<{ records: { CreatedDate: string }[] }>(
-                HttpMethod.GET,
-                auth,
-                query
-            );
+        const response = await querySalesforceApi<{ records: { CreatedDate: string }[] }>(
+            HttpMethod.GET,
+            auth,
+            query
+        );
 
-            const records = response.body?.['records'] || [];
+        const records = response.body?.['records'] || [];
 
-            return records.map((record: { CreatedDate: string }) => ({
-                epochMilliSeconds: dayjs(record.CreatedDate).valueOf(),
-                data: record,
-            }));
-        } catch (error) {
-            console.warn(`Could not poll for history on ${historyObject}. It might not exist or have history tracking enabled.`);
-            return [];
-        }
+        return records.map((record: { CreatedDate: string }) => ({
+            epochMilliSeconds: dayjs(record.CreatedDate).valueOf(),
+            data: record,
+        }));
     },
 };
