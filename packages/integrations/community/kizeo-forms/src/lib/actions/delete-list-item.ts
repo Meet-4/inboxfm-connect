@@ -25,7 +25,7 @@ export const deleteListItem = createAction({
       method: HttpMethod.DELETE,
       url:
         endpoint +
-        `public/v4/lists/${listId}/items/${itemId}?used-with-active-pieces=`,
+        `public/v4/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}?used-with-active-pieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: context.auth.secret_text,

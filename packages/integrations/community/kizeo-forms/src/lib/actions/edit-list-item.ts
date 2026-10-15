@@ -57,7 +57,7 @@ export const editListItem = createAction({
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.PATCH,
-      url: endpoint + `public/v4/lists/${listId}/items?used-with-activepieces=`,
+      url: endpoint + `public/v4/lists/${encodeURIComponent(listId)}/items?used-with-activepieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: context.auth.secret_text,

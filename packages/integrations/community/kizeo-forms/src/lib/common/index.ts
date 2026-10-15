@@ -318,7 +318,7 @@ export const kizeoFormsCommon = {
   }): Promise<KizeoFormsForms> {
     const response = await httpClient.sendRequest<{ form: KizeoFormsForms }>({
       method: HttpMethod.GET,
-      url: endpoint + `v3/forms/${formId}?used-with-activepieces=`,
+      url: endpoint + `v3/forms/${encodeURIComponent(formId)}?used-with-activepieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: token,
@@ -342,7 +342,7 @@ export const kizeoFormsCommon = {
       exports: KizeoFormsExports[];
     }>({
       method: HttpMethod.GET,
-      url: endpoint + `v3/forms/${formId}/exports?used-with-activepieces=`,
+      url: endpoint + `v3/forms/${encodeURIComponent(formId)}/exports?used-with-activepieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: token,
