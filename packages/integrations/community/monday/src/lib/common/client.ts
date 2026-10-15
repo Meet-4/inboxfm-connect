@@ -66,6 +66,11 @@ export class mondayClient {
       mondayGraphQLQueries.listUsers
     );
   }
+  async getCurrentUser() {
+    return await this.client.api<{ me: { id: string } }>(
+      mondayGraphQLQueries.getCurrentUser
+    );
+  }
   async getBoardItemValues(variables: object) {
     return await this.client.api<{ boards: Board[] }>(
       mondayGraphQLQueries.getBoardItemValues,
