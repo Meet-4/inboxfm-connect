@@ -49,6 +49,11 @@ export const newItemInBoardTrigger = createTrigger({
       url: context.webhookUrl,
       event: MondayWebhookEventType.CREATE_ITEM,
     });
+    if (res.data?.id == null) {
+      throw new Error(
+        'Failed to create the monday.com webhook. The trigger cannot receive events until it is enabled successfully.'
+      );
+    }
     await context.store.put<WebhookInformation>(
       'monday_new_item_trigger',
       res.data
