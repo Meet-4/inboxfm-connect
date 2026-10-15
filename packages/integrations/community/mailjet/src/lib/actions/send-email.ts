@@ -81,11 +81,9 @@ export const sendEmail = createAction({
 
     const response = await httpClient.sendRequest(request);
 
-    if (response.status !== 200) {
-      throw new Error(`Failed to communicate with Mailjet`);
-    } else {
-      return response.body.Messages[0];
-    }
+    // httpClient throws HttpError on any non-2xx status, so a resolved
+    // response is always a 200 success — return the sent message directly.
+    return response.body.Messages[0];
   }
 });
 
