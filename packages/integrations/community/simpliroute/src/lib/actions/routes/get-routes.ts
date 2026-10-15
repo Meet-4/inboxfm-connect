@@ -17,7 +17,6 @@ export const get_routes = createAction({
         const response = await httpClient.sendRequest({
             method: HttpMethod.GET,
             url: url,
-            body,
             headers: {
                 ...commonHeaders,
                 'Authorization': `Token ${context.auth.secret_text}`
