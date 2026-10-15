@@ -22,10 +22,21 @@ export const identifyUser = createAction({
   auth: segmentAuth,
   async run(context) {
     const analytics = new Analytics({ writeKey: context.auth.secret_text })
+    let deliveryError: unknown
+    analytics.on('error', (e) => {
+      deliveryError = e.reason ?? e
+    })
     analytics.identify({
       userId: context.propsValue.userId,
       traits: context.propsValue.traits,
     })
+    // Await the flush (and close this per-run client) so success reflects a
+    // completed delivery attempt instead of just queuing; the SDK reports
+    // delivery failures through the 'error' event, not flush rejections
+    await analytics.flush({ close: true })
+    if (deliveryError != null) {
+      throw deliveryError
+    }
     return {
       success: true,
 
