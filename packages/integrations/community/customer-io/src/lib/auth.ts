@@ -1,4 +1,7 @@
 import { PieceAuth, Property } from '@inboxfm-connect/pieces-framework';
+import { Buffer } from 'buffer';
+import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
+import { customerIOCommon } from './common';
 
 const markdown = `
 **Site ID:**\n
@@ -45,5 +48,29 @@ export const customerIOAuth = PieceAuth.CustomAuth({
   },
   description: markdown,
   required: true,
+  validate: async ({ auth }) => {
+    try {
+      // The Track API is POST-only, so its cheapest GET — the documented
+      // "find your account region" call — doubles as a credential check
+      const basic_track_api = Buffer.from(
+        `${auth.track_site_id}:${auth.track_api_key}`,
+        'utf8'
+      ).toString('base64');
+      await httpClient.sendRequest({
+        method: HttpMethod.GET,
+        url: `${customerIOCommon[auth.region || 'us'].trackUrl}accounts/region`,
+        headers: {
+          Authorization: `Basic ${basic_track_api}`,
+        },
+      });
+      return { valid: true };
+    } catch (e) {
+      return {
+        valid: false,
+        error:
+          'Invalid Customer.io credentials. Check your Site ID and Tracking API Key under Settings > API & Webhook Credentials.',
+      };
+    }
+  },
 });
 
