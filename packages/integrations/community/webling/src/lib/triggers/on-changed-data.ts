@@ -20,6 +20,20 @@ const polling: Polling<
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth, propsValue, lastFetchEpochMS }) => {
     const changes: WeblingChanges = await getChanges(auth, lastFetchEpochMS);
+
+    // Emit only when the changelog window actually contains changes. The
+    // observation-time epoch below always passes the polling helper's
+    // `epochMilliSeconds > lastPoll` filter, so without this guard the
+    // trigger would emit an empty change batch on every poll.
+    const changedIds = Object.values(changes.objects ?? {}).reduce(
+      (acc, ids) => acc + (Array.isArray(ids) ? ids.length : 0),
+      0
+    );
+    const deletedIds = changes.deleted ?? [];
+    if (changedIds === 0 && deletedIds.length === 0) {
+      return [];
+    }
+
     const items = [
       {
         epochMilliSeconds: Date.now(), // maybe use revision instead?
