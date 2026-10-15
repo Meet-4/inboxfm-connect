@@ -25,7 +25,7 @@ export const getListItem = createAction({
       method: HttpMethod.GET,
       url:
         endpoint +
-        `public/v4/lists/${listId}/items/${itemId}?used-with-activepieces=`,
+        `public/v4/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}?used-with-activepieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: context.auth.secret_text,

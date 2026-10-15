@@ -51,17 +51,17 @@ export const getAllListItems = createAction({
       context.propsValue;
 
     let parameters = '';
-    if (search) parameters += `search=${search}&`;
+    if (search) parameters += `search=${encodeURIComponent(search)}&`;
     if (offset) parameters += `offset=${offset}&`;
     if (limit) parameters += `limit=${limit}&`;
-    if (sort) parameters += `sort=${sort}&`;
-    if (direction) parameters += `direction=${direction}&`;
+    if (sort) parameters += `sort=${encodeURIComponent(sort)}&`;
+    if (direction) parameters += `direction=${encodeURIComponent(direction)}&`;
 
     const response = await httpClient.sendRequest<{ data: unknown }>({
       method: HttpMethod.GET,
       url:
         endpoint +
-        `public/v4/lists/${listId}/items?${parameters}used-with-activepieces=`,
+        `public/v4/lists/${encodeURIComponent(listId)}/items?${parameters}used-with-activepieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: context.auth.secret_text,

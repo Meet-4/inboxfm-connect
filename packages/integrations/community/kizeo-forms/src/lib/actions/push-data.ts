@@ -35,7 +35,7 @@ export const pushData = createAction({
 
     const response = await httpClient.sendRequest<{ data: unknown }>({
       method: HttpMethod.POST,
-      url: endpoint + `v3/forms/${formId}/push?used-with-actives-pieces=`,
+      url: endpoint + `v3/forms/${encodeURIComponent(formId)}/push?used-with-actives-pieces=`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: context.auth.secret_text,
