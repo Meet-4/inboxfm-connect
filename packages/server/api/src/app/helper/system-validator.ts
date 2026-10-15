@@ -291,10 +291,17 @@ export const validateEnvPropsOnStartup = async (log: FastifyBaseLogger): Promise
         }))
     }
     const encryptionKey = await encryptUtils.getEncryptionKey()
-    const isValidHexKey = encryptionKey && /^[A-Za-z0-9]{32}$/.test(encryptionKey)
-    if (!isValidHexKey) {
+    // Accept both key shapes deriveAesKey (helper/encryption.ts) understands:
+    // the legacy 32-char shape, and a 64-hex-char key decoded to 32 bytes.
+    // Note the legacy shape is NOT hex-decoded by the crypto layer — its 32
+    // characters are used as 32 raw key bytes (that is what keeps existing
+    // ciphertexts decryptable), so "32 hex chars = 16 bytes" never was the
+    // actual key material despite the old message claiming it.
+    const isValidLegacyKey = encryptionKey !== null && /^[A-Za-z0-9]{32}$/.test(encryptionKey)
+    const isValidHexKey = encryptionKey !== null && /^[0-9a-fA-F]{64}$/.test(encryptionKey)
+    if (!isValidLegacyKey && !isValidHexKey) {
         throw new Error(JSON.stringify({
-            message: 'AP_ENCRYPTION_KEY is missing or invalid. It must be a 32-character hexadecimal string (representing 16 bytes). You can generate one using the command: `openssl rand -hex 16`',
+            message: 'AP_ENCRYPTION_KEY is missing or invalid. It must be a 32-character alphanumeric string (legacy format, used as 32 raw key bytes — generate with `openssl rand -hex 16`) or a 64-character hexadecimal string (recommended, decoded to 32 key bytes — generate with `openssl rand -hex 32`)',
             docUrl: 'https://www.activepieces.com/docs/install/configuration/environment-variables',
         }))
     }
