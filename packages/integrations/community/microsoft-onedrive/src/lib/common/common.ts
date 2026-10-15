@@ -40,9 +40,7 @@ export const oneDriveCommon = {
       url = `${baseUrl}/items/${search.parentFolder}/children?$filter=folder eq null`;
     }
 
-    const response = await httpClient.sendRequest<{
-      value: { id: string; name: string; createdDateTime: string }[];
-    }>({
+    let response = await httpClient.sendRequest<getFilesResponse>({
       method: HttpMethod.GET,
       url: url,
       queryParams: {
@@ -55,7 +53,23 @@ export const oneDriveCommon = {
       },
     });
 
-    const files = response.body.value;
+    const files = [...(response.body.value ?? [])];
+
+    // Follow @odata.nextLink until all pages are fetched, mirroring the
+    // list-files action. Graph embeds every query option ($filter, $select,
+    // $orderby, $skiptoken) in the nextLink, so it is requested as-is.
+    // https://learn.microsoft.com/en-us/graph/api/driveitem-list-children
+    while (response.body['@odata.nextLink']) {
+      response = await httpClient.sendRequest<getFilesResponse>({
+        method: HttpMethod.GET,
+        url: response.body['@odata.nextLink'],
+        authentication: {
+          type: AuthenticationType.BEARER_TOKEN,
+          token: auth.access_token,
+        },
+      });
+      files.push(...(response.body.value ?? []));
+    }
 
     if (search?.createdTime) {
       const compareDate = dayjs(search.createdTime);
@@ -160,5 +174,10 @@ interface getFoldersResponse {
   '@odata.nextLink'?: string;
   '@odata.deltaLink'?: string;
   value: { id: string; name: string; folder?: { childCount: number } }[];
+}
+
+interface getFilesResponse {
+  '@odata.nextLink'?: string;
+  value: { id: string; name: string; createdDateTime: string }[];
 }
 
