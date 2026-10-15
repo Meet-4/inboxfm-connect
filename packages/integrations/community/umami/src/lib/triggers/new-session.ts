@@ -87,7 +87,7 @@ export const newSession = createTrigger({
     os: 'Windows 11',
     device: 'desktop',
     country: 'FR',
-    created_at: '2024-01-15T10:30:00Z',
+    createdAt: '2024-01-15T10:30:00Z',
   },
   type: TriggerStrategy.POLLING,
   async test(context) {
