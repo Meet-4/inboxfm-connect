@@ -17,7 +17,8 @@ export const comapaignIdDropdown = Property.Dropdown({
       };
     }
     const response = await makeRequest(
-      auth?.secret_text,
+      auth?.props?.apiKey,
+      auth?.props?.projectHost,
       HttpMethod.GET,
       `/campaigns`
     ) as any[];

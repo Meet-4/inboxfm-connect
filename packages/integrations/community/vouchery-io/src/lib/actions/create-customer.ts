@@ -96,7 +96,8 @@ export const createCustomer = createAction({
     if (loyalty_points !== undefined) body.loyalty_points = loyalty_points;
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props.apiKey,
+      context.auth.props.projectHost,
       HttpMethod.POST,
       `/customers`,
       body

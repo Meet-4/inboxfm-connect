@@ -1,9 +1,10 @@
-import { createPiece, PieceAuth } from '@inboxfm-connect/pieces-framework';
+import { createPiece } from '@inboxfm-connect/pieces-framework';
 import { voucheryIoAuth } from './lib/common/auth';
 import { findVoucher } from './lib/actions/find-voucher';
 import { createCustomer } from './lib/actions/create-customer';
 import { createAVoucher } from './lib/actions/create-a-voucher';
 import { createCustomApiCallAction } from '@inboxfm-connect/pieces-common';
+import { voucheryBaseUrl } from './lib/common/client';
 
 export const voucheryIo = createPiece({
   displayName: 'Vouchery',
@@ -19,10 +20,10 @@ export const voucheryIo = createPiece({
     findVoucher,
     createCustomApiCallAction({
       auth: voucheryIoAuth,
-      baseUrl: () => 'https://admin.sandbox.vouchery.app/api/v2.1',
+      baseUrl: (auth) => voucheryBaseUrl(auth?.props?.projectHost),
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${auth.secret_text}`,
+          Authorization: `Bearer ${auth.props.apiKey}`,
         };
       },
     }),

@@ -69,7 +69,8 @@ export const findVoucher = createAction({
     const path = `/vouchers/find${queryString ? '?' + queryString : ''}`;
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props.apiKey,
+      context.auth.props.projectHost,
       HttpMethod.GET,
       path
     );
