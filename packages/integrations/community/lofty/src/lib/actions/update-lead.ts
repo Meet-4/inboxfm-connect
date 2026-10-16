@@ -183,74 +183,66 @@ export const updateLead = createAction({
   async run({ auth, propsValue }) {
     const { leadId } = propsValue;
 
+    // Field names follow the documented PUT /v1.0/leads/{leadId} body schema
+    // (https://developer.lofty.com/api-reference/leads/update-lead):
+    // camelCase identifiers; buyer criteria go in `inquiry`, seller
+    // criteria in `property`.
     const payload: any = {};
 
-    if (propsValue.firstName) payload.first_name = propsValue.firstName;
-    if (propsValue.lastName) payload.last_name = propsValue.lastName;
+    if (propsValue.firstName) payload.firstName = propsValue.firstName;
+    if (propsValue.lastName) payload.lastName = propsValue.lastName;
     if (propsValue.emails) payload.emails = propsValue.emails;
-    if (propsValue.phone) payload.phone = propsValue.phone;
+    if (propsValue.phone) payload.phones = [propsValue.phone];
     if (propsValue.source) payload.source = propsValue.source;
     if (propsValue.birthday) payload.birthday = propsValue.birthday;
     if (propsValue.mailingAddress)
-      payload.mailing_address = propsValue.mailingAddress;
-    if (propsValue.mailingCity) payload.mailing_city = propsValue.mailingCity;
-    if (propsValue.mailingState)
-      payload.mailing_state = propsValue.mailingState;
+      payload.streetAddress = propsValue.mailingAddress;
+    if (propsValue.mailingCity) payload.city = propsValue.mailingCity;
+    if (propsValue.mailingState) payload.state = propsValue.mailingState;
     if (propsValue.mailingZipcode)
-      payload.mailing_zipcode = propsValue.mailingZipcode;
-    if (propsValue.leadType) payload.lead_type = propsValue.leadType;
-    if (propsValue.leadOwnershipLevel)
-      payload.lead_ownership_level = propsValue.leadOwnershipLevel;
-    if (propsValue.segment) payload.segment = propsValue.segment;
+      payload.zipCode = propsValue.mailingZipcode;
+    if (propsValue.segment) payload.segments = [propsValue.segment];
     if (propsValue.tags) payload.tags = propsValue.tags;
-    if (propsValue.note) payload.note = propsValue.note;
-    if (propsValue.subscriptionSmartPlans !== undefined)
-      payload.subscription_smart_plans = propsValue.subscriptionSmartPlans;
-    if (propsValue.subscriptionPropertyAlert !== undefined)
-      payload.subscription_property_alert =
-        propsValue.subscriptionPropertyAlert;
-    if (propsValue.subscriptionMarketReport !== undefined)
-      payload.subscription_market_report = propsValue.subscriptionMarketReport;
-    if (propsValue.minPriceBuyer !== undefined)
-      payload.min_price_buyer = propsValue.minPriceBuyer;
-    if (propsValue.maxPriceBuyer !== undefined)
-      payload.max_price_buyer = propsValue.maxPriceBuyer;
-    if (propsValue.locationDeprecated)
-      payload.location_deprecated = propsValue.locationDeprecated;
-    if (propsValue.buyerCity) payload.buyer_city = propsValue.buyerCity;
-    if (propsValue.buyerState) payload.buyer_state = propsValue.buyerState;
-    if (propsValue.buyerZipcode)
-      payload.buyer_zipcode = propsValue.buyerZipcode;
-    if (propsValue.buyerAddress)
-      payload.buyer_address = propsValue.buyerAddress;
-    if (propsValue.minBedsBuyer !== undefined)
-      payload.min_beds_buyer = propsValue.minBedsBuyer;
-    if (propsValue.minBathsBuyer !== undefined)
-      payload.min_baths_buyer = propsValue.minBathsBuyer;
-    if (propsValue.bedsSeller !== undefined)
-      payload.beds_seller = propsValue.bedsSeller;
-    if (propsValue.bathsSeller !== undefined)
-      payload.baths_seller = propsValue.bathsSeller;
-    if (propsValue.priceSeller !== undefined)
-      payload.price_seller = propsValue.priceSeller;
-    if (propsValue.addressSeller)
-      payload.address_seller = propsValue.addressSeller;
-    if (propsValue.sqftSeller !== undefined)
-      payload.sqft_seller = propsValue.sqftSeller;
-    if (propsValue.citySeller) payload.city_seller = propsValue.citySeller;
-    if (propsValue.stateSeller) payload.state_seller = propsValue.stateSeller;
-    if (propsValue.zipcodeSeller)
-      payload.zipcode_seller = propsValue.zipcodeSeller;
-    if (propsValue.sendWelcomeEmail !== undefined)
-      payload.send_welcome_email = propsValue.sendWelcomeEmail;
     if (propsValue.callOptIn !== undefined)
-      payload.call_opt_in = propsValue.callOptIn;
+      payload.cannotCall = !propsValue.callOptIn;
     if (propsValue.textOptIn !== undefined)
-      payload.text_opt_in = propsValue.textOptIn;
+      payload.cannotText = !propsValue.textOptIn;
     if (propsValue.emailOptIn !== undefined)
-      payload.email_opt_in = propsValue.emailOptIn;
-    if (propsValue.numberConsent !== undefined)
-      payload.number_consent = propsValue.numberConsent;
+      payload.cannotEmail = !propsValue.emailOptIn;
+
+    const inquiry: Record<string, unknown> = {};
+    if (propsValue.minPriceBuyer !== undefined)
+      inquiry['priceMin'] = propsValue.minPriceBuyer;
+    if (propsValue.maxPriceBuyer !== undefined)
+      inquiry['priceMax'] = propsValue.maxPriceBuyer;
+    if (propsValue.minBedsBuyer !== undefined)
+      inquiry['bedroomsMin'] = propsValue.minBedsBuyer;
+    if (propsValue.minBathsBuyer !== undefined)
+      inquiry['bathroomsMin'] = String(propsValue.minBathsBuyer);
+    const location: Record<string, unknown> = {};
+    if (propsValue.buyerAddress) location['streetAddress'] = propsValue.buyerAddress;
+    if (propsValue.buyerCity) location['city'] = propsValue.buyerCity;
+    if (propsValue.buyerState) location['state'] = propsValue.buyerState;
+    if (propsValue.buyerZipcode) location['zipCode'] = propsValue.buyerZipcode;
+    if (Object.keys(location).length > 0) inquiry['locations'] = [location];
+    if (Object.keys(inquiry).length > 0) payload.inquiry = inquiry;
+
+    const property: Record<string, unknown> = {};
+    if (propsValue.priceSeller !== undefined)
+      property['price'] = propsValue.priceSeller;
+    if (propsValue.addressSeller)
+      property['streetAddress'] = propsValue.addressSeller;
+    if (propsValue.citySeller) property['city'] = propsValue.citySeller;
+    if (propsValue.stateSeller) property['state'] = propsValue.stateSeller;
+    if (propsValue.zipcodeSeller)
+      property['zipCode'] = propsValue.zipcodeSeller;
+    if (propsValue.bedsSeller !== undefined)
+      property['bedrooms'] = propsValue.bedsSeller;
+    if (propsValue.bathsSeller !== undefined)
+      property['bathrooms'] = propsValue.bathsSeller;
+    if (propsValue.sqftSeller !== undefined)
+      property['squareFeet'] = propsValue.sqftSeller;
+    if (Object.keys(property).length > 0) payload.property = property;
 
     const response = await makeRequest(
       auth.secret_text,

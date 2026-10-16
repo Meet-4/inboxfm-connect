@@ -23,7 +23,7 @@ export const lofty = createPiece({
     updateTransaction,
     createCustomApiCallAction({
       auth: loftyAuth,
-      baseUrl: () => 'https://api.lofty.ai/v1',
+      baseUrl: () => 'https://api.lofty.com/v1.0',
       authMapping: async (auth) => ({
         Authorization: `token ${auth.secret_text}`,
       }),
