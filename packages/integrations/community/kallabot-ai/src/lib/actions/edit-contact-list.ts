@@ -106,7 +106,7 @@ export const editContactListAction = createAction({
                         method: HttpMethod.GET,
                         url: `https://api.kallabot.com/contacts?list_id=${list_id}`,
                         headers: {
-                            'Authorization': `Bearer ${auth}`,
+                            'Authorization': `Bearer ${auth.secret_text}`,
                             'Content-Type': 'application/json'
                         }
                     });
@@ -177,7 +177,7 @@ export const editContactListAction = createAction({
             method: HttpMethod.PUT,
             url: `https://api.kallabot.com/contacts/${context.propsValue.list_id}`,
             headers: {
-                'Authorization': `Bearer ${context.auth}`,
+                'Authorization': `Bearer ${context.auth.secret_text}`,
                 'Content-Type': 'application/json'
             },
             body: payload

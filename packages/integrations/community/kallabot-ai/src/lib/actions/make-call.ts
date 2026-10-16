@@ -198,7 +198,7 @@ export const makeCallAction = createAction({
         method: HttpMethod.POST,
         url: 'https://api.kallabot.com/call',
         headers: {
-          'Authorization': `Bearer ${context.auth}`,
+          'Authorization': `Bearer ${context.auth.secret_text}`,
           'Content-Type': 'application/json'
         },
         body: requestBody

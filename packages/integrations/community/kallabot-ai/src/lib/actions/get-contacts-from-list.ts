@@ -94,7 +94,7 @@ export const getContactsFromListAction = createAction({
             method: HttpMethod.GET,
             url: `https://api.kallabot.com/contacts?list_id=${context.propsValue.list_id}`,
             headers: {
-                'Authorization': `Bearer ${context.auth}`,
+                'Authorization': `Bearer ${context.auth.secret_text}`,
                 'Content-Type': 'application/json'
             }
         });
