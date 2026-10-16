@@ -9,7 +9,7 @@ import {
 } from '@inboxfm-connect/pieces-common';
 import FormData from 'form-data';
 import { seekTableAuth } from '../../lib/common/auth';
-import { seekTableApiCall } from '../../lib/common/client';
+import { seekTableApiCall, BASE_URL } from '../../lib/common/client';
 
 interface Report {
   Id: string;
@@ -137,7 +137,7 @@ export const shareReportEmailAction = createAction({
 
     await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `api/report/${reportId}/share/email`,
+      url: `${BASE_URL}api/report/${reportId}/share/email`,
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
         token: context.auth.secret_text,
