@@ -210,9 +210,15 @@ function wrapStringArgs(expr: string): string {
             const inner = wrapStringArgs(arg)
             if (!fn) return inner
             const expectedSpec = fn.argTypes[Math.min(i, fn.argTypes.length - 1)]
-            const shouldQuote = expectedSpec === 'string' ||
-                (Array.isArray(expectedSpec) && (expectedSpec as string[]).includes('string'))
-            return shouldQuote ? quoteIfBare(inner) : inner
+            // 'date' slots need bare date literals quoted too: expr-eval would
+            // otherwise evaluate `2025-01-15` as arithmetic (2025 - 1 - 15 =
+            // 2009) and every date function would silently operate on 2009ms
+            // after the epoch (their impls stringify, so a bare epoch number
+            // never worked either). Variables, nested calls and already-quoted
+            // args are returned untouched by quoteIfBare.
+            const shouldQuote = expectedSpec === 'string' || expectedSpec === 'date' ||
+                (Array.isArray(expectedSpec) && ((expectedSpec as string[]).includes('string') || (expectedSpec as string[]).includes('date')))
+            return shouldQuote ? quoteIfBare(inner, expectedSpec) : inner
         })
 
         result += fnName + '(' + processedArgs.join(';') + ')'
@@ -222,16 +228,32 @@ function wrapStringArgs(expr: string): string {
     return result
 }
 
-function quoteIfBare(arg: string): string {
+function quoteIfBare(arg: string, expectedSpec: string | string[] | undefined): string {
     const trimmed = arg.trim()
     if (!trimmed) return arg
     if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith('\'') && trimmed.endsWith('\''))) return arg
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) return arg
     if (trimmed.startsWith('__ap_')) return arg
     const fnCallMatch = trimmed.match(/^([a-z_][a-z0-9_]*)\s*\(/i)
     if (fnCallMatch && AP_FUNCTIONS.some((f) => f.name === fnCallMatch[1])) return arg
-    return '"' + arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
+    // A bare numeric literal in a slot that also accepts numbers must stay a
+    // number: stringifying it makes is_number(42) false and breaks numeric key
+    // matching in switch/is_equal/coalesce. It self-evaluates in expr-eval, so
+    // leaving it bare is safe.
+    if (NUMERIC_LITERAL.test(trimmed) && Array.isArray(expectedSpec) && (expectedSpec as string[]).includes('number')) {
+        return trimmed
+    }
+    // Quote the trimmed content, not the raw arg. The whitespace around a bare
+    // arg is formatting — the documented syntax is `sum( list ; field )` — not
+    // data. Quoting it verbatim turned the field name into " field " so every
+    // list aggregation silently returned 0/null/[] (item[" field "] is always
+    // undefined) and every documented example produced space-padded output.
+    // Intentional spaces still work: quote them ("  spaced  ") or put them
+    // inside a multi-word arg.
+    return '"' + trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
 }
+
+const NUMERIC_LITERAL = /^-?(\d+(\.\d+)?|\.\d+)$/
 
 function normalizeExpression(expr: string): string {
     let result = ''

@@ -723,8 +723,17 @@ describe('implicit string quoting', () => {
     it('combine with quoted space separator still works', () =>
         expect(result('combine(John;Smith;" ")')).toBe('John Smith'))
 
-    it('combine preserves spaces typed inside an arg', () =>
-        expect(result('combine(hello;    world)')).toBe('hello    world'))
+    it('combine preserves spaces typed inside a quoted arg', () =>
+        expect(result('combine(hello;"    world")')).toBe('hello    world'))
+
+    it('combine trims the formatting whitespace around a bare arg', () => {
+        // `combine(hello;    world)` — the spaces after `;` are separator
+        // formatting, not data. Bare-arg padding broke every documented
+        // example (the registry writes `sum( list ; field )`) and silently
+        // corrupted field-name lookups, so bare args are trimmed before
+        // quoting. Intentional spaces must be quoted.
+        expect(result('combine(hello;    world)')).toBe('helloworld')
+    })
 
     it('replace without quotes on search and replacement', () =>
         expect(result('replace(hello world;world;there)')).toBe('hello there'))
@@ -780,5 +789,118 @@ describe('formulaEvaluator wrapper detection', () => {
         const input = `Score: ${formulaEvaluator.wrap('add({{score}};8)')}`
         expect(formulaEvaluator.containsWrapper(input)).toBe(true)
     })
+})
+
+// ---------------------------------------------------------------------------
+// Documented syntax — the function registry writes every example as
+// `fn( arg ; arg )` with spaces around the separators. These tests pin that
+// such formulas evaluate exactly as documented (they used to silently return
+// 0 / null / [] / space-padded strings because bare args were quoted with
+// their surrounding whitespace).
+// ---------------------------------------------------------------------------
+
+describe('documented spacing: list aggregation field names', () => {
+    it('sum reads the field written with doc spacing', () =>
+        expect(result('sum( {{items}} ; score )', LIST_DATA)).toBe(300))
+
+    it('average reads the field', () =>
+        expect(result('average( {{items}} ; score )', LIST_DATA)).toBe(75))
+
+    it('pluck reads the field', () =>
+        expect(result('pluck( {{items}} ; name )', LIST_DATA)).toEqual(['Alice', 'Bob', 'Charlie', 'Bob']))
+
+    it('max_in_list / min_in_list read the field', () => {
+        expect(result('max_in_list( {{items}} ; score )', LIST_DATA)).toBe(90)
+        expect(result('min_in_list( {{items}} ; score )', LIST_DATA)).toBe(60)
+    })
+
+    it('deduplicate reads the field', () =>
+        expect((result('deduplicate( {{items}} ; name )', LIST_DATA) as unknown[]).length).toBe(3))
+
+    it('filter_list matches field and bare value', () =>
+        expect((result('filter_list( {{items}} ; name ; Bob )', LIST_DATA) as unknown[]).length).toBe(2))
+
+    it('sort_list honours desc written with doc spacing (was silently asc)', () => {
+        const r = result('sort_list( {{items}} ; score ; desc )', LIST_DATA) as { score: number }[]
+        expect(r[0].score).toBe(90)
+    })
+})
+
+describe('documented spacing: bare literal matching', () => {
+    it('switch matches a variable against a bare key (was silently falling to default)', () =>
+        expect(result('switch( {{status}} ; active ; Live ; inactive ; Off )', { status: 'active' })).toBe('Live'))
+
+    it('switch bare numeric keys keep their type', () =>
+        expect(result('switch( 2 ; 1 ; one ; 2 ; two )')).toBe('two'))
+
+    it('contains_item matches a bare value', () =>
+        expect(result('contains_item( {{tags}} ; urgent )', { tags: ['bug', 'urgent'] })).toBe(true))
+
+    it('contains_item matches a bare numeric value', () =>
+        expect(result('contains_item( {{nums}} ; 2 )', { nums: [1, 2, 3] })).toBe(true))
+
+    it('is_equal compares a bare literal against a variable', () =>
+        expect(result('is_equal( {{status}} ; active )', { status: 'active' })).toBe(true))
+})
+
+describe('documented spacing: type predicates keep bare numeric type', () => {
+    it('is_number(42) is true (registry example)', () =>
+        expect(result('is_number( 42 )')).toBe(true))
+
+    it('is_number still false for numeric text', () => {
+        expect(result('is_number("42")')).toBe(false)
+        expect(result('is_number({{x}})', { x: '42' })).toBe(false)
+    })
+
+    it('coalesce returns a bare zero as a number, not a padded string', () =>
+        expect(result('coalesce( 0 ; fallback )')).toBe(0))
+
+    it('if_empty returns a bare zero as a number', () =>
+        expect(result('if_empty( 0 ; fallback )')).toBe(0))
+})
+
+describe('documented spacing: text functions produce documented output', () => {
+    it('combine registry example', () =>
+        expect(result('combine( John ; Smith ; " " )')).toBe('John Smith'))
+
+    it('uppercase registry example', () =>
+        expect(result('uppercase( acme inc )')).toBe('ACME INC'))
+
+    it('titlecase registry example', () =>
+        expect(result('titlecase( john smith )')).toBe('John Smith'))
+
+    it('prefix registry example', () =>
+        expect(result('prefix( 10042 ; ORD- )')).toBe('ORD-10042'))
+
+    it('first_n registry example', () =>
+        expect(result('first_n( Jonathan ; 3 )')).toBe('Jon'))
+
+    it('last_n registry example', () =>
+        expect(result('last_n( ACC-7890 ; 4 )')).toBe('7890'))
+
+    it('truncate registry example', () =>
+        expect(result('truncate( Annual Revenue Report ; 14 )')).toBe('Annual Revenue...'))
+})
+
+describe('documented spacing: bare date literals are dates, not arithmetic', () => {
+    it('format_date registry example (2025-01-15 was evaluated as 2025-1-15=2009)', () =>
+        expect(result('format_date( 2025-01-15 ; MMM DD, YYYY )')).toBe('Jan 15, 2025'))
+
+    it('add_days on a bare date', () => {
+        const r = result('format_date(add_days( 2025-01-15 ; 30 ))') as string
+        expect(r).toBe('2025-02-14')
+    })
+
+    it('get_year on a bare date (was 1970)', () =>
+        expect(result('get_year( 2025-01-15 )')).toBe(2025))
+
+    it('bare ISO datetime is not parsed as arithmetic', () =>
+        expect(result('format_time( 2025-01-15T14:30:00 ; HH:mm )')).toBe('14:30'))
+
+    it('quoted dates keep working', () =>
+        expect(result('format_date("2024-01-15")')).toBe('2024-01-15'))
+
+    it('variable dates keep working', () =>
+        expect(result('format_date({{when}})', { when: '2024-01-15' })).toBe('2024-01-15'))
 })
 
