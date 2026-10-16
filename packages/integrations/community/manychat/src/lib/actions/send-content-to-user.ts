@@ -145,7 +145,7 @@ export const sendContentToUserAction = createAction({
 			url: 'https://api.manychat.com/fb/sending/sendContent',
 			headers: {
 				accept: 'application/json',
-				Authorization: `Bearer ${auth}`,
+				Authorization: `Bearer ${auth.secret_text}`,
 				'Content-Type': 'application/json',
 			},
 			body: requestBody,
