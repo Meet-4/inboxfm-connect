@@ -29,7 +29,7 @@ export const cognitoForms = createPiece({
       baseUrl: () => 'https://www.cognitoforms.com/api',
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${auth}`,
+          Authorization: `Bearer ${auth.secret_text}`,
         };
       },
     }),
