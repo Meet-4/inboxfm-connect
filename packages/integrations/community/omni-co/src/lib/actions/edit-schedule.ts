@@ -162,7 +162,7 @@ export const editSchedule = createAction({
     }
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.PUT,
       `/schedules/${scheduleId}`,
       body

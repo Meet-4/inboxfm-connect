@@ -49,7 +49,7 @@ export const moveDocument = createAction({
     }
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.PUT,
       `/documents/${identifier}/move`,
       body

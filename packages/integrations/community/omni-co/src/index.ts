@@ -28,10 +28,15 @@ export const omniCo = createPiece({
     moveDocument,
     runQuery,
     createCustomApiCallAction({
-      baseUrl: () => 'https://blobsrus.omniapp.co/api/v1',
+      // Omni serves each customer from their own instance
+      // (https://{instance}.omniapp.co/api) — no shared base URL exists.
+      baseUrl: (auth: any) =>
+        auth?.props?.instanceUrl
+          ? `${auth.props.instanceUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/api/v1`
+          : '',
       auth: omniAuth,
-      authMapping: async (auth) => ({
-        Authorization: `Bearer ${auth.secret_text}`,
+      authMapping: async (auth: any) => ({
+        Authorization: `Bearer ${auth.props.apiKey}`,
       }),
     }),
   ],

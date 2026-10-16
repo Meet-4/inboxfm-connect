@@ -22,7 +22,7 @@ export const deleteASchedule = createAction({
     const { scheduleId } = context.propsValue;
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.DELETE,
       `/schedules/${scheduleId}`,
       {}

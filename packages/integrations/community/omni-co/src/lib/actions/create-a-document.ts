@@ -42,7 +42,7 @@ export const createADocument = createAction({
     }
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.POST,
       '/documents',
       body

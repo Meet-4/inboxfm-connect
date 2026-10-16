@@ -1,9 +1,16 @@
 import { HttpMethod, httpClient } from '@inboxfm-connect/pieces-common';
 
-export const BASE_URL = `https://blobsrus.omniapp.co/api/v1`;
+/**
+ * Omni's API is served from each customer's own instance
+ * (https://{instance}.omniapp.co/api) — the base URL is the same URL you use
+ * to log in to Omni (docs.omni.co/docs/API/overview).
+ */
+export function omniBaseUrl(instanceUrl: string): string {
+  return `${instanceUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/api/v1`;
+}
 
 export async function makeRequest(
-  api_key: string,
+  auth: { apiKey: string; instanceUrl: string },
   method: HttpMethod,
   path: string,
   body?: unknown
@@ -11,9 +18,9 @@ export async function makeRequest(
   try {
     const response = await httpClient.sendRequest({
       method,
-      url: `${BASE_URL}${path}`,
+      url: `${omniBaseUrl(auth.instanceUrl)}${path}`,
       headers: {
-        Authorization: `Bearer ${api_key}`,
+        Authorization: `Bearer ${auth.apiKey}`,
         'Content-Type': 'application/json',
       },
       body,
