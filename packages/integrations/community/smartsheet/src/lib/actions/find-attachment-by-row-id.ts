@@ -117,7 +117,7 @@ export const findAttachmentByRowId = createAction({
         method: HttpMethod.GET,
         url: apiUrl,
         headers: {
-          'Authorization': `Bearer ${context.auth}`,
+          'Authorization': `Bearer ${context.auth.secret_text}`,
           'Content-Type': 'application/json',
         },
         queryParams,
