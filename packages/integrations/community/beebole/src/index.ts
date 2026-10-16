@@ -32,7 +32,7 @@ export const beebole = createPiece({
       auth: beeboleAuth,
       authMapping: async (auth) => ({
         Authorization: `Basic ${Buffer.from(
-          `${auth as unknown as string}:x`
+          `${auth.secret_text}:x`
         ).toString('base64')}`,
       }),
     }),
