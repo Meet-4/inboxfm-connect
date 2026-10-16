@@ -148,6 +148,10 @@ export const newEventTrigger = createTrigger({
         console.log(`Created new event hook: ${hookId}`);
       }
 
+      // onDisable reads 'hookId' — persist it so the hook can be
+      // deactivated/deleted when the trigger is disabled.
+      await context.store.put('hookId', hookId);
+
       const response = await makeOktaRequest(
         context.auth,
         `/eventHooks/${hookId}/lifecycle/verify`,
