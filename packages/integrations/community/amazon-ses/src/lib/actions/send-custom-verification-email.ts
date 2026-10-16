@@ -40,7 +40,14 @@ export const sendCustomVerificationEmail = createAction({
       required: true,
       refreshers: [],
       options: async ({ auth }) => {
-        const templates = await getCustomVerificationTemplates(auth as any);
+        if (!auth) {
+          return {
+            disabled: true,
+            options: [],
+            placeholder: 'Please authenticate first',
+          };
+        }
+        const templates = await getCustomVerificationTemplates(auth.props);
 
         if (templates.length === 0) {
           return {
@@ -67,7 +74,14 @@ export const sendCustomVerificationEmail = createAction({
       required: false,
       refreshers: [],
       options: async ({ auth }) => {
-        const configSets = await getConfigurationSets(auth as any);
+        if (!auth) {
+          return {
+            disabled: true,
+            options: [],
+            placeholder: 'Please authenticate first',
+          };
+        }
+        const configSets = await getConfigurationSets(auth.props);
         return createConfigSetDropdownOptions(configSets);
       },
     }),
