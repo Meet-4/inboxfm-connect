@@ -26,7 +26,7 @@ export const grokXai = createPiece({
       auth: grokAuth,
       baseUrl: () => XAI_BASE_URL,
       authMapping: async (auth) => ({
-        Authorization: `Bearer ${auth}`,
+        Authorization: `Bearer ${auth.secret_text}`,
       }),
     }),
   ],
