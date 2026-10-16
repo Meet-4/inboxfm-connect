@@ -203,7 +203,7 @@ export const templateVariables = Property.DynamicProperties({
 								talking_photo_name: string;
 							}[];
 						}>({
-							apiKey: auth as unknown as string,
+							apiKey: auth.secret_text,
 							method: HttpMethod.GET,
 							resourceUri: `/avatars`,
 							apiVersion: 'v2',
@@ -232,7 +232,7 @@ export const templateVariables = Property.DynamicProperties({
 						const voices = await heygenApiCall<{
 							voices: { name: string; voice_id: string }[];
 						}>({
-							apiKey: auth as unknown as string,
+							apiKey: auth.secret_text,
 							method: HttpMethod.GET,
 							resourceUri: `/voices`,
 							apiVersion: 'v2',
