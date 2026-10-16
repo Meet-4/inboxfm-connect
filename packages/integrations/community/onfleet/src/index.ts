@@ -113,7 +113,7 @@ export const onfleet = createPiece({
       baseUrl: () => 'https://onfleet.com/api/v2',
       auth: onfleetAuth,
       authMapping: async (auth) => ({
-        Authorization: `Bearer ${auth}`,
+        Authorization: `Bearer ${auth.secret_text}`,
       }),
     }),
   ],
