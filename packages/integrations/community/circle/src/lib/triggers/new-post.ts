@@ -38,7 +38,7 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof circleAuth>, { s
 					per_page: '60',
 				},
 				headers: {
-					Authorization: `Bearer ${auth}`,
+					Authorization: `Bearer ${auth.secret_text}`,
 					'Content-Type': 'application/json',
 				},
 			});
