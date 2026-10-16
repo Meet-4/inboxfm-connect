@@ -19,6 +19,11 @@ import {
 
 const ROOT_API = 'https://api.ilovepdf.com';
 
+// The region is a required path segment of the start-task route since
+// iLoveAPI introduced data residency (https://www.iloveapi.com/docs/api-reference:
+// GET /v1/start/{tool}/{region}). 'us' matches the legacy default routing.
+const DEFAULT_REGION = 'us';
+
 async function authenticate({ publicKey }: { publicKey: string }): Promise<string> {
   const response = await httpClient.sendRequest<AuthResponse>({
     method: HttpMethod.POST,
@@ -37,7 +42,7 @@ async function startTask({
 }): Promise<StartTaskResponse> {
   const response = await httpClient.sendRequest<StartTaskResponse>({
     method: HttpMethod.GET,
-    url: `${ROOT_API}/v1/start/${tool}`,
+    url: `${ROOT_API}/v1/start/${tool}/${DEFAULT_REGION}`,
     authentication: { type: AuthenticationType.BEARER_TOKEN, token },
   });
   return response.body;
