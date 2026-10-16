@@ -44,7 +44,10 @@ export const sendSMSAction = createAction({
       method: HttpMethod.POST,
       url: `https://api.bird.com/workspaces/${auth.workspaceId}/channels/${auth.channelId}/messages`,
       headers: {
-        'Authorization': `Bearer ${auth.apiKey}`,
+        // Bird Channels API (api.bird.com) authenticates with the
+        // 'AccessKey' scheme, not Bearer — see docs.bird.com
+        // /api/channels-api/api-reference/messaging securitySchemes.
+        'Authorization': `AccessKey ${auth.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: {
