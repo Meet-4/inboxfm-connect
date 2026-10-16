@@ -66,7 +66,7 @@ export const askChatbotAction = createAction({
       method: HttpMethod.POST,
       url: 'https://api.afforai.com/api/api_completion',
       body: {
-        apiKey: context.auth,
+        apiKey: context.auth.secret_text,
         sessionID: sessionID,
         history: history,
         powerful: powerful,
