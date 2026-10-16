@@ -28,7 +28,7 @@ export const getSmsInfo = createAction({
       method: HttpMethod.GET,
       url: `https://api.transmitmessage.com/v2/sms/${id}`,
       headers: {
-        Authorization: `Bearer ${context.auth.secret_text}`,
+        'x-api-key': `${context.auth.props.apiKey}`,
         'Content-Type': 'application/json',
       },
     });

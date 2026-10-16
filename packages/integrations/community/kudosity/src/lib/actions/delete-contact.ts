@@ -38,7 +38,10 @@ export const deleteContact = createAction({
     }
 
     const res = await makeRequest(
-      context.auth.secret_text,
+      {
+        apiKey: context.auth.props.apiKey,
+        apiSecret: context.auth.props.apiSecret,
+      },
       HttpMethod.POST,
       '/delete-from-list.json',
       payload

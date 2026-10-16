@@ -32,8 +32,11 @@ export const kudosity = createPiece({
       auth: kudosityAuth,
       baseUrl: () => 'https://api.transmitsms.com',
       authMapping: async (auth) => {
+        const basicAuth = Buffer.from(
+          `${auth.props.apiKey}:${auth.props.apiSecret}`
+        ).toString('base64');
         return {
-          'x-api-key': `${auth.secret_text}`,
+          Authorization: `Basic ${basicAuth}`,
         };
       },
     }),

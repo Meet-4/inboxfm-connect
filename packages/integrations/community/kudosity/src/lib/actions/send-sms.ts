@@ -59,7 +59,7 @@ export const sendSms = createAction({
       method: HttpMethod.POST,
       url: 'https://api.transmitmessage.com/v2/sms',
       headers: {
-        'x-api-key': `${context.auth.secret_text}`,
+        'x-api-key': `${context.auth.props.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: payload,

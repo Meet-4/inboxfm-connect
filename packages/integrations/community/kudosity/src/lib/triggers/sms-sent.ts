@@ -30,7 +30,7 @@ export const smsSent = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const webhookUrl = context.webhookUrl;
-    const apiKey = context.auth.secret_text;
+    const apiKey = context.auth.props.apiKey;
     const res = await httpClient.sendRequest({
       method: HttpMethod.POST,
       url: 'https://api.transmitmessage.com/v2/webhook',
@@ -51,7 +51,7 @@ export const smsSent = createTrigger({
     await context.store.put('webhookId', webhookId);
   },
   async onDisable(context) {
-    const apiKey = context.auth.secret_text;
+    const apiKey = context.auth.props.apiKey;
     const storedWebhookId = await context.store.get('webhookId');
 
     if (storedWebhookId) {
