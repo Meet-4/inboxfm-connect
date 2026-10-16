@@ -108,7 +108,7 @@ export const runQuery = createAction({
     }
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.POST,
       '/query/run',
       body
