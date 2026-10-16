@@ -60,3 +60,56 @@ export async function pagerDutyApiCall<T = unknown>(params: {
 
   return response.body;
 }
+
+/**
+ * Creates a PagerDuty v3 webhook subscription delivering the given event
+ * types to `webhookUrl`, account-scoped.
+ * https://developer.pagerduty.com/api-reference/create-a-webhook-subscription
+ */
+export async function createWebhookSubscription(
+  apiKey: string,
+  webhookUrl: string,
+  events: string[]
+): Promise<string> {
+  const result = await pagerDutyApiCall<{
+    webhook_subscription: { id: string };
+  }>({
+    apiKey,
+    method: HttpMethod.POST,
+    path: '/webhook_subscriptions',
+    body: {
+      webhook_subscription: {
+        type: 'webhook_subscription',
+        delivery_method: {
+          type: 'http_delivery_method',
+          url: webhookUrl,
+        },
+        events,
+        filter: {
+          type: 'account_reference',
+        },
+      },
+    },
+  });
+
+  const id = result?.webhook_subscription?.id;
+  if (!id) {
+    throw new Error('PagerDuty did not return a webhook subscription id.');
+  }
+  return id;
+}
+
+/**
+ * Deletes a PagerDuty v3 webhook subscription.
+ * https://developer.pagerduty.com/api-reference/delete-a-webhook-subscription
+ */
+export async function deleteWebhookSubscription(
+  apiKey: string,
+  subscriptionId: string
+): Promise<void> {
+  await pagerDutyApiCall({
+    apiKey,
+    method: HttpMethod.DELETE,
+    path: `/webhook_subscriptions/${subscriptionId}`,
+  });
+}
