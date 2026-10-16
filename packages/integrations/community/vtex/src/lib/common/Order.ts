@@ -12,7 +12,7 @@ export class Order {
     };
   }
 
-  async getOrderById(OrderID: number) {
+  async getOrderById(OrderID: string) {
     const route = `/api/oms/pvt/orders/`;
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
