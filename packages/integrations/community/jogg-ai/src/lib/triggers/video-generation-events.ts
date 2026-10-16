@@ -33,7 +33,9 @@ export const videoGeneratedSuccessfully = createTrigger({
     try {
       const response = await httpClient.sendRequest({
         method: HttpMethod.POST,
-        url: 'https://api.jogg.ai/v1/webhook/endpoint',
+        // JoggAI docs: POST /v2/endpoint (docs.jogg.ai Webhook Integration
+        // Guide). The previous /v1/webhook/endpoint path returns 404.
+        url: 'https://api.jogg.ai/v2/endpoint',
         headers: {
           'x-api-key': context.auth.secret_text,
           'Content-Type': 'application/json',
@@ -61,8 +63,9 @@ export const videoGeneratedSuccessfully = createTrigger({
         throw new Error(message);
       }
 
-      const webhookData = response.body;
-      if (webhookData.endpoint_id) {
+      // Response envelope is { code, msg, data: { endpoint_id, ... } }.
+      const webhookData = response.body.data;
+      if (webhookData?.endpoint_id) {
         await context.store?.put<WebhookInfo>(
           '_video_generation_success_webhook',
           {
@@ -90,7 +93,7 @@ export const videoGeneratedSuccessfully = createTrigger({
       if (webhookInfo?.endpoint_id) {
         await httpClient.sendRequest({
           method: HttpMethod.DELETE,
-          url: `https://api.jogg.ai/v1/webhook/endpoint/${webhookInfo.endpoint_id}`,
+          url: `https://api.jogg.ai/v2/endpoint/${webhookInfo.endpoint_id}`,
           headers: {
             'x-api-key': context.auth.secret_text,
           },
