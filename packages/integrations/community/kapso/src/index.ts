@@ -44,7 +44,7 @@ export const kapso = createPiece({
     sendTemplate,
     createCustomApiCallAction({
       auth: kapsoAuth,
-      baseUrl: () => KAPSO_BASE_URL,
+      baseUrl: () => `${KAPSO_BASE_URL}/v24.0`,
       authMapping: async (auth) => {
         return {
           'X-API-Key': auth.secret_text,
