@@ -74,11 +74,22 @@ export class ActiveCampaignClient {
 	}
 
 	async listContactLists() {
-		return await this.makeRequest<{ lists: ContactList[] }>(
-			HttpMethod.GET,
-			'/lists',
-			prepareQuery({ limit: 20 }),
-		);
+		const lists: ContactList[] = [];
+		let offset = 0;
+		// ActiveCampaign paginates collections: default 20, max 100 per page.
+		// Walk all pages so dropdowns are not truncated to the first page.
+		while (true) {
+			const res = await this.makeRequest<{ lists: ContactList[] }>(
+				HttpMethod.GET,
+				'/lists',
+				prepareQuery({ limit: 100, offset }),
+			);
+			lists.push(...(res.lists ?? []));
+			if (!res.lists || res.lists.length < 100) {
+				return { lists };
+			}
+			offset += res.lists.length;
+		}
 	}
 
 	async createAccount(request: CreateAccountRequest) {
@@ -92,11 +103,22 @@ export class ActiveCampaignClient {
 	}
 
 	async listAccounts(search?: string): Promise<ListAccountsResponse> {
-		return await this.makeRequest<ListAccountsResponse>(
-			HttpMethod.GET,
-			'/accounts',
-			prepareQuery({ search: search }),
-		);
+		const accounts: ListAccountsResponse['accounts'] = [];
+		let offset = 0;
+		// ActiveCampaign paginates collections: default 20, max 100 per page.
+		// Walk all pages so dropdowns are not truncated to the first page.
+		while (true) {
+			const res = await this.makeRequest<ListAccountsResponse>(
+				HttpMethod.GET,
+				'/accounts',
+				prepareQuery({ search: search, limit: 100, offset }),
+			);
+			accounts.push(...(res.accounts ?? []));
+			if (!res.accounts || res.accounts.length < 100) {
+				return { accounts };
+			}
+			offset += res.accounts.length;
+		}
 	}
 
 	async listAccountCustomFields() {
@@ -117,7 +139,22 @@ export class ActiveCampaignClient {
 	}
 
 	async listContacts(): Promise<ListContactsResponse> {
-		return await this.makeRequest<ListContactsResponse>(HttpMethod.GET, '/contacts');
+		const contacts: ListContactsResponse['contacts'] = [];
+		let offset = 0;
+		// ActiveCampaign paginates collections: default 20, max 100 per page.
+		// Walk all pages so dropdowns are not truncated to the first page.
+		while (true) {
+			const res = await this.makeRequest<ListContactsResponse>(
+				HttpMethod.GET,
+				'/contacts',
+				prepareQuery({ limit: 100, offset }),
+			);
+			contacts.push(...(res.contacts ?? []));
+			if (!res.contacts || res.contacts.length < 100) {
+				return { contacts };
+			}
+			offset += res.contacts.length;
+		}
 	}
 
 	async listContactCustomFields(): Promise<ContactCustomFieldsResponse> {
@@ -143,7 +180,22 @@ export class ActiveCampaignClient {
 	}
 
 	async listTags(): Promise<ListTagsResponse> {
-		return await this.makeRequest<ListTagsResponse>(HttpMethod.GET, '/tags');
+		const tags: ListTagsResponse['tags'] = [];
+		let offset = 0;
+		// ActiveCampaign paginates collections: default 20, max 100 per page.
+		// Walk all pages so dropdowns are not truncated to the first page.
+		while (true) {
+			const res = await this.makeRequest<ListTagsResponse>(
+				HttpMethod.GET,
+				'/tags',
+				prepareQuery({ limit: 100, offset }),
+			);
+			tags.push(...(res.tags ?? []));
+			if (!res.tags || res.tags.length < 100) {
+				return { tags };
+			}
+			offset += res.tags.length;
+		}
 	}
 }
 
