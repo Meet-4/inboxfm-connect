@@ -8,7 +8,7 @@ export const customApiCall = createCustomApiCallAction({
   description: 'Make a custom API call to any Fragment endpoint',
   baseUrl: () => 'https://api.onfragment.com/api/v1',
   authMapping: async (auth) => ({
-    'Authorization': `Bearer ${auth}`,
+    'Authorization': `Bearer ${auth.secret_text}`,
     'Content-Type': 'application/json',
   }),
 });
