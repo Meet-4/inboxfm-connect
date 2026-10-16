@@ -23,7 +23,9 @@ export const messagebird = createPiece({
       auth: birdAuth,
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${(auth.props as BirdAuthValue).apiKey}`,
+          // Bird Channels API (api.bird.com) uses the 'AccessKey'
+          // Authorization scheme, not Bearer.
+          Authorization: `AccessKey ${(auth.props as BirdAuthValue).apiKey}`,
         };
       }
     }),

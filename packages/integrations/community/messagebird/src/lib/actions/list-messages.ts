@@ -68,7 +68,9 @@ export const listMessages = createAction({
         ...(pageToken ? { pageToken: pageToken } : {}),
       },
       headers: {
-        'Authorization': `Bearer ${auth.apiKey}`,
+        // Bird Channels API auth scheme is 'AccessKey', not Bearer
+        // (docs.bird.com /api/channels-api securitySchemes).
+        'Authorization': `AccessKey ${auth.apiKey}`,
         'Content-Type': 'application/json',
       },
     });
