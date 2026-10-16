@@ -38,7 +38,7 @@ export const airtableUploadFileToColumnAction = createAction({
         }
 
         const airtable: AirtableTable = await airtableCommon.fetchTable({
-          token: auth as unknown as string,
+          token: auth.secret_text,
           baseId: base as unknown as string,
           tableId: tableId as unknown as string,
         });
