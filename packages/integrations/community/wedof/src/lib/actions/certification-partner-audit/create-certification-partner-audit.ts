@@ -32,7 +32,7 @@ export const createCertificationPartnerAudit = createAction({
       refreshers: ['certifInfo'],
       required: true,
       props: async ({ auth, certifInfo }) => {
-        if (!certifInfo) {
+        if (!certifInfo || !auth) {
           console.error('certifInfo is undefined');
           return {};
         }
@@ -43,7 +43,7 @@ export const createCertificationPartnerAudit = createAction({
             queryParams: { certifInfo: certifInfo as unknown as string },
             headers: {
               'Content-Type': 'application/json',
-              'X-Api-Key': auth as unknown as string,
+              'X-Api-Key': auth.secret_text,
             },
           });
     
