@@ -114,7 +114,7 @@ export const templateFields = Property.DynamicProperties({
         name: string;
       }>;
     }>(
-      auth as unknown as string,
+      auth.secret_text,
       HttpMethod.GET,
       `/templates/${template_uuid}/details`
     );
