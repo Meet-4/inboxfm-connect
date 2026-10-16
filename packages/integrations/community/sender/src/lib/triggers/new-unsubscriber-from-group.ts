@@ -36,7 +36,7 @@ export const newUnsubscriberFromGroupTrigger = createTrigger({
       webhookData
     );
 
-    await context.store.put('webhookId', response.body.data.id);
+    await context.store.put('webhookId', response.body.id);
   },
   async onDisable(context) {
     const webhookId = await context.store.get<string>('webhookId');
