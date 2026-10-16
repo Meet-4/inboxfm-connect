@@ -42,7 +42,14 @@ export const createCustomVerificationEmailTemplate = createAction({
       required: true,
       refreshers: [],
       options: async ({ auth }) => {
-        const verifiedIdentities = await getVerifiedIdentities(auth as any);
+        if (!auth) {
+          return {
+            disabled: true,
+            options: [],
+            placeholder: 'Please authenticate first',
+          };
+        }
+        const verifiedIdentities = await getVerifiedIdentities(auth.props);
         return createIdentityDropdownOptions(verifiedIdentities);
       },
     }),
