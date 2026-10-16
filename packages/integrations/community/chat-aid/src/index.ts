@@ -23,7 +23,7 @@ export const chatAid = createPiece({
       baseUrl: () => BASE_URL,
       auth: ChatAidAuth,
       authMapping: async (auth) => ({
-        Authorization: `${auth}`,
+        Authorization: `${auth.secret_text}`,
       }),
     }),
   ],
