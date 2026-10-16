@@ -14,9 +14,10 @@ export const getClientById = createAction({
     idempotent: true,
   },
   props: {
-    clientId: Property.Number({
+    clientId: Property.ShortText({
       displayName: 'Client ID',
-      description: 'The Client ID',
+      description:
+        'The Client ID (Master Data CL document id — a string, e.g. an email or UUID like CL-b345cbda-e489-11e6-94f4-0ac138d2d42e)',
       required: true,
     }),
   },

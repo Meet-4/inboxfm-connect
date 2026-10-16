@@ -14,9 +14,10 @@ export const getOrderById = createAction({
     idempotent: true,
   },
   props: {
-    OrderId: Property.Number({
+    OrderId: Property.ShortText({
       displayName: 'Order ID',
-      description: 'The Order ID',
+      description:
+        'The Order ID, e.g. 1172452900788-01 (VTEX order IDs are strings with a -NN suffix)',
       required: true,
     }),
   },

@@ -22,7 +22,7 @@ export class Client {
     };
   }
 
-  async getClientById(clientID: number): Promise<GetClientByIdResponse> {
+  async getClientById(clientID: string): Promise<GetClientByIdResponse> {
     const route = `/api/dataentities/CL/documents/`;
     const response = await httpClient.sendRequest<GetClientByIdResponse>({
       method: HttpMethod.GET,
