@@ -212,7 +212,7 @@ export const tableFields = Property.DynamicProperties({
 			const tableSchemaResponse = await makeRequest<{
 				fields: { id: string; name: string; type: string; choices: { caption: string }[] }[];
 			}>(
-				auth as unknown as string,
+				auth.secret_text,
 				HttpMethod.GET,
 				`/teams/${teamid}/databases/${dbid}/tables/${tid}`,
 			);
@@ -323,7 +323,7 @@ export const tablefieldDropdown = Property.Dropdown({
 			const tableSchemaResponse = await makeRequest<{
 				fields: { id: string; name: string; type: string; choices: { caption: string }[] }[];
 			}>(
-				auth as unknown as string,
+				auth.secret_text,
 				HttpMethod.GET,
 				`/teams/${teamid}/databases/${dbid}/tables/${tid}`,
 			);
