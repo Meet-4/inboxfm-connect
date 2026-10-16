@@ -58,7 +58,7 @@ export const cody = createPiece({
               auth: codyAuth,
               baseUrl: () => 'https://getcody.ai/api/v1',
               authMapping: async (auth) => ({
-                Authorization: `Bearer ${auth}`,
+                Authorization: `Bearer ${auth.secret_text}`,
               }),
             }),
       ],
