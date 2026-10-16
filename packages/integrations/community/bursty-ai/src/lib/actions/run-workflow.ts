@@ -33,7 +33,7 @@ export const runWorkflow = createAction({
       method: HttpMethod.POST,
       url: `https://app.burstyai.com/burstyai/aiflows/${context.propsValue.workflow_id}/async_run`,
       headers: {
-        Authorization: `Bearer ${context.auth}`,
+        Authorization: `Bearer ${context.auth.secret_text}`,
         'content-type': 'application/json',
       },
       body: {},
@@ -58,7 +58,7 @@ export const runWorkflow = createAction({
         method: HttpMethod.GET,
         url: `https://app.burstyai.com/burstyai/aiflowjobs/${jobId}/result`,
         headers: {
-          Authorization: `Bearer ${context.auth}`,
+          Authorization: `Bearer ${context.auth.secret_text}`,
         },
       });
 
