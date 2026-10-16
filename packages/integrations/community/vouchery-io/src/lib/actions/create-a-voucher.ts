@@ -28,9 +28,9 @@ export const createAVoucher = createAction({
       description: 'The date and time when the voucher expires',
       required: false,
     }),
-    customer_identifier: Property.Number({
+    customer_identifier: Property.ShortText({
       displayName: 'Customer Identifier',
-      description: 'The identifier for the customer',
+      description: 'The identifier for the customer (a string, e.g. email, hash or id)',
       required: false,
     }),
     gift_card_value: Property.Number({
