@@ -1,6 +1,10 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { pagerDutyAuth } from '../auth';
 import { instructionProp } from '../common/props';
+import { createWebhookSubscription, deleteWebhookSubscription } from '../common/client';
+
+const WEBHOOK_SUBSCRIPTION_STORE_KEY = 'pagerduty_new_incident_webhook_subscription_id';
+
 export const newIncident = createTrigger({
   auth: pagerDutyAuth,
   name: 'newIncident',
@@ -81,10 +85,21 @@ export const newIncident = createTrigger({
   },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
-    // implement webhook creation logic
+    const subscriptionId = await createWebhookSubscription(
+      context.auth.secret_text,
+      context.webhookUrl,
+      ['incident.triggered']
+    );
+    await context.store.put(WEBHOOK_SUBSCRIPTION_STORE_KEY, subscriptionId);
   },
   async onDisable(context) {
-    // implement webhook deletion logic
+    const subscriptionId = await context.store.get<string>(
+      WEBHOOK_SUBSCRIPTION_STORE_KEY
+    );
+    if (subscriptionId) {
+      await deleteWebhookSubscription(context.auth.secret_text, subscriptionId);
+    }
+    await context.store.delete(WEBHOOK_SUBSCRIPTION_STORE_KEY);
   },
   async run(context) {
     const payload = context.payload.body as { event?: { event_type?: string } };
