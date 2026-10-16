@@ -4,8 +4,9 @@ import {
   QueryParams,
   httpClient,
 } from '@inboxfm-connect/pieces-common';
-import { ListRequest, prepareListRequest } from './models/common';
+import { ListRequest, Paging, prepareListRequest } from './models/common';
 import {
+  User,
   UserCreateRequest,
   UserListResponse,
   UserSingleResponse,
@@ -28,6 +29,7 @@ import {
   Project,
 } from './models/project';
 import {
+  Service,
   ServiceSingleResponse,
   ServiceListResponse,
   ServiceCreateRequest,
@@ -48,13 +50,64 @@ import {
   AbsenceCreateRequest,
   AbsenceUpdateRequest,
   AbsenceListRequest,
+  Absence,
 } from './models/absence';
 import {
+  Team,
   TeamCreateRequest,
   TeamListResponse,
   TeamSingleResponse,
   TeamUpdateRequest,
 } from './models/team';
+
+/**
+ * Clockodo removed its legacy API endpoints on 2026-05-01
+ * (https://www.clockodo.com/en/blog/deprecation-of-legacy-api-endpoints-on-may-1-2026):
+ * users/teams/customers moved to /api/v3 and projects/services/absences to /api/v4.
+ * The v3/v4 resources wrap responses in a "data" envelope instead of a
+ * resource-named key, so the client maps them back to the models below.
+ * /api/v2/entries was not removed and keeps its original envelope.
+ */
+interface Envelope<T> {
+  data: T;
+}
+
+interface PagedEnvelope<T> {
+  paging: Paging;
+  data: T[];
+}
+
+function toV4AbsenceBody(
+  request: AbsenceCreateRequest | AbsenceUpdateRequest
+): Record<string, unknown> {
+  const { count_days, ...body } = request as Record<string, unknown>;
+  // v4 dropped the numeric count_days parameter; a half day is now the boolean half_day.
+  if (typeof count_days === 'number' && count_days <= 0.5) {
+    body['half_day'] = true;
+  }
+  return body;
+}
+
+function toV4ProjectBody(
+  request: ProjectCreateRequest | ProjectUpdateRequest
+): Record<string, unknown> {
+  const {
+    budget_money,
+    budget_is_hours,
+    budget_is_not_strict,
+    ...body
+  } = request as Record<string, unknown>;
+  // v4 replaced the flat budget_money/budget_is_hours/budget_is_not_strict
+  // parameters with a single structured budget object.
+  if (typeof budget_money === 'number') {
+    body['budget'] = {
+      amount: budget_money,
+      monetary: !(budget_is_hours ?? false),
+      hard: !(budget_is_not_strict ?? false),
+    };
+  }
+  return body;
+}
 
 export class ClockodoClient {
   private clientIdentification: string;
@@ -94,86 +147,101 @@ export class ClockodoClient {
     return res.body;
   }
 
-  listUsers(): Promise<UserListResponse> {
-    return this.makeRequest<UserListResponse>(HttpMethod.GET, '/v2/users');
-  }
-
-  getUser(id: number): Promise<UserSingleResponse> {
-    return this.makeRequest<UserSingleResponse>(
+  async listUsers(): Promise<UserListResponse> {
+    const res = await this.makeRequest<PagedEnvelope<User>>(
       HttpMethod.GET,
-      '/v2/users/' + id
+      '/v3/users'
     );
+    return { users: res.data };
   }
 
-  createUser(request: UserCreateRequest) {
-    return this.makeRequest<UserSingleResponse>(
+  async getUser(id: number): Promise<UserSingleResponse> {
+    const res = await this.makeRequest<Envelope<User>>(
+      HttpMethod.GET,
+      '/v3/users/' + id
+    );
+    return { user: res.data };
+  }
+
+  async createUser(request: UserCreateRequest): Promise<UserSingleResponse> {
+    const res = await this.makeRequest<Envelope<User>>(
       HttpMethod.POST,
-      '/v2/users',
+      '/v3/users',
       undefined,
       request
     );
+    return { user: res.data };
   }
 
-  updateUser(
+  async updateUser(
     id: number,
     request: UserUpdateRequest
   ): Promise<UserSingleResponse> {
-    return this.makeRequest<UserSingleResponse>(
+    const res = await this.makeRequest<Envelope<User>>(
       HttpMethod.PUT,
-      '/v2/users/' + id,
+      '/v3/users/' + id,
       undefined,
       request
     );
+    return { user: res.data };
   }
 
   deleteUser(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/v2/users/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v3/users/' + id);
   }
 
-  listTeams(): Promise<TeamListResponse> {
-    return this.makeRequest<TeamListResponse>(HttpMethod.GET, '/v2/teams');
-  }
-
-  getTeam(id: number): Promise<TeamSingleResponse> {
-    return this.makeRequest<TeamSingleResponse>(
+  async listTeams(): Promise<TeamListResponse> {
+    const res = await this.makeRequest<PagedEnvelope<Team>>(
       HttpMethod.GET,
-      '/v2/teams/' + id
+      '/v3/teams'
     );
+    return { teams: res.data };
   }
 
-  createTeam(request: TeamCreateRequest) {
-    return this.makeRequest<TeamSingleResponse>(
+  async getTeam(id: number): Promise<TeamSingleResponse> {
+    const res = await this.makeRequest<Envelope<Team>>(
+      HttpMethod.GET,
+      '/v3/teams/' + id
+    );
+    return { team: res.data };
+  }
+
+  async createTeam(request: TeamCreateRequest): Promise<TeamSingleResponse> {
+    const res = await this.makeRequest<Envelope<Team>>(
       HttpMethod.POST,
-      '/v2/teams',
+      '/v3/teams',
       undefined,
       request
     );
+    return { team: res.data };
   }
 
-  updateTeam(
+  async updateTeam(
     id: number,
     request: TeamUpdateRequest
   ): Promise<TeamSingleResponse> {
-    return this.makeRequest<TeamSingleResponse>(
+    const res = await this.makeRequest<Envelope<Team>>(
       HttpMethod.PUT,
-      '/v2/teams/' + id,
+      '/v3/teams/' + id,
       undefined,
       request
     );
+    return { team: res.data };
   }
 
   deleteTeam(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/v2/teams/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v3/teams/' + id);
   }
 
-  listCustomers(
+  async listCustomers(
     request: ListRequest<CustomerListFilter> = {}
   ): Promise<CustomerListResponse> {
-    return this.makeRequest<CustomerListResponse>(
+    const res = await this.makeRequest<PagedEnvelope<Customer>>(
       HttpMethod.GET,
-      '/v2/customers',
+      '/v3/customers',
       prepareListRequest(request)
     );
+    return { paging: res.paging, customers: res.data };
   }
 
   async listAllCustomers(filter: CustomerListFilter = {}): Promise<Customer[]> {
@@ -190,46 +258,52 @@ export class ClockodoClient {
     return all;
   }
 
-  getCustomer(id: number): Promise<CustomerSingleResponse> {
-    return this.makeRequest<CustomerSingleResponse>(
+  async getCustomer(id: number): Promise<CustomerSingleResponse> {
+    const res = await this.makeRequest<Envelope<Customer>>(
       HttpMethod.GET,
-      '/v2/customers/' + id
+      '/v3/customers/' + id
     );
+    return { customer: res.data };
   }
 
-  createCustomer(request: CustomerCreateRequest) {
-    return this.makeRequest<CustomerSingleResponse>(
+  async createCustomer(
+    request: CustomerCreateRequest
+  ): Promise<CustomerSingleResponse> {
+    const res = await this.makeRequest<Envelope<Customer>>(
       HttpMethod.POST,
-      '/v2/customers',
+      '/v3/customers',
       undefined,
       request
     );
+    return { customer: res.data };
   }
 
-  updateCustomer(
+  async updateCustomer(
     id: number,
     request: CustomerUpdateRequest
   ): Promise<CustomerSingleResponse> {
-    return this.makeRequest<CustomerSingleResponse>(
+    const res = await this.makeRequest<Envelope<Customer>>(
       HttpMethod.PUT,
-      '/v2/customers/' + id,
+      '/v3/customers/' + id,
       undefined,
       request
     );
+    return { customer: res.data };
   }
 
   deleteCustomer(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/v2/customers/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v3/customers/' + id);
   }
 
-  listProjects(
+  async listProjects(
     request: ListRequest<ProjectListFilter> = {}
   ): Promise<ProjectListResponse> {
-    return this.makeRequest<ProjectListResponse>(
+    const res = await this.makeRequest<PagedEnvelope<Project>>(
       HttpMethod.GET,
-      '/v2/projects',
+      '/v4/projects',
       prepareListRequest(request)
     );
+    return { paging: res.paging, projects: res.data };
   }
 
   async listAllProjects(filter: ProjectListFilter = {}): Promise<Project[]> {
@@ -246,75 +320,112 @@ export class ClockodoClient {
     return all;
   }
 
-  getProject(id: number): Promise<ProjectSingleResponse> {
-    return this.makeRequest<ProjectSingleResponse>(
+  async getProject(id: number): Promise<ProjectSingleResponse> {
+    const res = await this.makeRequest<Envelope<Project>>(
       HttpMethod.GET,
-      '/v2/projects/' + id
+      '/v4/projects/' + id
     );
+    return { project: res.data };
   }
 
-  createProject(request: ProjectCreateRequest) {
-    return this.makeRequest<ProjectSingleResponse>(
+  async createProject(
+    request: ProjectCreateRequest
+  ): Promise<ProjectSingleResponse> {
+    const res = await this.makeRequest<Envelope<Project>>(
       HttpMethod.POST,
-      '/v2/projects',
+      '/v4/projects',
       undefined,
-      request
+      toV4ProjectBody(request)
     );
+    return { project: res.data };
   }
 
-  updateProject(
+  async updateProject(
     id: number,
     request: ProjectUpdateRequest
   ): Promise<ProjectSingleResponse> {
-    return this.makeRequest<ProjectSingleResponse>(
+    const { completed, billed_money, billed_completely, ...rest } =
+      request as Record<string, unknown>;
+    const res = await this.makeRequest<Envelope<Project>>(
       HttpMethod.PUT,
-      '/v2/projects/' + id,
+      '/v4/projects/' + id,
       undefined,
-      request
+      toV4ProjectBody(rest as ProjectUpdateRequest)
     );
+    let project = res.data;
+    // v4 moved billed state and completion off the plain update
+    // into the dedicated setBilled/complete endpoints.
+    if (billed_money !== undefined || billed_completely !== undefined) {
+      const billedRes = await this.makeRequest<Envelope<Project>>(
+        HttpMethod.PUT,
+        '/v3/projects/' + id + '/setBilled',
+        undefined,
+        {
+          ...(billed_money !== undefined ? { billed_money } : {}),
+          ...(billed_completely !== undefined ? { billed: billed_completely } : {}),
+        }
+      );
+      project = billedRes.data;
+    }
+    if (completed !== undefined) {
+      const completedRes = await this.makeRequest<Envelope<Project>>(
+        HttpMethod.PUT,
+        '/v4/projects/' + id + '/complete',
+        undefined,
+        { completed }
+      );
+      project = completedRes.data;
+    }
+    return { project };
   }
 
   deleteProject(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/v2/projects/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v4/projects/' + id);
   }
 
-  listServices(): Promise<ServiceListResponse> {
-    return this.makeRequest<ServiceListResponse>(
+  async listServices(): Promise<ServiceListResponse> {
+    const res = await this.makeRequest<PagedEnvelope<Service>>(
       HttpMethod.GET,
-      '/v2/services'
+      '/v4/services'
     );
+    return { services: res.data };
   }
 
-  getService(id: number): Promise<ServiceSingleResponse> {
-    return this.makeRequest<ServiceSingleResponse>(
+  async getService(id: number): Promise<ServiceSingleResponse> {
+    const res = await this.makeRequest<Envelope<Service>>(
       HttpMethod.GET,
-      '/v2/services/' + id
+      '/v4/services/' + id
     );
+    return { service: res.data };
   }
 
-  createService(request: ServiceCreateRequest) {
-    return this.makeRequest<ServiceSingleResponse>(
+  async createService(
+    request: ServiceCreateRequest
+  ): Promise<ServiceSingleResponse> {
+    const res = await this.makeRequest<Envelope<Service>>(
       HttpMethod.POST,
-      '/v2/services',
+      '/v4/services',
       undefined,
       request
     );
+    return { service: res.data };
   }
 
-  updateService(
+  async updateService(
     id: number,
     request: ServiceUpdateRequest
   ): Promise<ServiceSingleResponse> {
-    return this.makeRequest<ServiceSingleResponse>(
+    const res = await this.makeRequest<Envelope<Service>>(
       HttpMethod.PUT,
-      '/v2/services/' + id,
+      '/v4/services/' + id,
       undefined,
       request
     );
+    return { service: res.data };
   }
 
   deleteService(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/v2/services/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v4/services/' + id);
   }
 
   listEntries(request: EntryListRequest): Promise<EntryListResponse> {
@@ -352,7 +463,7 @@ export class ClockodoClient {
     );
   }
 
-  createEntry(request: EntryCreateRequest) {
+  createEntry(request: EntryCreateRequest): Promise<EntrySingleResponse> {
     return this.makeRequest<EntrySingleResponse>(
       HttpMethod.POST,
       '/v2/entries',
@@ -377,48 +488,53 @@ export class ClockodoClient {
     return this.makeRequest<object>(HttpMethod.DELETE, '/v2/entries/' + id);
   }
 
-  listAbsences(request: AbsenceListRequest): Promise<AbsenceListResponse> {
+  async listAbsences(request: AbsenceListRequest): Promise<AbsenceListResponse> {
     const query: QueryParams = {
-      year: request.year.toString(),
+      'filter[year]': request.year.toString(),
     };
-    if (request.users_id) query.users_id = request.users_id.toString();
-    return this.makeRequest<AbsenceListResponse>(
+    if (request.users_id) query['filter[users_id]'] = request.users_id.toString();
+    const res = await this.makeRequest<Envelope<Absence[]>>(
       HttpMethod.GET,
-      '/absences',
+      '/v4/absences',
       query
     );
+    return { absences: res.data };
   }
 
-  getAbsence(id: number): Promise<AbsenceSingleResponse> {
-    return this.makeRequest<AbsenceSingleResponse>(
+  async getAbsence(id: number): Promise<AbsenceSingleResponse> {
+    const res = await this.makeRequest<Envelope<Absence>>(
       HttpMethod.GET,
-      '/absences/' + id
+      '/v4/absences/' + id
     );
+    return { absence: res.data };
   }
 
-  createAbsence(request: AbsenceCreateRequest) {
-    return this.makeRequest<AbsenceSingleResponse>(
+  async createAbsence(
+    request: AbsenceCreateRequest
+  ): Promise<AbsenceSingleResponse> {
+    const res = await this.makeRequest<Envelope<Absence>>(
       HttpMethod.POST,
-      '/absences',
+      '/v4/absences',
       undefined,
-      request
+      toV4AbsenceBody(request)
     );
+    return { absence: res.data };
   }
 
-  updateAbsence(
+  async updateAbsence(
     id: number,
     request: AbsenceUpdateRequest
   ): Promise<AbsenceSingleResponse> {
-    return this.makeRequest<AbsenceSingleResponse>(
+    const res = await this.makeRequest<Envelope<Absence>>(
       HttpMethod.PUT,
-      '/absences/' + id,
+      '/v4/absences/' + id,
       undefined,
-      request
+      toV4AbsenceBody(request)
     );
+    return { absence: res.data };
   }
 
   deleteAbsence(id: number): Promise<object> {
-    return this.makeRequest<object>(HttpMethod.DELETE, '/absences/' + id);
+    return this.makeRequest<object>(HttpMethod.DELETE, '/v4/absences/' + id);
   }
 }
-
