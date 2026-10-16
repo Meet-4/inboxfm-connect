@@ -136,7 +136,10 @@ export const frameRegisterTrigger = ({
     async onEnable(context) {
       const response = await httpClient.sendRequest<WebhookInformation>({
         method: HttpMethod.POST,
-        url: `https://api.frame.com/api/v2/teams/${context.propsValue.team_id}/hooks`,
+        // Frame.io v2 API: webhooks are created at POST /v2/teams/{team_id}/hooks
+        // on api.frame.io (developer.frame.io/api/reference/operation/createWebhookForTeam).
+        // api.frame.com is a different company and returns 404/DNS failure.
+        url: `https://api.frame.io/v2/teams/${context.propsValue.team_id}/hooks`,
         body: {
           name: displayName,
           url: context.webhookUrl,
