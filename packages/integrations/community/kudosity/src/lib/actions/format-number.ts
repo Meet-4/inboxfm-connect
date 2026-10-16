@@ -30,12 +30,15 @@ export const formatNumber = createAction({
   },
   async run(context) {
     const payload = {
-      country: context.propsValue.country,
+      countrycode: context.propsValue.country,
       msisdn: context.propsValue.number,
     };
 
     const res = await makeRequest(
-      context.auth.secret_text,
+      {
+        apiKey: context.auth.props.apiKey,
+        apiSecret: context.auth.props.apiSecret,
+      },
       HttpMethod.POST,
       '/format-number.json',
       payload
