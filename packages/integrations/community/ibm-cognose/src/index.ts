@@ -39,7 +39,7 @@ export const ibmCognose = createPiece({
     moveContentObjectAction,
     copyContentObjectAction,
     createCustomApiCallAction({
-      baseUrl: (auth) => `${(auth as any).baseurl}/api/v1`,
+      baseUrl: (auth) => `${(auth as any).props.baseurl}/api/v1`,
       auth: ibmCognoseAuth,
       authMapping: async (auth: any) => {
         try {
