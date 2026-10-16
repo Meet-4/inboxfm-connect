@@ -29,6 +29,37 @@ interface SalesloftAccount {
   domain?: string;
 }
 
+/**
+ * Salesloft list endpoints page with per_page (max 100) + page
+ * (https://developers.salesloft.com/docs/api/people-index).
+ * Fetch every page so dropdowns are not truncated at the first 100 records.
+ */
+const SALESLOFT_DROPDOWN_MAX_PAGES = 10;
+
+async function fetchAllPages<T extends { id?: number }>({
+  apiKey,
+  path,
+}: {
+  apiKey: string;
+  path: string;
+}): Promise<T[]> {
+  const records: T[] = [];
+  for (let page = 1; page <= SALESLOFT_DROPDOWN_MAX_PAGES; page++) {
+    const response = await salesloftRequest<{ data: T[] }>({
+      apiKey,
+      method: HttpMethod.GET,
+      path,
+      queryParams: { per_page: '100', page: String(page) },
+    });
+    const batch = response.data ?? [];
+    records.push(...batch);
+    if (batch.length < 100) {
+      break;
+    }
+  }
+  return records;
+}
+
 export const personIdProp = Property.Dropdown({
   displayName: 'Person',
   required: true,
@@ -43,14 +74,10 @@ export const personIdProp = Property.Dropdown({
       };
     }
 
-    const response = await salesloftRequest<{ data: SalesloftPerson[] }>({
+    const people = await fetchAllPages<SalesloftPerson>({
       apiKey: auth.secret_text,
-      method: HttpMethod.GET,
       path: '/people',
-      queryParams: { per_page: '100' },
     });
-
-    const people = response.data ?? [];
 
     return {
       disabled: false,
@@ -81,14 +108,10 @@ export const cadenceIdProp = Property.Dropdown({
       };
     }
 
-    const response = await salesloftRequest<{ data: SalesloftCadence[] }>({
+    const cadences = await fetchAllPages<SalesloftCadence>({
       apiKey: auth.secret_text,
-      method: HttpMethod.GET,
       path: '/cadences',
-      queryParams: { per_page: '100' },
     });
-
-    const cadences = response.data ?? [];
 
     return {
       disabled: false,
@@ -118,14 +141,10 @@ export const userIdProp = Property.Dropdown({
       };
     }
 
-    const response = await salesloftRequest<{ data: SalesloftUser[] }>({
+    const users = await fetchAllPages<SalesloftUser>({
       apiKey: auth.secret_text,
-      method: HttpMethod.GET,
       path: '/users',
-      queryParams: { per_page: '100' },
     });
-
-    const users = response.data ?? [];
 
     return {
       disabled: false,
@@ -154,14 +173,10 @@ export const accountIdProp = Property.Dropdown({
       };
     }
 
-    const response = await salesloftRequest<{ data: SalesloftAccount[] }>({
+    const accounts = await fetchAllPages<SalesloftAccount>({
       apiKey: auth.secret_text,
-      method: HttpMethod.GET,
       path: '/accounts',
-      queryParams: { per_page: '100' },
     });
-
-    const accounts = response.data ?? [];
 
     return {
       disabled: false,
