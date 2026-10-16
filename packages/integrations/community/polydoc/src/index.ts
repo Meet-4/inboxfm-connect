@@ -20,10 +20,12 @@ export const polydoc = createPiece({
     captureScreenshot,
     generateEinvoice,
     createCustomApiCallAction({
-      baseUrl: () => 'https://api.podio.com',
+      // PolyDoc's API base (same as lib/common/constants.ts DEFAULT_BASE_URL).
+      // api.podio.com is the unrelated Podio product — every call 401'd/404'd.
+      baseUrl: () => 'https://api.polydoc.tech',
       auth: polydocAuth,
       authMapping: async (auth: any) => ({
-        Authorization: `Bearer ${auth.props.apikey}`,
+        Authorization: `Bearer ${auth.props.apiKey}`,
         'X-Sandbox': auth.props.sandbox ? 'true' : 'false',
       }),
     }),
