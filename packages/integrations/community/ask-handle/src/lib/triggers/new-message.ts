@@ -31,7 +31,7 @@ export const newMessageTrigger = createTrigger({
         method: HttpMethod.POST,
         url: `${BASE_URL}/webhooks/`,
         headers: {
-          Authorization: `Token ${context.auth}`,
+          Authorization: `Token ${context.auth.secret_text}`,
           'Content-Type': 'application/json',
         },
         body: {
@@ -61,7 +61,7 @@ export const newMessageTrigger = createTrigger({
           method: HttpMethod.DELETE,
           url: `${BASE_URL}/webhooks/${webhookId}/`,
           headers: {
-            Authorization: `Token ${context.auth}`,
+            Authorization: `Token ${context.auth.secret_text}`,
             'Content-Type': 'application/json',
           },
         });
