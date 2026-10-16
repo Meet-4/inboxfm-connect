@@ -27,7 +27,7 @@ export const exa = createPiece({
       auth:exaAuth,
        baseUrl: () => 'https://api.exa.ai',
       authMapping: async (auth) => ({
-        'x-api-key': `${auth}`,
+        'x-api-key': `${auth.secret_text}`,
       }),
     })
   ],
