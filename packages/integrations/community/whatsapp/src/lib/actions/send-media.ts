@@ -69,7 +69,7 @@ export const sendMedia = createAction({
 		if (filename && type === 'document') (body[type] as any).filename = filename;
 		return await httpClient.sendRequest({
 			method: HttpMethod.POST,
-			url: `https://graph.facebook.com/v17.0/${phone_number_id}/messages`,
+			url: `https://graph.facebook.com/v23.0/${phone_number_id}/messages`,
 			headers: {
 				Authorization: 'Bearer ' + access_token,
 			},

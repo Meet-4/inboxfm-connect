@@ -28,7 +28,7 @@ export const sendMessage = createAction({
 		const { access_token } = context.auth.props;
 		return await httpClient.sendRequest({
 			method: HttpMethod.POST,
-			url: `https://graph.facebook.com/v17.0/${phone_number_id}/messages`,
+			url: `https://graph.facebook.com/v23.0/${phone_number_id}/messages`,
 			headers: {
 				Authorization: 'Bearer ' + access_token,
 			},
