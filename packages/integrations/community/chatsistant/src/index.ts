@@ -17,7 +17,7 @@ export const chatsistant = createPiece({
       auth: chatsistantAuth,
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${auth}`,
+          Authorization: `Bearer ${auth.secret_text}`,
         };
       },
     }),
