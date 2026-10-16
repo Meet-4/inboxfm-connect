@@ -32,8 +32,10 @@ export const createTransaction = createAction({
       required: false,
     }),
     propertyAddress: Property.ShortText({
-      displayName: 'Property Address',
-      required: false,
+      displayName: 'Transaction Name / Property Address',
+      description:
+        'Property address or deal name — required by the Lofty API (transactionName)',
+      required: true,
     }),
     propertyCity: Property.ShortText({
       displayName: 'Property City',
@@ -92,25 +94,24 @@ export const createTransaction = createAction({
   async run({ auth, propsValue }) {
     const { leadId } = propsValue;
 
-    const payload: any = {};
+    // Field names follow the documented POST /v1.0/leads/{leadId}/transaction
+    // body schema (https://developer.lofty.com/api-reference/transactions/create-transaction).
+    // transactionName is required; dates are epoch milliseconds.
+    const payload: any = {
+      transactionName: propsValue.propertyAddress,
+    };
 
-    if (propsValue.transactionDate) payload.transaction_date = propsValue.transactionDate;
-    if (propsValue.amount !== undefined) payload.amount = propsValue.amount;
-    if (propsValue.transactionType) payload.transaction_type = propsValue.transactionType;
-    if (propsValue.propertyAddress) payload.property_address = propsValue.propertyAddress;
-    if (propsValue.propertyCity) payload.property_city = propsValue.propertyCity;
-    if (propsValue.propertyState) payload.property_state = propsValue.propertyState;
-    if (propsValue.propertyZipcode) payload.property_zipcode = propsValue.propertyZipcode;
-    if (propsValue.beds !== undefined) payload.beds = propsValue.beds;
-    if (propsValue.baths !== undefined) payload.baths = propsValue.baths;
-    if (propsValue.sqft !== undefined) payload.sqft = propsValue.sqft;
-    if (propsValue.mlsNumber) payload.mls_number = propsValue.mlsNumber;
-    if (propsValue.closingDate) payload.closing_date = propsValue.closingDate;
-    if (propsValue.agentId) payload.agent_id = propsValue.agentId;
-    if (propsValue.agentName) payload.agent_name = propsValue.agentName;
-    if (propsValue.agentEmail) payload.agent_email = propsValue.agentEmail;
-    if (propsValue.source) payload.source = propsValue.source;
-    if (propsValue.note) payload.note = propsValue.note;
+    if (propsValue.transactionType)
+      payload.transactionType = propsValue.transactionType;
+    if (propsValue.amount !== undefined) payload.homePrice = propsValue.amount;
+    if (propsValue.closingDate)
+      payload.closeDate = Math.round(
+        Date.parse(propsValue.closingDate)
+      );
+    if (propsValue.agentId) {
+      const agentIdNum = Number(propsValue.agentId);
+      if (Number.isFinite(agentIdNum)) payload.assignedAgent = agentIdNum;
+    }
 
     const response = await makeRequest(
       auth.secret_text,

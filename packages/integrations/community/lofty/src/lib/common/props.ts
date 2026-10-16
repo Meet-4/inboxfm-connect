@@ -67,10 +67,15 @@ export const transactionIdDropdown = Property.Dropdown({
         HttpMethod.GET,
         `/leads/${leadId}/transactions`
       );
+      // GET /v1.0/leads/{leadId}/transactions returns a bare JSON array,
+      // not a { transactions: [...] } envelope.
+      const transactions = Array.isArray(response)
+        ? response
+        : (response?.transactions ?? []);
 
       return {
         disabled: false,
-        options: response.transactions.map((transaction: any) => {
+        options: transactions.map((transaction: any) => {
           return {
             label: `${transaction.leadName} - ${transaction.transactionName}`,
             value: transaction.transactionId,

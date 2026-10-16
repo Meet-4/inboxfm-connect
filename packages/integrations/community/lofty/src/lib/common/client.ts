@@ -10,6 +10,8 @@ export async function makeRequest(
 ): Promise<any> {
   try {
     const headers: Record<string, string> = {
+      // API keys use the `token` prefix per
+      // https://developer.lofty.com/authentication/api-keys
       Authorization: `token ${apiKey}`,
       'Content-Type': 'application/json',
     };
@@ -23,7 +25,7 @@ export async function makeRequest(
     return response.body;
   } catch (error: any) {
     throw new Error(
-      `MagicalAPI request failed: ${JSON.stringify(
+      `Lofty request failed: ${JSON.stringify(
         error.response?.body || error.message || error
       )}`
     );
