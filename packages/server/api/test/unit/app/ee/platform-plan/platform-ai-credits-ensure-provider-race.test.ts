@@ -1,5 +1,6 @@
 import fastify from 'fastify'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 // Race regression: ensureActivepiecesProvider was an unlocked find-then-save
 // on the ai_provider (platformId, provider) unique index. Its callers — the
@@ -54,6 +55,10 @@ vi.mock('../../../../../src/app/database/redis-connections', () => ({
 }))
 
 vi.mock('../../../../../src/app/helper/encryption', () => ({
+    // ai-provider-entity imports EncryptedObject (a zod schema) at module scope,
+    // so the mock must expose it alongside the encrypt/decrypt methods.
+    EncryptedObject: z.object({ iv: z.string(), data: z.string() }),
+    EncryptedString: z.string(),
     encryptUtils: {
         encryptObject: async (object: unknown) => object,
         decryptObject: async (object: unknown) => object,

@@ -18,6 +18,9 @@ const mockFieldFind = vi.fn()
 
 const cellInsertBuilder = {
     insert: mockCellInsert,
+    values: mockCellValues,
+    orUpdate: mockCellOrUpdate,
+    execute: mockCellExecute,
 }
 
 const mockEntityManager = {
