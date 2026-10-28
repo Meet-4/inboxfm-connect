@@ -137,7 +137,11 @@ export async function initializeStore(): Promise<void> {
   `)
 }
 
-export async function publishFlow(projectId: string, source: string, ir: FlowIR, hash: string) {
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === '23505')
+}
+
+async function publishFlowOnce(projectId: string, source: string, ir: FlowIR, hash: string) {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -163,6 +167,21 @@ export async function publishFlow(projectId: string, source: string, ir: FlowIR,
     throw error
   } finally {
     client.release()
+  }
+}
+
+export async function publishFlow(projectId: string, source: string, ir: FlowIR, hash: string) {
+  // The next version is computed with a check-then-act on MAX(version); two
+  // concurrent publishes of the same flow can pick the same version and the
+  // loser trips UNIQUE(project_id, flow_name, version). Retry with a fresh
+  // version lookup instead of surfacing the raw constraint violation as a 500.
+  const maxAttempts = 3
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await publishFlowOnce(projectId, source, ir, hash)
+    } catch (error) {
+      if (attempt >= maxAttempts || !isUniqueViolation(error)) throw error
+    }
   }
 }
 
