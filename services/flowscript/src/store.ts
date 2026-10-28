@@ -269,6 +269,15 @@ export async function createRun(params: {
   }
 }
 
+/**
+ * Persist the terminal outcome of a run.
+ *
+ * When `ownerWorkerId` is supplied, the update is scoped to that worker via
+ * `worker_id`. A worker whose lease expired (and whose run was therefore
+ * re-queued with `worker_id=NULL` or re-claimed / marked uncertain by another
+ * worker) then fails to match any row instead of corrupting the new attempt's
+ * state. Returns the number of rows updated (0 = ownership lost or run gone).
+ */
 export async function finishRun(
   id: string,
   result: {
@@ -278,12 +287,14 @@ export async function finishRun(
     error?: string
     cancellationReason?: string
   },
-) {
-  await pool.query(
+  ownerWorkerId?: string,
+): Promise<number> {
+  const scoped = ownerWorkerId !== undefined
+  const res = await pool.query(
     `UPDATE flowscript_runs
      SET status=CASE WHEN status='cancelled' THEN 'cancelled' ELSE $2 END,
          output=$3, steps=$4, error=$5, cancellation_reason=COALESCE(cancellation_reason, $6), finished_at=now()
-     WHERE id=$1`,
+     WHERE id=$1${scoped ? ' AND worker_id=$7' : ''}`,
     [
       id,
       result.status,
@@ -291,8 +302,10 @@ export async function finishRun(
       JSON.stringify(result.steps),
       result.error ?? null,
       result.cancellationReason ?? null,
+      ...(scoped ? [ownerWorkerId] : []),
     ],
   )
+  return res.rowCount ?? 0
 }
 
 export async function getRun(projectId: string, runId: string) {

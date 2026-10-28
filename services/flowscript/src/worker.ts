@@ -69,10 +69,10 @@ async function processJob(job: NonNullable<Awaited<ReturnType<typeof claimQueued
         steps: result.steps,
         error: result.error,
         cancellationReason: 'Execution cancelled',
-      })
+      }, job.worker_id)
       console.log(JSON.stringify({ event: 'run_cancelled', runId: job.id, durationMs: Date.now() - startTime }))
     } else {
-      await finishRun(job.id, result)
+      await finishRun(job.id, result, job.worker_id)
       console.log(JSON.stringify({
         event: 'run_completed',
         runId: job.id,
@@ -83,7 +83,7 @@ async function processJob(job: NonNullable<Awaited<ReturnType<typeof claimQueued
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Worker execution failed'
-    await finishRun(job.id, { status: 'failed', steps: [], error: message })
+    await finishRun(job.id, { status: 'failed', steps: [], error: message }, job.worker_id)
     console.error(JSON.stringify({ event: 'run_failed', runId: job.id, error: message, durationMs: Date.now() - startTime }))
   } finally {
     clearInterval(heartbeatTimer)
