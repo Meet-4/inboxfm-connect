@@ -2,12 +2,6 @@ import { createPiece, PieceAuth } from '@inboxfm-connect/pieces-framework';
 import { newFormResult } from './lib/triggers/new-form-result';
 import { PieceCategory } from '@inboxfm-connect/pieces-framework';
 
-export const formsiteAuth = PieceAuth.SecretText({
-  displayName: 'API Key',
-  description: 'Formsite API Key',
-  required: true,
-});
-
 export const formsite = createPiece({
   displayName: 'Formsite',
   auth: PieceAuth.None(),

@@ -1,12 +1,12 @@
-import { formsiteAuth } from '../..';
 import {
   createTrigger,
+  PieceAuth,
   Property,
   TriggerStrategy,
 } from '@inboxfm-connect/pieces-framework';
 
 export const newFormResult = createTrigger({
-  auth: formsiteAuth,
+  auth: PieceAuth.None(),
   name: 'newFormResult',
   displayName: 'New Form Result',
   description: 'Trigger when a new form result is submitted',
@@ -17,10 +17,10 @@ export const newFormResult = createTrigger({
   props: {
     instruction: Property.MarkDown({
       value: `
-  **Enable Basic Authentication:**
-  1. Login to your Formbricks account
+  **Enable the Server Post integration:**
+  1. Login to your Formsite account
   2. Open the form you want to connect
-  3. Change tab to *From Settings* -> *Integrations* -> *Server Post*
+  3. Change tab to *Settings* -> *Integrations* -> *Server Post*
   4. Enable *Server Post* and set the URL to the webhook URL generated after you save the trigger.
   \`\`\`text
 			{{webhookUrl}}
