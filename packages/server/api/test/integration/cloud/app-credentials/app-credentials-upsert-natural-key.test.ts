@@ -87,7 +87,10 @@ describe('appCredentialService.upsert() — natural key (projectId, appName)', (
         })
         expect(rows).to.have.lengthOf(1)
         expect(rows[0]!.id).to.be.equal(first?.id)
-        expect(rows[0]!.settings.clientId).to.be.equal('client-rotated')
+        // Settings are encrypted at rest (the row's column only holds the
+        // {iv, data} envelope); the rotated client id surfaces through the
+        // service's decrypted read-back instead.
+        expect((second?.settings as { clientId: string }).clientId).to.be.equal('client-rotated')
     })
 
     it('two concurrent upserts for the same natural key converge to one row (no duplicate insert)', async () => {

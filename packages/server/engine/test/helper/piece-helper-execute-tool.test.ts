@@ -146,7 +146,10 @@ describe('executeTool headless run context', () => {
         expect(result.response).toEqual({
             // externalId must be the contract's () => Promise<string | undefined>, not the raw projectId string
             externalIdType: 'function',
-            flowsCurrentId: 'mcp-flow-id',
+            // The headless flows context uses the same 'headless' placeholder ids as
+            // the store context (upstream #618 wiring) — there is no real flow to
+            // suspend in /v1/execute, but the member must exist and be callable.
+            flowsCurrentId: 'headless',
             outputType: 'function',
             agentType: 'function',
             storeType: 'object',
