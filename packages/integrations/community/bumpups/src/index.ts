@@ -27,7 +27,7 @@ export const bumpups = createPiece({
       auth: BumpupsAuth,
       baseUrl: () => BASE_URL,
       authMapping: async (auth) => ({
-        'X-Api-Key': `${auth}`,
+        'X-Api-Key': `${auth.secret_text}`,
       }),
     }),
   ],

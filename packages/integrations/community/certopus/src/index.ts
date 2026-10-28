@@ -18,7 +18,7 @@ export const certopus = createPiece({
       baseUrl: () => certopusCommon.baseUrl, // Replace with the actual base URL
       auth: certopusAuth,
       authMapping: async (auth) => ({
-        'x-api-key': `${auth}`,
+        'x-api-key': `${auth.secret_text}`,
       }),
     }),
   ],

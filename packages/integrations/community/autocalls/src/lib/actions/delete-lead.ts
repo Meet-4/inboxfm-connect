@@ -19,11 +19,19 @@ export const deleteLead = createAction({
       refreshers: ['auth'],
       refreshOnSearch: false,
       options: async ({ auth }) => {
+        if (!auth) {
+          return {
+            disabled: true,
+            placeholder: 'Please authenticate first',
+            options: []
+          };
+        }
+
         const res = await httpClient.sendRequest({
           method: HttpMethod.GET,
           url: baseApiUrl + 'api/user/leads',
           headers: {
-            Authorization: "Bearer " + auth,
+            Authorization: "Bearer " + auth.secret_text,
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },

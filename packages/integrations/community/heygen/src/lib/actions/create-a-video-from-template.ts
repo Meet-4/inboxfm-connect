@@ -82,7 +82,7 @@ export const createVideoFromTemplateAction = createAction({
 				variables: { [x: string]: { type: string; name: string; properties: Record<string, any> } };
 			};
 		}>({
-			apiKey: auth as unknown as string,
+			apiKey: auth.secret_text,
 			method: HttpMethod.GET,
 			resourceUri: `/template/${templateId}`,
 			apiVersion: 'v2',

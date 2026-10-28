@@ -26,7 +26,7 @@ export const qwilr = createPiece({
       baseUrl: () => 'https://api.qwilr.com/v1',
       authMapping: async (auth) => {
         return {
-          'Authorization': `Bearer ${auth}`
+          'Authorization': `Bearer ${auth.secret_text}`
         }
       }
     })

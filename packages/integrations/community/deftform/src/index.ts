@@ -33,7 +33,7 @@ export const deftform = createPiece({
             baseUrl: () => 'https://deftform.com/api/v1',
             auth: deftformAuth,
             authMapping: async (auth) => ({
-                Authorization: `Bearer ${auth}`,
+                Authorization: `Bearer ${auth.secret_text}`,
             }),
         }),
     ],

@@ -25,7 +25,7 @@ export const beamer = createPiece({
       baseUrl: () => beamerCommon.baseUrl,
       auth: beamerAuth,
       authMapping: async (auth) => ({
-        'Beamer-Api-Key': `${auth}`,
+        'Beamer-Api-Key': `${auth.secret_text}`,
       }),
     }),
   ],

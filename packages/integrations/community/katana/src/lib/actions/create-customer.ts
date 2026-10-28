@@ -205,7 +205,7 @@ export const createCustomer = createAction({
       url: `${BASE_URL}/customers`,
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
-        token: context.auth as unknown as string,
+        token: context.auth.secret_text,
       },
       body,
     });

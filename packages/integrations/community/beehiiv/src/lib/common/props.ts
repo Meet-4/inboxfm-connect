@@ -121,7 +121,7 @@ export const customFields = Property.DynamicProperties({
 		const fields: DynamicPropsValue = {};
 
 		const response = await BeehiivPaginatedApiCall<{ id: string; kind: string; display: string }>({
-			apiKey: auth as unknown as string,
+			apiKey: auth.secret_text,
 			method: HttpMethod.GET,
 			resourceUri: `/publications/${publicationId}/custom_fields`,
 		});

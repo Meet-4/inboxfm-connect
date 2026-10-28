@@ -32,7 +32,7 @@ export const addLead = createAction({
             method: HttpMethod.GET,
             url: baseApiUrl + 'api/user/campaigns',
             headers: {
-              Authorization: "Bearer " + auth,
+              Authorization: "Bearer " + auth.secret_text,
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },

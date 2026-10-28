@@ -22,7 +22,7 @@ export const mem = createPiece({
       baseUrl: () => 'https://api.mem.ai/v2',
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${auth}`,
+          Authorization: `Bearer ${auth.secret_text}`,
         };
       },
     }),

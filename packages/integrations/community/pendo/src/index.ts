@@ -24,7 +24,7 @@ export const pendo = createPiece({
       baseUrl: () => 'https://app.pendo.io/api/v1',
       auth: pendoAuth,
       authMapping: async (auth) => ({
-        'x-pendo-integration-key': String(auth),
+        'x-pendo-integration-key': auth.secret_text,
       }),
     }),
   ],

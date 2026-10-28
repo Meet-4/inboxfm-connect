@@ -72,7 +72,7 @@ export const promotekit = createPiece({
       baseUrl: () => 'https://www.promotekit.com/api/v1',
       auth: promotekitAuth,
       authMapping: async (auth) => ({
-        Authorization: `Bearer ${auth}`,
+        Authorization: `Bearer ${auth.secret_text}`,
       }),
     }),
   ],

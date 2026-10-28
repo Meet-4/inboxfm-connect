@@ -22,7 +22,7 @@ export const fliqrAi = createPiece({
       baseUrl: () => fliqrConfig.baseUrl,
       auth: fliqrAuth,
       authMapping: async (auth) => ({
-        [fliqrConfig.accessTokenHeaderKey]: `${auth}`,
+        [fliqrConfig.accessTokenHeaderKey]: `${auth.secret_text}`,
       }),
     }),
   ],

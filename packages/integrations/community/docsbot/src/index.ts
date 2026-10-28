@@ -28,7 +28,7 @@ export const docsbot = createPiece({
       auth: docsbotAuth,
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${auth}`,
+          Authorization: `Bearer ${auth.secret_text}`,
         };
       },
     }),

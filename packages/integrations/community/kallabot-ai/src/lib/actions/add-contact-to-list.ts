@@ -131,7 +131,7 @@ export const addContactToListAction = createAction({
             method: HttpMethod.POST,
             url: `https://api.kallabot.com/contacts/${context.propsValue.list_id}/add`,
             headers: {
-                'Authorization': `Bearer ${context.auth}`,
+                'Authorization': `Bearer ${context.auth.secret_text}`,
                 'Content-Type': 'application/json'
             },
             body: payload

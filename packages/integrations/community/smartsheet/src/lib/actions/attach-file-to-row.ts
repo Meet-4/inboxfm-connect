@@ -135,7 +135,7 @@ export const attachFileToRow = createAction({
           method: HttpMethod.POST,
           url: apiUrl,
           headers: {
-            'Authorization': `Bearer ${context.auth}`,
+            'Authorization': `Bearer ${context.auth.secret_text}`,
             // Don't set Content-Type for FormData, let the browser set it with boundary
           },
           body: formData,
@@ -163,7 +163,7 @@ export const attachFileToRow = createAction({
           method: HttpMethod.POST,
           url: apiUrl,
           headers: {
-            'Authorization': `Bearer ${context.auth}`,
+            'Authorization': `Bearer ${context.auth.secret_text}`,
             'Content-Type': 'application/json',
           },
           body: attachmentData,

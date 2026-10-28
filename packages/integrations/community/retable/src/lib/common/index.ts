@@ -145,7 +145,7 @@ export const retableCommon = {
         method: HttpMethod.GET,
         url: `${retableCommon.baseUrl}/retable/${retable_id}`,
         headers: {
-          ApiKey: auth as unknown as string,
+          ApiKey: auth.secret_text,
         },
       });
       retable.body.data.columns.forEach((field: RetableField) => {

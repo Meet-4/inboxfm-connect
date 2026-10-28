@@ -25,7 +25,7 @@ export const contiguity = createPiece({
             baseUrl: () => 'https://api.contiguity.com',
             auth: contiguityAuth,
             authMapping: async (auth) => ({
-                authorization: `Bearer ${auth}`,
+                authorization: `Bearer ${auth.secret_text}`,
             }),
     }),
   ],

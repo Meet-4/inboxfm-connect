@@ -26,7 +26,7 @@ export const getMeetingTranscription = createAction({
         method: HttpMethod.GET,
         url: `https://api.avoma.com/v1/transcriptions/${transcriptionUuid}`,
         headers: {
-          'Authorization': `Bearer ${auth}`,
+          'Authorization': `Bearer ${auth.secret_text}`,
           'Content-Type': 'application/json'
         }
       });

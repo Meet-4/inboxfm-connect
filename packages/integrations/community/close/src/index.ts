@@ -32,7 +32,7 @@ export const close = createPiece({
       auth: closeAuth,
       authMapping: async (auth) => {
         return {
-          Authorization: `Basic ${Buffer.from(`${auth}:`).toString('base64')}`,
+          Authorization: `Basic ${Buffer.from(`${auth.secret_text}:`).toString('base64')}`,
         };
       },
     }),

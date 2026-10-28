@@ -30,7 +30,7 @@ function templateDropdown({
           method: HttpMethod.GET,
           url: `${CARBONE_API_URL}/templates`,
           headers: {
-            Authorization: `Bearer ${auth}`,
+            Authorization: `Bearer ${auth.secret_text}`,
             'carbone-version': CARBONE_VERSION,
           },
           queryParams: { limit: '100' },

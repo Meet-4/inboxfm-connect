@@ -29,13 +29,21 @@ export const pauseWarmup = createAction({
       required: true,
       refreshers: ['auth'],
       options: async ({ auth }) => {
+        if (!auth) {
+          return {
+            disabled: true,
+            options: [],
+            placeholder: 'Please connect your account first',
+          };
+        }
+
         try {
           // Fetch email accounts
           const response = await httpClient.sendRequest({
             method: HttpMethod.GET,
             url: `${reachinboxCommon.baseUrl}account/all`,
             headers: {
-              Authorization: `Bearer ${auth}`,
+              Authorization: `Bearer ${auth.secret_text}`,
             },
           });
 

@@ -72,7 +72,7 @@ export const createPageAction = createAction({
             method: HttpMethod.POST,
             url: 'https://api.qwilr.com/v1/pages',
             headers: {
-                'Authorization': `Bearer ${auth}`,
+                'Authorization': `Bearer ${auth.secret_text}`,
                 'Content-Type': 'application/json'
             },
             body: requestBody
