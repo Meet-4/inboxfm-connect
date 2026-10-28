@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { finishRun, getStorePool, publishFlow, setStorePool } from './store.js'
+import { enqueueWebhook, finishRun, getStorePool, hashWebhookToken, publishFlow, setStorePool } from './store.js'
 import type { FlowIR } from './compiler.js'
 
 describe('flowscript store race conditions (publish version conflicts)', () => {
@@ -120,6 +120,167 @@ describe('flowscript store race conditions (publish version conflicts)', () => {
 
     await expect(publishFlow('proj-race', 'source-text', ir, 'hash-1')).rejects.toThrow(/duplicate key value/)
     expect(insertAttempts).toBe(3)
+  })
+})
+
+describe('flowscript store race conditions (webhook idempotency conflict resolution)', () => {
+  let triggers: Map<string, any>
+  let deployments: Map<string, any>
+  let committedIdempotencies: Map<string, string>
+  let committedRuns: Set<string>
+  let pendingRunInserts: Set<string>
+  let raceWinner: { triggerId: string; key: string; runId: string } | null
+  let raceWinnerVanishes: boolean
+  let raceCommitted: boolean
+  let mockPool: any
+  let originalPool: any
+
+  beforeEach(() => {
+    triggers = new Map()
+    deployments = new Map()
+    committedIdempotencies = new Map()
+    committedRuns = new Set()
+    pendingRunInserts = new Set()
+    raceWinner = null
+    raceWinnerVanishes = false
+    raceCommitted = false
+    originalPool = getStorePool()
+
+    const executeQuery = async (sql: string, params: any[] = []) => {
+      const trimmed = sql.replace(/\s+/g, ' ').trim()
+
+      if (trimmed.includes("FROM flowscript_triggers WHERE kind='webhook' AND enabled=true AND secret_hash=$1")) {
+        const [secretHash] = params
+        for (const t of triggers.values()) {
+          if (t.kind === 'webhook' && t.enabled && t.secret_hash === secretHash) {
+            return { rows: [{ id: t.id, project_id: t.project_id, flow_name: t.flow_name, environment: t.environment }], rowCount: 1 }
+          }
+        }
+        return { rows: [], rowCount: 0 }
+      }
+
+      if (trimmed.includes('FROM flowscript_deployments WHERE project_id=$1 AND flow_name=$2 AND environment=$3')) {
+        const [projectId, flowName, env] = params
+        for (const d of deployments.values()) {
+          if (d.project_id === projectId && d.flow_name === flowName && d.environment === env && d.status === 'active') {
+            return { rows: [{ version_id: d.version_id }], rowCount: 1 }
+          }
+        }
+        return { rows: [], rowCount: 0 }
+      }
+
+      if (trimmed.includes('FROM flowscript_webhook_idempotency WHERE trigger_id=$1 AND idempotency_key=$2')) {
+        const [triggerId, key] = params
+        const composite = `${triggerId}:${key}`
+        // The concurrent winner is only visible to snapshots taken after its commit
+        if (raceWinner && !raceCommitted) {
+          return { rows: [], rowCount: 0 }
+        }
+        const runId = committedIdempotencies.get(composite)
+        return runId ? { rows: [{ run_id: runId }], rowCount: 1 } : { rows: [], rowCount: 0 }
+      }
+
+      if (trimmed.includes('INSERT INTO flowscript_runs')) {
+        const [id] = params
+        pendingRunInserts.add(id)
+        return { rows: [], rowCount: 1 }
+      }
+
+      if (trimmed.includes('INSERT INTO flowscript_webhook_idempotency')) {
+        const [, triggerId, key, runId] = params
+        const composite = `${triggerId}:${key}`
+        const conflict = (raceWinner && !raceCommitted && raceWinner.triggerId === triggerId && raceWinner.key === key)
+          || committedIdempotencies.has(composite)
+        if (conflict) {
+          if (raceWinner && !raceWinnerVanishes) {
+            // The concurrent transaction commits its idempotency record + run now
+            committedIdempotencies.set(`${raceWinner.triggerId}:${raceWinner.key}`, raceWinner.runId)
+            committedRuns.add(raceWinner.runId)
+            raceCommitted = true
+          }
+          // ON CONFLICT (trigger_id, idempotency_key) DO NOTHING -> 0 rows
+          return { rows: [], rowCount: 0 }
+        }
+        committedIdempotencies.set(composite, runId)
+        return { rows: [{ run_id: runId }], rowCount: 1 }
+      }
+
+      if (trimmed === 'BEGIN') {
+        pendingRunInserts = new Set()
+        return { rows: [], rowCount: 0 }
+      }
+      if (trimmed === 'COMMIT') {
+        for (const id of pendingRunInserts) committedRuns.add(id)
+        return { rows: [], rowCount: 0 }
+      }
+      if (trimmed === 'ROLLBACK') {
+        pendingRunInserts = new Set()
+        return { rows: [], rowCount: 0 }
+      }
+
+      return { rows: [], rowCount: 0 }
+    }
+
+    mockPool = {
+      query: (sql: string, params?: any[]) => executeQuery(sql, params ?? []),
+      connect: async () => ({
+        query: (sql: string, params?: any[]) => executeQuery(sql, params ?? []),
+        release: () => {},
+      }),
+      end: async () => {},
+    }
+
+    setStorePool(mockPool)
+  })
+
+  afterEach(() => {
+    setStorePool(originalPool)
+  })
+
+  const setupTrigger = () => {
+    const token = 'a'.repeat(43)
+    const triggerId = '00000000-0000-0000-0000-0000000000t1'
+    triggers.set(triggerId, {
+      id: triggerId,
+      kind: 'webhook',
+      enabled: true,
+      secret_hash: hashWebhookToken(token),
+      project_id: 'proj-wh',
+      flow_name: 'hooked-flow',
+      environment: 'production',
+    })
+    deployments.set('dep-1', {
+      project_id: 'proj-wh',
+      flow_name: 'hooked-flow',
+      environment: 'production',
+      version_id: '00000000-0000-0000-0000-0000000000v1',
+      status: 'active',
+    })
+    return token
+  }
+
+  it('returns the winning delivery\'s run id after losing the idempotency insert race', async () => {
+    const token = setupTrigger()
+    raceWinner = { triggerId: '00000000-0000-0000-0000-0000000000t1', key: 'evt-777', runId: '00000000-0000-0000-0000-0000000000win' }
+
+    const result = await enqueueWebhook(token, { hello: 'world' }, 'evt-777')
+
+    expect(result).toEqual({ runId: '00000000-0000-0000-0000-0000000000win', duplicate: true })
+    // The losing transaction's run insert must not survive its rollback
+    expect(committedRuns.has('00000000-0000-0000-0000-0000000000win')).toBe(true)
+    expect(committedRuns.size).toBe(1)
+  })
+
+  it('never returns the rolled-back run id when the winner cannot be found', async () => {
+    const token = setupTrigger()
+    raceWinner = { triggerId: '00000000-0000-0000-0000-0000000000t1', key: 'evt-888', runId: '00000000-0000-0000-0000-0000000000win' }
+    raceWinnerVanishes = true // winner row never becomes visible (defensive path)
+
+    await expect(enqueueWebhook(token, { hello: 'world' }, 'evt-888')).rejects.toThrow(
+      /could not be resolved after rollback/,
+    )
+    // No phantom run from the rolled-back transaction was surfaced or persisted
+    expect(committedRuns.size).toBe(0)
   })
 })
 

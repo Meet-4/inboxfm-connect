@@ -1025,13 +1025,21 @@ export async function enqueueWebhook(
       )
 
       if (!insertIdemp.rows[0]) {
-        // Race condition: another concurrent delivery inserted first
-        const winner = await client.query<{ run_id: string }>(
+        // Race condition: another concurrent delivery inserted first and our
+        // own run insert is about to be rolled back. Re-read the winner with a
+        // fresh snapshot AFTER the rollback: our transaction may not be able to
+        // see the winner's row (e.g. under REPEATABLE READ), and returning the
+        // rolled-back runId would hand the caller a run that does not exist.
+        await client.query('ROLLBACK')
+        const winner = await pool.query<{ run_id: string }>(
           'SELECT run_id FROM flowscript_webhook_idempotency WHERE trigger_id=$1 AND idempotency_key=$2',
           [trigger.id, cleanKey],
         )
-        await client.query('ROLLBACK')
-        return { runId: winner.rows[0]?.run_id ?? runId, duplicate: true }
+        const winnerRunId = winner.rows[0]?.run_id
+        if (!winnerRunId) {
+          throw new Error('Webhook idempotency conflict could not be resolved after rollback; run insert was rolled back')
+        }
+        return { runId: winnerRunId, duplicate: true }
       }
 
       await client.query('COMMIT')
