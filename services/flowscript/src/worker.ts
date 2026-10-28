@@ -17,9 +17,19 @@ import type { FlowIR } from './compiler.js'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const workerId = process.env.FLOWSCRIPT_WORKER_ID || `worker-${randomUUID()}`
-const MAX_CONCURRENT_RUNS = Number(process.env.FLOWSCRIPT_MAX_CONCURRENT_RUNS || 5)
-const LEASE_DURATION_MS = Number(process.env.FLOWSCRIPT_LEASE_MS || 30_000)
-const HEARTBEAT_INTERVAL_MS = Number(process.env.FLOWSCRIPT_HEARTBEAT_MS || 10_000)
+
+// Number('abc') is NaN, and NaN silently defeats every comparison below:
+// activeRuns.size >= NaN is always false (unbounded concurrency),
+// new Date(Date.now() + NaN) is an Invalid Date that pg rejects (claim and
+// heartbeat queries fail forever), and setInterval(NaN) fires on every tick.
+// Parse strictly and fall back to the documented default instead.
+const positiveIntEnv = (raw: string | undefined, fallback: number): number => {
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+const MAX_CONCURRENT_RUNS = positiveIntEnv(process.env.FLOWSCRIPT_MAX_CONCURRENT_RUNS, 5)
+const LEASE_DURATION_MS = positiveIntEnv(process.env.FLOWSCRIPT_LEASE_MS, 30_000)
+const HEARTBEAT_INTERVAL_MS = positiveIntEnv(process.env.FLOWSCRIPT_HEARTBEAT_MS, 10_000)
 
 let stopping = false
 const activeRuns = new Set<Promise<void>>()
