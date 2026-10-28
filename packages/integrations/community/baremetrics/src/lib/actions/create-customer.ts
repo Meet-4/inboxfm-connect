@@ -86,7 +86,8 @@ export const createCustomer = createAction({
     if (name) body['name'] = name;
     if (email) body['email'] = email;
     if (notes) body['notes'] = notes;
-    if (created) body['created'] = created;
+    // The Baremetrics API expects `created` as a unix timestamp (seconds).
+    if (created) body['created'] = Math.floor(new Date(created).getTime() / 1000).toString();
 
     const response = await baremetricsApiCall({
       method: HttpMethod.POST,

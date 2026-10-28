@@ -187,14 +187,18 @@ export const createSubscription = createAction({
   async run(context) {
     const { source_id, oid, started_at, canceled_at, customer_oid, plan_oid, quantity, discount, addons } = context.propsValue;
 
+    // The Baremetrics API expects unix timestamps (seconds), not ISO strings.
+    const toUnixSeconds = (iso?: string) =>
+      iso ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
+
     const body: Record<string, any> = {
       oid,
-      started_at,
+      started_at: toUnixSeconds(started_at),
       customer_oid,
       plan_oid,
     };
     
-    if (canceled_at) body['canceled_at'] = canceled_at;
+    if (canceled_at) body['canceled_at'] = toUnixSeconds(canceled_at);
     if (quantity !== undefined && quantity !== 1) body['quantity'] = quantity;
     if (discount !== undefined) body['discount'] = discount;
     if (addons && addons.length > 0) body['addons'] = addons;

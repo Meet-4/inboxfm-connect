@@ -17,12 +17,13 @@ export default [
   ...userActions,
   ...absenceActions,
   createCustomApiCallAction({
-    baseUrl: () => 'https://my.clockodo.com/api', // Replace with the actual base URL
+    baseUrl: () => 'https://my.clockodo.com/api',
     auth: clockodoAuth,
     authMapping: async (auth) => ({
       'X-ClockodoApiUser': auth?.props?.email || '',
       'X-ClockodoApiKey': auth?.props?.token || '',
-      'X-Clockodo-External-Application': auth?.props?.company_name || '',
+      'X-Clockodo-External-Application':
+        (auth?.props?.company_name || '') + ';' + (auth?.props?.company_email || ''),
       'Accept-Language': 'en',
     }),
   }),
