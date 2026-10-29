@@ -112,6 +112,17 @@ Functions for working with dates and times.
 | `is_after` | `is_after(date1; date2)` | Checks if the first date is after the second date. | `is_after(2025-02-01; 2025-01-01)` → `TRUE` |
 | `is_same_day` | `is_same_day(date1; date2)` | Checks if two dates land on the same calendar day, ignoring the time. | `is_same_day(2025-01-15T09:00:00Z; 2025-01-15T21:00:00Z)` → `TRUE` |
 
+### Timezone
+
+Date functions read and render in **UTC**, so a flow produces the same result no matter
+which server runs it. A timestamp with an offset is converted to UTC first: on any host,
+`get_day(2025-01-15T23:30:00Z)` is `15`, and `format_time(2025-01-15T14:30:00Z; h:mm A)` is
+`2:30 PM`. A date without an offset (such as `2025-01-15`) is read as midnight UTC and comes
+back as the same calendar date, which is what the examples above show.
+
+`now()` and `today()` are the exception: they read the clock, so `today()` is the date where
+the flow runs. Use `convert_timezone` when you need a date shown in a specific zone.
+
 ## List
 
 Functions for working with collections (arrays of items).

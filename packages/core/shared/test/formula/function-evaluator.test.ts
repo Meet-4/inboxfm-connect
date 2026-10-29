@@ -412,6 +412,62 @@ describe('is_same_day', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Timezone independence
+// ---------------------------------------------------------------------------
+
+// Flow output must not depend on where the server happens to run. Pin the
+// process timezone to both extremes (UTC+14 and UTC-11) and require the same,
+// UTC-correct answer; a regression back to host-local parsing fails here even
+// on a UTC CI box because the process timezone is forced. The timestamps sit
+// on a day boundary in each direction, so one of the two zones always
+// disagrees with UTC.
+const withTimezone = (tz: string, run: () => void): void => {
+    const previous = process.env['TZ']
+    process.env['TZ'] = tz
+    try {
+        run()
+    }
+    finally {
+        if (previous === undefined) delete process.env['TZ']
+        else process.env['TZ'] = previous
+    }
+}
+
+describe('date functions use UTC, not the host timezone', () => {
+    const utcAnswers: [string, string | number | boolean][] = [
+        ['get_day("2024-02-29T23:30:00Z")', 29],
+        ['get_day("2024-03-01T00:30:00Z")', 1],
+        ['get_month("2024-02-29T23:30:00Z")', 'February'],
+        ['get_year("2024-12-31T23:30:00Z")', 2024],
+        ['get_day_of_week("2024-03-02T00:30:00Z")', 'Saturday'],
+        ['start_of_month("2024-03-15")', '2024-03-01T00:00:00.000Z'],
+        ['end_of_month("2024-02-10")', '2024-02-29T23:59:59.999Z'],
+        ['format_date("2024-02-29T23:30:00Z")', '2024-02-29'],
+        ['format_date("2024-02-29T23:30:00Z";"YYYY-MM-DD HH:mm")', '2024-02-29 23:30'],
+        ['format_time("2024-02-29T23:30:00Z")', '23:30'],
+        ['format_date_long("2024-02-29T23:30:00Z")', 'Thursday, February 29, 2024'],
+        // Instants and arithmetic: the stored value must not move with the host.
+        ['add_days("2024-01-01";5)', '2024-01-06T00:00:00.000Z'],
+        ['subtract_days("2024-01-10";5)', '2024-01-05T00:00:00.000Z'],
+        ['add_hours("2024-01-01T10:00:00";3)', '2024-01-01T13:00:00.000Z'],
+        ['add_minutes("2024-01-01T10:00:00";45)', '2024-01-01T10:45:00.000Z'],
+        ['to_date("2024-01-15")', '2024-01-15T00:00:00.000Z'],
+        ['days_between("2024-01-01";"2024-01-11")', 10],
+        ['hours_between("2024-01-01T00:00:00";"2024-01-01T08:30:00")', 8],
+        ['is_before("2024-01-01";"2024-01-01T00:00:00Z")', false],
+        ['convert_timezone("2024-01-15T14:30:00Z";"America/New_York")', '2024-01-15T09:30:00-05:00'],
+    ]
+
+    for (const tz of ['Pacific/Kiritimati', 'Pacific/Midway']) {
+        it(`is unchanged under ${tz}`, () => withTimezone(tz, () => {
+            for (const [expr, expected] of utcAnswers) {
+                expect({ expr, value: result(expr) }).toEqual({ expr, value: expected })
+            }
+        }))
+    }
+})
+
+// ---------------------------------------------------------------------------
 // List functions
 // ---------------------------------------------------------------------------
 
