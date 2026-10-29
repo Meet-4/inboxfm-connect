@@ -37,7 +37,7 @@ export const mailerLite = createPiece({
     findSubscriberAction,
     removeSubscriberFromGroupAction,
     createCustomApiCallAction({
-      baseUrl: () => 'https://connect.mailerlite.com/',
+      baseUrl: () => 'https://connect.mailerlite.com/api',
       auth: mailerLiteAuth,
       authMapping: async (auth) => ({
         Authorization: `Bearer ${auth.secret_text}`,
