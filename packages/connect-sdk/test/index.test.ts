@@ -167,6 +167,21 @@ describe('InboxFM transport', () => {
         }
     })
 
+    it('detaches its abort listener from a caller signal once the request settles', async () => {
+        fetchMock.mockImplementation(async () => jsonResponse({ status: 200, body: { data: [], next: null, previous: null } }))
+        const controller = new AbortController()
+        const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
+
+        for (let index = 0; index < 12; index++) {
+            await client({ maxAttempts: 1 }).listConnections({ externalUserId: 'user_1', signal: controller.signal })
+        }
+
+        // Before the fix every one of the 12 requests left its listener behind, which
+        // pins the request closure and trips Node's MaxListenersExceededWarning at 10.
+        expect(removeListener).toHaveBeenCalledTimes(12)
+        expect(removeListener.mock.calls.every(([type]) => type === 'abort')).toBe(true)
+    })
+
     it('sends the Idempotency-Key header when provided', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse({ status: 200, body: { token: 't', connectUrl: 'https://x', expiresAt: '2026-01-01' } }))
 

@@ -43,7 +43,8 @@ function isRetryableError({ error, shouldAttemptRetries }: { error: unknown, sho
 async function performRequest<T>({ url, method, body, headers, apiKey, signal, timeoutMs, idempotencyKey }: PerformRequestOptions): Promise<T> {
     const timeoutController = new AbortController()
     const timeoutTimer = setTimeout(() => timeoutController.abort(), timeoutMs)
-    const combinedSignal = linkSignals({ signals: [signal, timeoutController.signal] })
+    const link = linkSignals({ signals: [signal, timeoutController.signal] })
+    const combinedSignal = link.signal
 
     try {
         const response = await fetch(url, {
@@ -83,6 +84,7 @@ async function performRequest<T>({ url, method, body, headers, apiKey, signal, t
     }
     finally {
         clearTimeout(timeoutTimer)
+        link.dispose()
     }
 }
 
@@ -115,17 +117,39 @@ function abortReason({ signal }: { signal: AbortSignal }): unknown {
     return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError')
 }
 
-function linkSignals({ signals }: { signals: Array<AbortSignal | undefined> }): AbortSignal {
+/**
+ * Links several signals into one, returning a `dispose` that detaches every listener
+ * it installed on the *caller's* signals. Without it, each request against a
+ * long-lived signal (a service-wide AbortController, a per-request signal reused by a
+ * batch) left one `abort` listener behind forever, tripping Node's
+ * MaxListenersExceededWarning after ten calls and pinning the request closures.
+ */
+function linkSignals({ signals }: { signals: Array<AbortSignal | undefined> }): LinkedSignal {
     const definedSignals = signals.filter((candidate): candidate is AbortSignal => candidate !== undefined)
     const controller = new AbortController()
+    const attached: Array<{ signal: AbortSignal, listener: () => void }> = []
     for (const definedSignal of definedSignals) {
         if (definedSignal.aborted) {
             controller.abort(definedSignal.reason)
             break
         }
-        definedSignal.addEventListener('abort', () => controller.abort(definedSignal.reason), { once: true })
+        const listener = () => controller.abort(definedSignal.reason)
+        definedSignal.addEventListener('abort', listener, { once: true })
+        attached.push({ signal: definedSignal, listener })
     }
-    return controller.signal
+    return {
+        signal: controller.signal,
+        dispose: () => {
+            for (const entry of attached) {
+                entry.signal.removeEventListener('abort', entry.listener)
+            }
+        },
+    }
+}
+
+type LinkedSignal = {
+    signal: AbortSignal
+    dispose: () => void
 }
 
 export const transport = {
