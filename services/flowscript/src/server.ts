@@ -220,6 +220,19 @@ export function buildServer(): FastifyInstance {
 
   app.setErrorHandler((error: any, request, reply) => {
     const statusCode = error?.statusCode ?? 500
+    if (statusCode >= 500) {
+      // Never echo internal failure detail to clients: driver errors carry resolved DB hosts and
+      // ports, constraint/table names and file paths. Keep the text in the server log and let the
+      // caller correlate through requestId.
+      request.log.error({ err: error }, 'unhandled request error')
+      return reply.code(statusCode).send({
+        statusCode,
+        code: 'INTERNAL_SERVER_ERROR',
+        error: 'Internal server error',
+        message: 'Internal server error',
+        requestId: request.id,
+      })
+    }
     let code = error?.code
     if (statusCode === 413 || code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
       code = 'PAYLOAD_TOO_LARGE'
