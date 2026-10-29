@@ -4,6 +4,13 @@ import { FlowTriggerType } from '../../src/lib/flows/triggers/trigger'
 import { executionJournal } from '../../src/lib/flow-run/execution/execution-journal'
 import { GenericStepOutput, LoopStepOutput, StepOutput, StepOutputStatus } from '../../src/lib/flow-run/execution/step-output'
 
+const pieceOutput = (output: unknown) => GenericStepOutput.create({
+    type: FlowActionType.PIECE,
+    status: StepOutputStatus.SUCCEEDED,
+    input: {},
+    output,
+})
+
 describe('executionJournal (Issue #141)', () => {
     describe('upsertStep & getStep', () => {
         it('upserts and retrieves a top-level step output', () => {
@@ -119,6 +126,68 @@ describe('executionJournal (Issue #141)', () => {
             expect(() => executionJournal.getStateAtPath({ path: [['loop_empty', 5]], steps })).toThrow(
                 'Iteration 5 not found in path loop_empty,5',
             )
+        })
+
+        it('creates a skipped iteration at the requested index instead of dropping the step output', () => {
+            // Iterations only get an entry once something inside them journals output,
+            // so a body that produced nothing (all steps skipped, or a router with no
+            // matching branch) leaves index 1 outside the array when iteration 1 starts.
+            const steps: Record<string, StepOutput> = {}
+
+            executionJournal.upsertStep({
+                stepName: 'inner_step',
+                stepOutput: pieceOutput({ ok: 1 }),
+                path: [['loop_with_skipped_body', 1]],
+                steps,
+                createLoopIterationIfNotExists: true,
+            })
+
+            const loop = steps.loop_with_skipped_body as LoopStepOutput
+            expect(loop.output?.iterations).toHaveLength(2)
+            expect(loop.output?.iterations[0]).toEqual({})
+            // Reading the path back is the resume path: it used to throw
+            // "Iteration 1 not found" because the output was written to a detached object.
+            expect(executionJournal.getStep({
+                stepName: 'inner_step',
+                path: [['loop_with_skipped_body', 1]],
+                steps,
+            })?.output).toEqual({ ok: 1 })
+        })
+
+        it('creates the requested iteration when the loop output already has earlier ones', () => {
+            const steps: Record<string, StepOutput> = {
+                loop: LoopStepOutput.init({ input: [1, 2, 3] }).setItemAndIndex({ item: 1, index: 0 }).addIteration(),
+            }
+            executionJournal.upsertStep({ stepName: 'a', stepOutput: pieceOutput('zero'), path: [['loop', 0]], steps })
+
+            executionJournal.upsertStep({
+                stepName: 'a',
+                stepOutput: pieceOutput('two'),
+                path: [['loop', 2]],
+                steps,
+                createLoopIterationIfNotExists: true,
+            })
+
+            const iterations = (steps.loop as LoopStepOutput).output?.iterations ?? []
+            expect(iterations).toHaveLength(3)
+            expect(iterations[1]).toEqual({})
+            expect(iterations[2]).toEqual({ a: expect.objectContaining({ output: 'two' }) })
+        })
+
+        it('resumes into a loop whose status was updated through a builder', () => {
+            // A loop output that went through setStatus() used to come back as a plain
+            // GenericStepOutput, so the journal threw "setItemAndIndex is not a function".
+            const steps: Record<string, StepOutput> = {
+                loop: LoopStepOutput.init({ input: [1] }).setStatus(StepOutputStatus.STOPPED),
+            }
+            expect(() => executionJournal.upsertStep({
+                stepName: 'inner_step',
+                stepOutput: pieceOutput({ ok: true }),
+                path: [['loop', 0]],
+                steps,
+                createLoopIterationIfNotExists: true,
+            })).not.toThrow()
+            expect(executionJournal.getStep({ stepName: 'inner_step', path: [['loop', 0]], steps })?.output).toEqual({ ok: true })
         })
     })
 

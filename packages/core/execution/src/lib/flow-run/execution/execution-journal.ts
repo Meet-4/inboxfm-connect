@@ -51,13 +51,25 @@ export const executionJournal = {
                 throw new Error(`Step ${parentStepName} is not a loop on items step in path ${path}`)
             }
             let loopStepOutput = step as LoopStepOutput
-            let iterationOutput = loopStepOutput.output?.iterations[iteration]
+            const iterationOutput = loopStepOutput.output?.iterations[iteration]
             if (!iterationOutput ) {
-                loopStepOutput = loopStepOutput.setItemAndIndex({ item: undefined, index: iteration }).addIteration()
-                iterationOutput = loopStepOutput.output?.iterations[iteration] ?? {}
+                // Iterations are journalled lazily: an iteration whose body produced no
+                // output (skipped steps, a router that matched no branch) never gets an
+                // entry, so the requested index can sit past the end of the array. Appending
+                // a single empty iteration files it under a different index and returns a
+                // detached object, silently dropping the caller's upsert — materialize the
+                // index instead so `iterations[iteration]` is the object we hand back.
+                const iterations = [...(loopStepOutput.output?.iterations ?? [])]
+                for (let index = iterations.length; index <= iteration; index++) {
+                    iterations.push({})
+                }
+                if (isNil(iterations[iteration])) {
+                    iterations[iteration] = {}
+                }
+                loopStepOutput = loopStepOutput.setItemAndIndex({ item: undefined, index: iteration }).setIterations(iterations)
             }
             target[parentStepName] = loopStepOutput
-            target = iterationOutput
+            target = loopStepOutput.output?.iterations[iteration] ?? {}
         }
         return target
     },
