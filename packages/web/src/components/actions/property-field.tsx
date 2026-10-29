@@ -108,6 +108,26 @@ export function PropertyField({
         />
       )
       break
+    case 'LONG_TEXT':
+      // LONG_TEXT is a first-class input type for the API (it is in
+      // `isInputProperty`) but it used to have no case here, so the field fell
+      // through to `control = null` and vanished: a required LONG_TEXT prop
+      // could never be filled, blocking the action with "Fix the highlighted
+      // fields" and no field to fix. The raw text is passed through untouched —
+      // multi-line values must not be trimmed.
+      control = (
+        <textarea
+          {...commonProps}
+          rows={4}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            'w-full rounded-md border border-input bg-muted/20 px-3 py-2 text-xs shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50',
+            inputClassName
+          )}
+        />
+      )
+      break
     case 'SECRET_TEXT':
       control = (
         <Input
