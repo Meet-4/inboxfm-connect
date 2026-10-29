@@ -5,15 +5,38 @@ import { canonicalizeJson, type FlowIR } from './compiler.js'
 import { redactSensitiveData } from './adapter.js'
 
 const { Pool } = pg
-const connectionString = process.env.DATABASE_URL
-const defaultPool = new Pool(connectionString ? { connectionString } : {
-  host: process.env.AP_POSTGRES_HOST ?? 'postgres',
-  port: Number(process.env.AP_POSTGRES_PORT ?? 5432),
-  database: process.env.AP_POSTGRES_DATABASE ?? 'activepieces',
-  user: process.env.AP_POSTGRES_USERNAME ?? 'postgres',
-  password: process.env.AP_POSTGRES_PASSWORD ?? 'postgres',
-  max: Number(process.env.FLOWSCRIPT_DB_POOL_SIZE ?? 5),
-})
+
+const DEFAULT_POOL_MAX = 5
+const MAX_POOL_MAX = 1_000
+
+export function parsePoolMax(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_POOL_MAX
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_POOL_MAX) {
+    console.warn(`[flowscript] ignoring invalid FLOWSCRIPT_DB_POOL_SIZE=${JSON.stringify(raw)}; using ${DEFAULT_POOL_MAX}`)
+    return DEFAULT_POOL_MAX
+  }
+  return parsed
+}
+
+export function buildPoolConfig(sourceEnv: NodeJS.ProcessEnv = process.env): pg.PoolConfig {
+  // `FLOWSCRIPT_DB_POOL_SIZE` has to apply to both connection styles: a managed DATABASE_URL is
+  // the common deployment, and pg's own default (10) silently wins over the configured value when
+  // `max` is omitted, which multiplies connection pressure across replicas.
+  const max = parsePoolMax(sourceEnv.FLOWSCRIPT_DB_POOL_SIZE)
+  const connectionString = sourceEnv.DATABASE_URL
+  if (connectionString) return { connectionString, max }
+  return {
+    host: sourceEnv.AP_POSTGRES_HOST ?? 'postgres',
+    port: Number(sourceEnv.AP_POSTGRES_PORT ?? 5432),
+    database: sourceEnv.AP_POSTGRES_DATABASE ?? 'activepieces',
+    user: sourceEnv.AP_POSTGRES_USERNAME ?? 'postgres',
+    password: sourceEnv.AP_POSTGRES_PASSWORD ?? 'postgres',
+    max,
+  }
+}
+
+const defaultPool = new Pool(buildPoolConfig())
 let pool = defaultPool
 
 export function setStorePool(customPool: pg.Pool | null): void {
