@@ -121,7 +121,11 @@ export default function ConnectPage() {
       } catch (err) {
         if (cancelled) return
         setLoadError(
-          err instanceof ApiClientError && (err.statusCode === 404 || err.statusCode === 410)
+          // The API maps an already-used or expired session to 403 SESSION_EXPIRED
+          // (see the server's error-handler status map), so 404/410 alone never
+          // matched the common case: reloading a link after connecting, or opening
+          // one after its TTL. Treat all three as "get a new link".
+          err instanceof ApiClientError && (err.statusCode === 403 || err.statusCode === 404 || err.statusCode === 410)
             ? 'This connect link has expired or was already used. Ask the app that sent you here for a new one.'
             : 'This connect link could not be loaded. Try again in a moment.'
         )

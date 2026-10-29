@@ -211,6 +211,27 @@ describe('public connect page', () => {
     })
   }, 15000)
 
+  it('tells the user the link is used or expired when the API answers 403, not "try again"', async () => {
+    // A consumed or expired session is 403 SESSION_EXPIRED, not 404/410 — the page
+    // used to answer that with the generic "try again in a moment" copy, even for the
+    // most common case: reloading the link right after a successful connection.
+    stubApi([
+      {
+        match: (url) => url.pathname === `/api/v1/connect-sessions/${SESSION_TOKEN}`,
+        respond: () => ({
+          status: 403,
+          body: { code: 'SESSION_EXPIRED', params: { message: 'Connect session has already been used' } },
+        }),
+      },
+    ])
+    const container = renderConnectPage()
+
+    await waitFor(() =>
+      container.textContent?.includes('This connect link has expired or was already used') === true
+    )
+    expect(container.textContent?.includes('Try again in a moment')).toBe(false)
+  }, 15000)
+
   it('sends the session projectId and externalUserId in the redemption body', async () => {
     const { requests } = secretRedemptionRoutes()
     const container = renderConnectPage()
