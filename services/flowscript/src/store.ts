@@ -667,7 +667,11 @@ export async function markRunNonIdempotentStep(runId: string): Promise<void> {
   )
 }
 
-export async function listStepAttempts(runId: string): Promise<Array<{
+export const MAX_STEP_ATTEMPT_PAGE_SIZE = 500
+export const DEFAULT_STEP_ATTEMPT_PAGE_SIZE = 200
+export const MAX_STEP_ATTEMPT_OFFSET = 100_000
+
+export type StepAttempt = {
   id: string
   runId: string
   stepId: string
@@ -679,7 +683,32 @@ export async function listStepAttempts(runId: string): Promise<Array<{
   durationMs: number | null
   startedAt: Date
   finishedAt: Date | null
-}>> {
+}
+
+function clampStepAttemptLimit(limit?: number): number {
+  if (limit === undefined || !Number.isFinite(limit)) return DEFAULT_STEP_ATTEMPT_PAGE_SIZE
+  return Math.min(Math.max(Math.trunc(limit), 1), MAX_STEP_ATTEMPT_PAGE_SIZE)
+}
+
+function clampStepAttemptOffset(offset?: number): number {
+  if (offset === undefined || !Number.isFinite(offset)) return 0
+  return Math.min(Math.max(Math.trunc(offset), 0), MAX_STEP_ATTEMPT_OFFSET)
+}
+
+/**
+ * Lists step attempts for one run in a bounded page.
+ *
+ * A 200-step flow with retries (and step re-execution after stale-lease
+ * recovery) produces thousands of attempt rows, so an unbounded SELECT let a
+ * single inspection request materialise the whole history. The page fetches
+ * one extra row to report `hasMore` without a second count query.
+ */
+export async function listStepAttempts(
+  runId: string,
+  options: { limit?: number; offset?: number } = {},
+): Promise<{ attempts: StepAttempt[]; hasMore: boolean }> {
+  const limit = clampStepAttemptLimit(options.limit)
+  const offset = clampStepAttemptOffset(options.offset)
   const res = await pool.query<{
     id: string
     run_id: string
@@ -693,10 +722,15 @@ export async function listStepAttempts(runId: string): Promise<Array<{
     started_at: Date
     finished_at: Date | null
   }>(
-    'SELECT id, run_id, step_id, attempt, status, error_code, error_message, retryable, duration_ms, started_at, finished_at FROM flowscript_step_attempts WHERE run_id=$1 ORDER BY started_at ASC',
-    [runId],
+    `SELECT id, run_id, step_id, attempt, status, error_code, error_message, retryable, duration_ms, started_at, finished_at
+     FROM flowscript_step_attempts
+     WHERE run_id=$1
+     ORDER BY started_at ASC, id ASC
+     LIMIT $2 OFFSET $3`,
+    [runId, limit + 1, offset],
   )
-  return res.rows.map(r => ({
+  const hasMore = res.rows.length > limit
+  const attempts = res.rows.slice(0, limit).map(r => ({
     id: r.id,
     runId: r.run_id,
     stepId: r.step_id,
@@ -709,6 +743,7 @@ export async function listStepAttempts(runId: string): Promise<Array<{
     startedAt: r.started_at,
     finishedAt: r.finished_at,
   }))
+  return { attempts, hasMore }
 }
 
 export async function markRunFailedBeforeStart(id: string, message: string) {

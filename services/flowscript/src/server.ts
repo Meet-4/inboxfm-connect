@@ -616,10 +616,21 @@ export function buildServer(): FastifyInstance {
     const projectId = auth.projectId
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
     if (!params.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid run ID')
+    const query = z.object({
+      limit: z.coerce.number().int().min(1).max(500).default(200),
+      offset: z.coerce.number().int().min(0).max(100_000).default(0),
+    }).safeParse(request.query ?? {})
+    if (!query.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid pagination parameters', { issues: query.error.issues })
     const run = await getRun(projectId, params.data.id)
     if (!run) return sendError(reply, 404, 'RUN_NOT_FOUND', 'Run not found')
-    const attempts = await listStepAttempts(params.data.id)
-    return reply.code(200).send({ runId: params.data.id, attempts })
+    const page = await listStepAttempts(params.data.id, { limit: query.data.limit, offset: query.data.offset })
+    return reply.code(200).send({
+      runId: params.data.id,
+      attempts: page.attempts,
+      limit: query.data.limit,
+      offset: query.data.offset,
+      hasMore: page.hasMore,
+    })
   })
 
   app.post('/v1/ir/validate', async (request, reply) => {

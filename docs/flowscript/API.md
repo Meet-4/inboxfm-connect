@@ -78,6 +78,9 @@ Ingress endpoint for registered webhook triggers.
 
 - GET /v1/runs?flow=<name>&limit=50
 - GET /v1/runs/:id
+- GET /v1/runs/:id/attempts?limit=200&offset=0
+
+Step attempts are paginated per run: `limit` defaults to 200 and is capped at 500, `offset` is capped at 100000, and the response is `{ runId, attempts, limit, offset, hasMore }`. Rows are ordered by `startedAt` with the attempt id as tiebreaker so paging is stable, and at most `limit + 1` rows are read to compute `hasMore`.
 
 Project ID is used in queries. Add cursor pagination before run history grows significantly.
 
