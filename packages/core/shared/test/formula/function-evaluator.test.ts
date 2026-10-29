@@ -84,6 +84,24 @@ describe('extract_email', () => {
 describe('extract_url', () => {
     it('extracts https url', () =>
         expect(result('extract_url("visit https://example.com now")')).toBe('https://example.com'))
+    // A URL in prose is usually followed by the sentence's punctuation. The
+    // regex ends at whitespace, so the full stop / comma / closing bracket came
+    // back glued to the URL and the value was not usable as a link.
+    it('drops a trailing sentence full stop', () =>
+        expect(result('extract_url("See https://example.com. Thanks")')).toBe('https://example.com'))
+    it('drops a trailing comma', () =>
+        expect(result('extract_url("go to https://example.com, then leave")')).toBe('https://example.com'))
+    it('drops a closing bracket that the URL did not open', () =>
+        expect(result('extract_url("(see https://example.com)")')).toBe('https://example.com'))
+    it('drops wrapping quotes', () =>
+        expect(result('extract_url({{text}})', { text: 'read "https://example.com" now' }))
+            .toBe('https://example.com'))
+    it('keeps brackets the URL opened itself', () =>
+        expect(result('extract_url("https://en.wikipedia.org/wiki/Foo_(bar)")'))
+            .toBe('https://en.wikipedia.org/wiki/Foo_(bar)'))
+    it('keeps query strings intact', () =>
+        expect(result('extract_url("https://example.com/path?x=1&y=2")'))
+            .toBe('https://example.com/path?x=1&y=2'))
 })
 
 describe('length', () => {

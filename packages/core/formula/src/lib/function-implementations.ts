@@ -73,9 +73,37 @@ parser.functions.extract_email = (s: unknown) => {
     const match = String(s ?? '').match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/)
     return match ? match[0] : ''
 }
+// A URL in text is normally surrounded by the sentence that mentions it, so the
+// whitespace-delimited capture ends with whatever followed the link: the
+// sentence's full stop, a comma, the quote or the bracket that wrapped it
+// ("See https://acme.com." returned "https://acme.com." — not usable as a URL).
+// Trim that trailing punctuation, but keep a closing bracket the URL opened
+// itself: https://en.wikipedia.org/wiki/Foo_(bar) is a valid URL.
+const URL_TRAILING_PUNCTUATION = /[.,;:!?'"’”<>]+$/
+const BRACKET_PAIRS: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
+
+function trimUrlTail(url: string): string {
+    let trimmed = url
+    for (;;) {
+        const withoutPunctuation = trimmed.replace(URL_TRAILING_PUNCTUATION, '')
+        if (withoutPunctuation !== trimmed) {
+            trimmed = withoutPunctuation
+            continue
+        }
+        const closing = trimmed.slice(-1)
+        const opening = BRACKET_PAIRS[closing]
+        if (!opening) return trimmed
+        // Keep balanced brackets (a URL may contain "(bar)"), drop the wrapper's.
+        const opened = trimmed.split(opening).length - 1
+        const closed = trimmed.split(closing).length - 1
+        if (closed <= opened) return trimmed
+        trimmed = trimmed.slice(0, -1)
+    }
+}
+
 parser.functions.extract_url = (s: unknown) => {
     const match = String(s ?? '').match(/https?:\/\/[^\s]+/)
-    return match ? match[0] : ''
+    return match ? trimUrlTail(match[0]) : ''
 }
 parser.functions.length = (s: unknown) => String(s ?? '').length
 parser.functions.contains = (s: unknown, sub: unknown) =>
