@@ -20,6 +20,7 @@ import {
 import {
   ActionFormValues,
   initialValuesFromProps,
+  isInputProperty,
   serializeValues,
   validateActionValues,
 } from '@/lib/utils/action-form'
@@ -200,14 +201,36 @@ export function TriggerBindingForm({ mode, binding, defaultPieceName, defaultTri
       return
     }
 
-    const settings: Record<string, unknown> = {
-      ...serializeValues(triggerProps, values),
-    }
+    // `settings` is a free-form bag shared by three writers: this form, the
+    // scheduler (cronExpression / renewCronExpression / timezone) and the trigger
+    // hooks (whatever the piece's props returned). Rebuilding it from scratch made
+    // every save delete the keys this form does not render — e.g. `timezone`, which
+    // the server feeds straight into node-cron, so an edit silently moved a 09:00
+    // Asia/Kolkata schedule to 09:00 UTC. Start from the stored settings while the
+    // piece/trigger are unchanged, drop only the fields this form owns (so cleared
+    // values do not come back), then overlay what the form currently holds.
+    const keepsStoredSettings =
+      mode === 'edit' && binding !== undefined && binding.pieceName === pieceName && binding.triggerName === triggerName
+    const ownedPropNames = new Set(
+      Object.entries(triggerProps)
+        .filter(([, property]) => isInputProperty(property))
+        .map(([propName]) => propName)
+    )
+    const settings: Record<string, unknown> = Object.fromEntries(
+      Object.entries(keepsStoredSettings ? binding?.settings ?? {} : {}).filter(
+        ([key]) => !ownedPropNames.has(key)
+      )
+    )
+    Object.assign(settings, serializeValues(triggerProps, values))
     if (cronExpression.trim() !== '') {
       settings.cronExpression = cronExpression.trim()
+    } else {
+      delete settings.cronExpression
     }
     if (renewCronExpression.trim() !== '') {
       settings.renewCronExpression = renewCronExpression.trim()
+    } else {
+      delete settings.renewCronExpression
     }
 
     try {
