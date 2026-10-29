@@ -172,85 +172,109 @@ parser.functions.sign = (n: unknown) => {
     return Object.is(s, -0) ? 0 : s
 }
 
+// Date inputs arrive as date strings, `Date` objects, or epoch milliseconds —
+// a formula arg read from a variable keeps its number type. `dayjs(String(d))`
+// turned a 13-digit epoch into a date *string*, which dayjs reads as a year:
+// 1705316400000-01-01 overflows into 1707-09-02, so every epoch timestamp
+// (webhook `created_at`, table date columns) formatted to a nonsense date, and
+// epoch 0 became 1999-12-31. Pass numbers straight to dayjs and treat long
+// all-digit strings the same way (the implicit-quoting pass hands a bare epoch
+// literal to a date slot as text).
+const EPOCH_MILLIS_PATTERN = /^-?\d{11,}$/
+
+function toDayjs(value: unknown, options: { utc?: boolean } = {}): dayjs.Dayjs {
+    const factory = options.utc ? dayjs.utc : dayjs
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? factory(value) : factory(Number.NaN)
+    }
+    if (typeof value === 'string' && EPOCH_MILLIS_PATTERN.test(value.trim())) {
+        return factory(Number(value.trim()))
+    }
+    if (value instanceof Date) {
+        return factory(value)
+    }
+    return factory(String(value ?? ''))
+}
+
 parser.functions.format_date = (d: unknown, pattern: unknown = 'YYYY-MM-DD') => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.format(String(pattern)) : ''
 }
 parser.functions.format_date_long = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     if (!parsed.isValid()) return ''
     return parsed.toDate().toLocaleDateString('en-US', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     })
 }
 parser.functions.format_time = (d: unknown, pattern: unknown = 'HH:mm') => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.format(String(pattern)) : ''
 }
 parser.functions.relative_time = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.fromNow() : ''
 }
 parser.functions.add_days = (d: unknown, n: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.add(Number(n), 'day').toISOString() : ''
 }
 parser.functions.subtract_days = (d: unknown, n: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.subtract(Number(n), 'day').toISOString() : ''
 }
 parser.functions.add_hours = (d: unknown, n: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.add(Number(n), 'hour').toISOString() : ''
 }
 parser.functions.days_between = (a: unknown, b: unknown) => {
-    const da = dayjs(String(a ?? ''))
-    const db = dayjs(String(b ?? ''))
+    const da = toDayjs(a)
+    const db = toDayjs(b)
     if (!da.isValid() || !db.isValid()) return ''
     return Math.round(Math.abs(db.diff(da, 'day', true)))
 }
 parser.functions.get_day = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.date() : ''
 }
 parser.functions.get_month = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.toDate().toLocaleDateString('en-US', { month: 'long' }) : ''
 }
 parser.functions.get_year = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.year() : ''
 }
 parser.functions.get_day_of_week = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.toDate().toLocaleDateString('en-US', { weekday: 'long' }) : ''
 }
 parser.functions.start_of_month = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.startOf('month').toISOString() : ''
 }
 parser.functions.end_of_month = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.endOf('month').toISOString() : ''
 }
 parser.functions.convert_timezone = (d: unknown, tz: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     if (!parsed.isValid()) return ''
     return parsed.tz(String(tz ?? 'UTC')).format()
 }
 parser.functions.now = () => new Date().toISOString()
 parser.functions.today = () => dayjs().format('YYYY-MM-DD')
 parser.functions.to_date = (d: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.toISOString() : ''
 }
 parser.functions.add_minutes = (d: unknown, n: unknown) => {
-    const parsed = dayjs(String(d ?? ''))
+    const parsed = toDayjs(d)
     return parsed.isValid() ? parsed.add(Number(n), 'minute').toISOString() : ''
 }
 parser.functions.hours_between = (a: unknown, b: unknown) => {
-    const da = dayjs(String(a ?? ''))
-    const db = dayjs(String(b ?? ''))
+    const da = toDayjs(a)
+    const db = toDayjs(b)
     if (!da.isValid() || !db.isValid()) return ''
     // floor (not round): 8h 30min is "8 complete hours between", not 9.
     return Math.floor(Math.abs(db.diff(da, 'hour', true)))
@@ -261,22 +285,22 @@ parser.functions.hours_between = (a: unknown, b: unknown) => {
 // timestamp into local time first, then snap to local midnight, which both
 // disagrees with the doc examples and makes flow output depend on host TZ.
 parser.functions.start_of_day = (d: unknown) => {
-    const parsed = dayjs.utc(String(d ?? ''))
+    const parsed = toDayjs(d, { utc: true })
     return parsed.isValid() ? parsed.startOf('day').toISOString() : ''
 }
 parser.functions.end_of_day = (d: unknown) => {
-    const parsed = dayjs.utc(String(d ?? ''))
+    const parsed = toDayjs(d, { utc: true })
     return parsed.isValid() ? parsed.endOf('day').toISOString() : ''
 }
 parser.functions.is_before = (a: unknown, b: unknown) => {
-    const da = dayjs(String(a ?? ''))
-    const db = dayjs(String(b ?? ''))
+    const da = toDayjs(a)
+    const db = toDayjs(b)
     if (!da.isValid() || !db.isValid()) return false
     return da.isBefore(db)
 }
 parser.functions.is_after = (a: unknown, b: unknown) => {
-    const da = dayjs(String(a ?? ''))
-    const db = dayjs(String(b ?? ''))
+    const da = toDayjs(a)
+    const db = toDayjs(b)
     if (!da.isValid() || !db.isValid()) return false
     return da.isAfter(db)
 }
