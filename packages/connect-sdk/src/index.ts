@@ -17,6 +17,12 @@ const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_MAX_ATTEMPTS = 3
 const DEFAULT_BASE_DELAY_MS = 250
 const DEFAULT_MAX_DELAY_MS = 4_000
+// `ConnectProxyRequest.timeoutMs` is the *upstream* budget the server enforces:
+// 30s by default, 60s maximum. The client-side timeout for the same call must
+// therefore outlast it, or every slow provider surfaces as an SDK 'timeout' the
+// server never returned while it was still waiting on the third party.
+const DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS = 30_000
+const PROXY_TIMEOUT_GRACE_MS = 5_000
 
 export class InboxFM {
     private readonly apiKey: string
@@ -143,7 +149,10 @@ export class InboxFM {
                 idempotencyKey,
             },
             idempotencyKey,
-            timeoutMs,
+            // The body carries the upstream budget (server default 30s when omitted);
+            // the transport gets that budget plus a grace window so a slow upstream is
+            // reported by the server, not guessed at client-side.
+            timeoutMs: (timeoutMs ?? DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS) + PROXY_TIMEOUT_GRACE_MS,
             ...requestOptions,
         })
     }

@@ -405,6 +405,39 @@ describe('InboxFM.proxy', () => {
         vi.unstubAllGlobals()
     })
 
+    it('gives a proxy call a client timeout that outlasts the server-side upstream budget', async () => {
+        // The body omits timeoutMs, so the server applies its own 30s default for the
+        // upstream request. Before the fix the transport still gave up at the generic
+        // 10s default, so a 10-30s upstream call always surfaced as an SDK timeout.
+        fetchMock.mockImplementation((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+            if (init.signal.aborted) {
+                reject(new DOMException('aborted', 'AbortError'))
+                return
+            }
+            init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        }))
+
+        vi.useFakeTimers()
+        try {
+            const settled: string[] = []
+            void client({ maxAttempts: 1 })
+                .proxy({ externalUserId: 'cust_abc_123', provider: 'slack', path: '/users.info' })
+                .then(() => settled.push('resolved'), (error: { category?: string }) => settled.push(`rejected:${error.category}`))
+
+            await vi.advanceTimersByTimeAsync(10_000)
+            expect(settled).toEqual([])
+
+            await vi.advanceTimersByTimeAsync(25_500)
+            expect(settled).toEqual(['rejected:timeout'])
+
+            const [, init] = fetchMock.mock.calls[0]
+            expect(JSON.parse(String(init?.body)).timeoutMs).toBeUndefined()
+        }
+        finally {
+            vi.useRealTimers()
+        }
+    })
+
     it('sends proxy request with project context and relative path', async () => {
         const expectedResponse = {
             status: 200,
