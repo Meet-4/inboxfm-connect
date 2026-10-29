@@ -1,45 +1,33 @@
-import { PieceAuth, Property } from '@inboxfm-connect/pieces-framework';
-import { httpClient, HttpMethod, AuthenticationType } from '@inboxfm-connect/pieces-common';
-
-export type ZendeskSellAuth = {
-    email: string;
-    api_token: string;
-}
+import {
+    AppConnectionValueForAuthProperty,
+    PieceAuth,
+} from '@inboxfm-connect/pieces-framework';
+import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 
 const ZENDESK_SELL_API_URL = 'https://api.getbase.com';
 
-export const zendeskSellAuth = PieceAuth.CustomAuth({
-    description: `
-    To get your API token:
+const markdownDescription = `
+    To get a Personal Access Token:
     1. Log in to your Zendesk Sell account.
-    2. Go to **Settings > Integrations > APIs**.
-    3. If no token is active, click **Add API Token**.
-    4. Copy the **API Token**.
-    
-    You also need your login email.
-    `,
+    2. Go to **Settings > Integrations > OAuth** and open the **Access Tokens** tab.
+    3. Click **+ Add User Token** and copy the generated token.
+
+    The Sell API only accepts this token as \`Authorization: Bearer <token>\`. A
+    Zendesk Support API token (sent with your email address) does not work here.
+    `;
+
+export const zendeskSellAuth = PieceAuth.SecretText({
+    displayName: 'Personal Access Token',
+    description: markdownDescription,
     required: true,
-    props: {
-        email: Property.ShortText({
-            displayName: 'Email Address',
-            description: 'Your Zendesk login email address.',
-            required: true,
-        }),
-        api_token: PieceAuth.SecretText({
-            displayName: 'API Token',
-            description: 'Your Zendesk Sell API Token.',
-            required: true,
-        })
-    },
     validate: async ({ auth }) => {
         try {
             await httpClient.sendRequest({
                 method: HttpMethod.GET,
-                url: `${ZENDESK_SELL_API_URL}/v2/users/self`, 
-                authentication: {
-                    type: AuthenticationType.BASIC,
-                    username: `${auth.email}/token`,
-                    password: auth.api_token,
+                url: `${ZENDESK_SELL_API_URL}/v2/users/self`,
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${auth}`,
                 },
             });
             return {
@@ -48,8 +36,12 @@ export const zendeskSellAuth = PieceAuth.CustomAuth({
         } catch (e) {
             return {
                 valid: false,
-                error: 'Invalid API token or email.',
+                error: 'Invalid Personal Access Token.',
             };
         }
     },
 });
+
+export type ZendeskSellAuth = AppConnectionValueForAuthProperty<
+    typeof zendeskSellAuth
+>;

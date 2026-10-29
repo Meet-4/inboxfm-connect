@@ -1,5 +1,4 @@
 import {
-    AuthenticationType,
     httpClient,
     HttpMethod,
     HttpRequest,
@@ -23,16 +22,12 @@ export async function callZendeskApi<T>(
     const request: HttpRequest = {
         method: method,
         url: `${ZENDESK_SELL_API_URL}/${endpoint}`,
-        authentication: {
-            type: AuthenticationType.BASIC,
-            username: `${auth.props.email}/token`,
-            password: auth.props.api_token,
-        },
         body: body,
         queryParams: query, 
         headers: {
             'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${auth.secret_text}`
         }
     };
     return httpClient.sendRequest<T>(request);

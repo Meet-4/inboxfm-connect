@@ -53,14 +53,9 @@ export const zendeskSell = createPiece({
     createCustomApiCallAction({
         auth: zendeskSellAuth,
         baseUrl: () => ZENDESK_SELL_API_URL,
-        authMapping: async (auth) => {
-            const { email, api_token } = auth.props;
-            const credentials = `${email}/token:${api_token}`;
-            const encodedCredentials = Buffer.from(credentials).toString('base64');
-            return {
-                Authorization: `Basic ${encodedCredentials}`,
-            };
-        }
+        authMapping: async (auth) => ({
+            Authorization: `Bearer ${auth.secret_text}`,
+        })
     })
   ],
   triggers: [
