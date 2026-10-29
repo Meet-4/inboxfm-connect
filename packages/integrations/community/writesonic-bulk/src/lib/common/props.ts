@@ -2,16 +2,12 @@ import { Property } from '@inboxfm-connect/pieces-framework';
 
 export const engineDropdownOptions = Property.StaticDropdown({
   displayName: 'Engine',
-  description: 'Select the engine quality level',
+  description:
+    'Select the engine quality level. Writesonic retired the Economy, Average and Good qualities; Premium is the only one the API still serves.',
   required: true,
-  defaultValue: 'economy',
+  defaultValue: 'premium',
   options: {
-    options: [
-      { label: 'Economy', value: 'economy' },
-      { label: 'Average', value: 'average' },
-      { label: 'Good', value: 'good' },
-      { label: 'Premium', value: 'premium' },
-    ],
+    options: [{ label: 'Premium', value: 'premium' }],
   },
 });
 
