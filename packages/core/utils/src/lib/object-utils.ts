@@ -120,22 +120,31 @@ export const isObject = (obj: unknown): obj is Record<string, unknown> => {
 
 export type MakeKeyNonNullableAndRequired<T extends object, K extends keyof T> = T & { [P in K]-?: NonNullable<T[P]> }
 
+// Group keys are data (a record field, a webhook payload, a user label), so a
+// key like `__proto__`, `constructor` or `toString` must become an ordinary own
+// property. Writing `result[key] = []` on a `{}` accumulator resolves those keys
+// to inherited Object.prototype members instead: `result['constructor'].push`
+// threw "result[key].push is not a function", which turned any such grouping
+// key into a crash. Accumulate in a Map and let Object.fromEntries define real
+// own properties (it does, even for `__proto__`, without touching the
+// prototype), so the returned object is still a normal `{}`.
 export function groupBy<T, K extends string | number | symbol>(
     items: T[],
     keySelector: (item: T) => K,
 ): Record<K, T[]> {
-    const result = {} as Record<K, T[]>
-  
+    const groups = new Map<K, T[]>()
+
     for (const item of items) {
         const key = keySelector(item)
-  
-        if (!result[key]) {
-            result[key] = []
+        const group = groups.get(key)
+        if (group) {
+            group.push(item)
         }
-  
-        result[key].push(item)
+        else {
+            groups.set(key, [item])
+        }
     }
-  
-    return result
+
+    return Object.fromEntries(groups) as Record<K, T[]>
 }
   
