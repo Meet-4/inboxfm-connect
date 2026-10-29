@@ -34,8 +34,16 @@ parser.functions.combine = (a: unknown, b: unknown, sep: unknown = '') =>
     `${a ?? ''}${String(sep)}${b ?? ''}`
 parser.functions.uppercase = (s: unknown) => String(s ?? '').toUpperCase()
 parser.functions.lowercase = (s: unknown) => String(s ?? '').toLowerCase()
+// Word starts are matched with \p{L}, not the ASCII-only \w: `\w\S*` left a word
+// that begins with a non-ASCII letter uncapitalized and then capitalized its
+// SECOND letter (titlecase("élan vital") -> "éLan Vital"); Cyrillic/CJK text was
+// not capitalized at all. A hyphen or underscore separates words, the in-word
+// apostrophe does not (so "MCDONALD'S" -> "Mcdonald's", not "Mcdonald'S").
 parser.functions.titlecase = (s: unknown) =>
-    String(s ?? '').replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    String(s ?? '')
+        .toLowerCase()
+        .replace(/(^|[^\p{L}\p{N}'])(\p{L})/gu, (_match, separator: string, letter: string) =>
+            separator + letter.toUpperCase())
 parser.functions.trim = (s: unknown) => String(s ?? '').trim()
 parser.functions.prefix = (s: unknown, pfx: unknown) => `${String(pfx ?? '')}${String(s ?? '')}`
 parser.functions.suffix = (s: unknown, sfx: unknown) => `${String(s ?? '')}${String(sfx ?? '')}`
