@@ -51,7 +51,14 @@ export const propsProcessor = {
             if (isNil(property)) {
                 continue
             }
-            if (property.type === PropertyType.DYNAMIC && !isNil(dynamaicPropertiesSchema?.[key])) {
+            // Only recurse into values shaped like the schema expects: a DYNAMIC value is
+            // an object of fields and an ARRAY value is either a list or, from the builder,
+            // an object of per-field arrays that gets zipped. Anything else (a string, a
+            // number, a nested array) used to be spread key-by-key into a fabricated object
+            // — `'oops'` became `{ 0: 'o', 1: 'o', 2: 'p', 3: 's' }` and `[1, 2]` became
+            // `[{}, {}]` — silently replacing the caller's value with garbage the piece
+            // then used as if it were valid input.
+            if (property.type === PropertyType.DYNAMIC && !isNil(dynamaicPropertiesSchema?.[key]) && isObject(value)) {
                 const { processedInput: itemProcessedInput, errors: itemErrors } = await propsProcessor.applyProcessorsAndValidators(
                     value,
                     dynamaicPropertiesSchema[key],
@@ -64,11 +71,19 @@ export const propsProcessor = {
                     errors[key] = itemErrors
                 }
             }
-            if (property.type === PropertyType.ARRAY && property.properties) {
+            if (property.type === PropertyType.ARRAY && property.properties && (Array.isArray(value) || isObject(value))) {
                 const arrayOfObjects = arrayZipperProcessor(property, value) ?? []
                 const processedArray = []
                 const processedErrors = []
                 for (const item of arrayOfObjects) {
+                    if (!isObject(item)) {
+                        // An array item that is not an object cannot satisfy a nested
+                        // property schema; keep it as the user supplied it instead of
+                        // collapsing it into `{}` and reporting a valid-looking run.
+                        processedArray.push(item)
+                        processedErrors.push({})
+                        continue
+                    }
                     const { processedInput: itemProcessedInput, errors: itemErrors } = await propsProcessor.applyProcessorsAndValidators(
                         item,
                         property.properties,
