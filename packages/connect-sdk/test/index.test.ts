@@ -146,6 +146,27 @@ describe('InboxFM transport', () => {
         ).rejects.toMatchObject({ category: 'timeout' })
     })
 
+    it('applies the timeout to the response body, not just the headers', async () => {
+        // A server that sends headers and then stalls the body must not hold the caller
+        // past `timeoutMs`: `fetch` resolves on headers, so the timer has to stay armed
+        // until the body has actually been read.
+        fetchMock.mockImplementation(async () => new Response(new ReadableStream({ start() { /* never closes */ } }), { status: 200 }))
+
+        vi.useFakeTimers()
+        try {
+            const settled = client({ timeoutMs: 25, maxAttempts: 1 })
+                .listConnections({ externalUserId: 'user_1' })
+                .then(() => 'resolved', (error: { category?: string }) => `rejected:${error.category}`)
+
+            await vi.advanceTimersByTimeAsync(50)
+
+            await expect(settled).resolves.toBe('rejected:timeout')
+        }
+        finally {
+            vi.useRealTimers()
+        }
+    })
+
     it('sends the Idempotency-Key header when provided', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse({ status: 200, body: { token: 't', connectUrl: 'https://x', expiresAt: '2026-01-01' } }))
 
