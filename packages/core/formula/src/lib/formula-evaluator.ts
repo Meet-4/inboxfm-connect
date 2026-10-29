@@ -82,17 +82,115 @@ function evaluateSingleFormula({ expression, sampleData }: EvaluateExpressionPar
 
 function preprocessExpression({ expression, sampleData }: EvaluateExpressionParams): { processed: string, vars: Record<string, unknown> } {
     const vars: Record<string, unknown> = {}
-    let idx = 0
-    const withVars = expression.replace(/\{\{([^}]+)\}\}/g, (_, path: string) => {
-        const key = `__ap_v${idx++}__`
-        const resolved = resolveVariable(path.trim(), sampleData)
-        vars[key] = resolved === undefined ? null : resolved
-        return key
-    })
-    const idxRef = { value: idx }
-    const withJsonVars = replaceInlineJsonArrays(withVars, vars, idxRef)
+    const substituted = substituteVariableReferences(expression, sampleData, vars)
+    const idxRef = { value: substituted.count }
+    const withJsonVars = replaceInlineJsonArrays(substituted.expression, vars, idxRef)
     const withListVars = replaceListLiterals(withJsonVars, vars, idxRef)
     return { processed: normalizeExpression(rewriteLazyIf(wrapStringArgs(withListVars))), vars }
+}
+
+// `{{path}}` references are substituted before tokenizing. Outside a string
+// literal a reference becomes an internal placeholder so the evaluator sees a
+// typed value (number, list, object). Inside a string literal it must become the
+// value's TEXT instead: nothing resolves a placeholder inside quotes, so the old
+// blind regex replace leaked the internal name into the output —
+// `combine("Hi {{name}}"; "!")` returned "Hi __ap_v0__!" instead of "Hi Ann!".
+// The substitution therefore walks the expression quote by quote, and escapes
+// backslashes / the active quote so the rewritten literal still parses.
+function substituteVariableReferences(
+    expression: string,
+    sampleData: Record<string, unknown>,
+    vars: Record<string, unknown>,
+): { expression: string, count: number } {
+    let result = ''
+    let i = 0
+    let inString: '"' | '\'' | null = null
+    let count = 0
+
+    while (i < expression.length) {
+        const ch = expression[i]
+
+        if (inString) {
+            if (ch === '\\' && i + 1 < expression.length) {
+                result += ch + expression[i + 1]
+                i += 2
+                continue
+            }
+            if (ch === inString) {
+                inString = null
+                result += ch
+                i++
+                continue
+            }
+            if (ch === '{' && expression[i + 1] === '{') {
+                const close = expression.indexOf('}}', i + 2)
+                const path = close === -1 ? null : expression.slice(i + 2, close)
+                if (path !== null && isVariablePath(path)) {
+                    const value = resolveVariable(path.trim(), sampleData)
+                    result += escapeForQuotedLiteral(stringifyForText(value), inString)
+                    i = close + 2
+                    continue
+                }
+            }
+            result += ch
+            i++
+            continue
+        }
+
+        if (ch === '"' || ch === '\'') {
+            inString = ch
+            result += ch
+            i++
+            continue
+        }
+
+        if (ch === '{' && expression[i + 1] === '{') {
+            const close = expression.indexOf('}}', i + 2)
+            const path = close === -1 ? null : expression.slice(i + 2, close)
+            if (path !== null && isVariablePath(path)) {
+                const key = `__ap_v${count++}__`
+                const resolved = resolveVariable(path.trim(), sampleData)
+                vars[key] = resolved === undefined ? null : resolved
+                result += key
+                i = close + 2
+                continue
+            }
+        }
+
+        result += ch
+        i++
+    }
+
+    return { expression: result, count }
+}
+
+// A reference may not itself contain braces (that is the `{{ {object} }}` form,
+// which this evaluator never supported — leave it as text).
+function isVariablePath(path: string): boolean {
+    const trimmed = path.trim()
+    return trimmed !== '' && !/[{}]/.test(trimmed)
+}
+
+function stringifyForText(value: unknown): string {
+    if (value == null) return ''
+    if (typeof value === 'string') return value
+    if (value instanceof Date) return value.toISOString()
+    if (typeof value === 'object') {
+        try {
+            return JSON.stringify(value)
+        }
+        catch {
+            return String(value)
+        }
+    }
+    return String(value)
+}
+
+function escapeForQuotedLiteral(text: string, quote: '"' | '\''): string {
+    const escapedBackslashes = text.replace(/\\/g, '\\\\')
+    return quote === '"'
+        ? escapedBackslashes.replace(/"/g, '\\"')
+        : escapedBackslashes.replace(/'/g, '\\\'')
 }
 
 function rewriteLazyIf(expr: string): string {
