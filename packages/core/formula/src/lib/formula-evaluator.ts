@@ -89,8 +89,10 @@ function preprocessExpression({ expression, sampleData }: EvaluateExpressionPara
         vars[key] = resolved === undefined ? null : resolved
         return key
     })
-    const withJsonVars = replaceInlineJsonArrays(withVars, vars, { value: idx })
-    return { processed: normalizeExpression(rewriteLazyIf(wrapStringArgs(withJsonVars))), vars }
+    const idxRef = { value: idx }
+    const withJsonVars = replaceInlineJsonArrays(withVars, vars, idxRef)
+    const withListVars = replaceListLiterals(withJsonVars, vars, idxRef)
+    return { processed: normalizeExpression(rewriteLazyIf(wrapStringArgs(withListVars))), vars }
 }
 
 function rewriteLazyIf(expr: string): string {
@@ -177,6 +179,189 @@ function replaceInlineJsonArrays(
     }
 
     return result
+}
+
+// The registry documents list literals as `[item;item;item]` where bare words
+// are ITEM TEXT, not identifiers — `count( [bug;urgent;backend] )`,
+// `first_item( [apple;banana;cherry] )`, `flatten( [[a;b];[c;d]] )`. expr-eval
+// instead reads `bug` as a variable and throws "bug is not defined", so every
+// documented list example failed with "Could not evaluate this formula" (and
+// `is_list([a;b;c])` returned false because the whole literal was quoted into a
+// string as a union-typed arg). Resolve the literal to a real array up front and
+// swap in a `__ap_vN__` placeholder, exactly like replaceInlineJsonArrays does
+// for JSON arrays: the rest of the pipeline then sees an opaque value instead of
+// bare identifiers.
+//
+// Only literals whose every item is a plain value are converted — anything that
+// needs the evaluator (arithmetic, nested calls, object literals) is left alone
+// so expr-eval keeps handling it. Member access (`{{rows}}[0]`) never reaches
+// this point (the variable is already a placeholder) and is also skipped
+// explicitly.
+function replaceListLiterals(
+    expr: string,
+    vars: Record<string, unknown>,
+    idxRef: { value: number },
+): string {
+    let result = ''
+    let i = 0
+    let inString: '"' | '\'' | null = null
+
+    while (i < expr.length) {
+        const ch = expr[i]
+
+        if (inString) {
+            if (ch === inString && expr[i - 1] !== '\\') inString = null
+            result += ch
+            i++
+            continue
+        }
+
+        if (ch === '"' || ch === '\'') {
+            inString = ch
+            result += ch
+            i++
+            continue
+        }
+
+        if (ch === '[' && !isMemberAccess(expr, i)) {
+            const end = findMatchingSquareBracket(expr, i)
+            if (end !== -1) {
+                const items = parseListLiteral(expr.slice(i + 1, end), vars)
+                if (items) {
+                    const key = `__ap_v${idxRef.value++}__`
+                    vars[key] = items
+                    result += key
+                    i = end + 1
+                    continue
+                }
+            }
+        }
+
+        result += ch
+        i++
+    }
+
+    return result
+}
+
+function isMemberAccess(expr: string, bracketPos: number): boolean {
+    for (let i = bracketPos - 1; i >= 0; i--) {
+        const ch = expr[i]
+        if (/\s/.test(ch)) continue
+        return /[\w)\]"']/.test(ch)
+    }
+    return false
+}
+
+function parseListLiteral(content: string, vars: Record<string, unknown>): unknown[] | null {
+    const items = splitListItems(content)
+    if (items === null) return null
+    if (items.length === 0) return []
+
+    const values: unknown[] = []
+    for (const rawItem of items) {
+        const item = rawItem.trim()
+        if (!item) return null
+
+        if (item.startsWith('[')) {
+            const end = findMatchingSquareBracket(item, 0)
+            if (end !== item.length - 1) return null
+            const nested = parseListLiteral(item.slice(1, end), vars)
+            if (nested === null) return null
+            values.push(nested)
+            continue
+        }
+        if (item.startsWith('{')) return null
+        if (isQuotedLiteral(item)) {
+            values.push(unquoteLiteral(item))
+            continue
+        }
+        if (/^__ap_v\d+__$/.test(item)) {
+            values.push(vars[item])
+            continue
+        }
+        if (/^-?(\d+(\.\d+)?|\.\d+)$/.test(item)) {
+            values.push(Number(item))
+            continue
+        }
+        if (item === 'true' || item === 'false') {
+            values.push(item === 'true')
+            continue
+        }
+        if (item === 'null') {
+            values.push(null)
+            continue
+        }
+        // Anything that may need the evaluator (calls, operators, parens) is
+        // left to expr-eval by bailing out of the whole literal. `-` is only a
+        // problem between digits (subtraction) — `ACC-7890` is item text.
+        if (/[()+/%^<>=!&|*]/.test(item) || /\d\s*-\s*\d/.test(item)) return null
+        values.push(item)
+    }
+    return values
+}
+
+// Splits `a;b;c` / `a,b,c` on top-level separators only. Returns null when the
+// content has unbalanced brackets — the caller then leaves the text untouched.
+function splitListItems(content: string): string[] | null {
+    if (!content.trim()) return []
+    const items: string[] = []
+    let current = ''
+    let depth = 0
+    let inString: '"' | '\'' | null = null
+
+    for (let i = 0; i < content.length; i++) {
+        const ch = content[i]
+        if (inString) {
+            if (ch === '\\') {
+                current += ch + (content[i + 1] ?? '')
+                i++
+                continue
+            }
+            if (ch === inString) inString = null
+            current += ch
+            continue
+        }
+        if (ch === '"' || ch === '\'') {
+            inString = ch
+            current += ch
+            continue
+        }
+        if (ch === '(' || ch === '[') {
+            depth++
+            current += ch
+            continue
+        }
+        if (ch === ')' || ch === ']') {
+            depth--
+            if (depth < 0) return null
+            current += ch
+            continue
+        }
+        if ((ch === ';' || ch === ',') && depth === 0) {
+            items.push(current)
+            current = ''
+            continue
+        }
+        current += ch
+    }
+
+    if (depth !== 0 || inString !== null) return null
+    items.push(current)
+    return items
+}
+
+function isQuotedLiteral(value: string): boolean {
+    if (value.length < 2) return false
+    const quote = value[0]
+    if (quote !== '"' && quote !== '\'') return false
+    if (value[value.length - 1] !== quote) return false
+    // The closing quote must not be escaped.
+    return value[value.length - 2] !== '\\'
+}
+
+function unquoteLiteral(value: string): string {
+    return value.slice(1, -1).replace(/\\(["'\\])/g, '$1')
 }
 
 function wrapStringArgs(expr: string): string {
