@@ -589,8 +589,8 @@ export function buildServer(): FastifyInstance {
     const params = z.object({ name: z.string().min(1).max(128), id: z.string().uuid() }).safeParse(request.params)
     const body = z.object({ reason: z.string().optional() }).safeParse(request.body ?? {})
     if (!params.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid cancel request')
-    const cancelled = await cancelRun(projectId, params.data.id, body.success ? body.data.reason : undefined)
-    if (!cancelled) return sendError(reply, 404, 'RUN_NOT_FOUND', 'Run not found')
+    const cancelled = await cancelRun(projectId, params.data.id, body.success ? body.data.reason : undefined, params.data.name)
+    if (!cancelled) return sendError(reply, 404, 'RUN_NOT_FOUND', 'Run not found for this flow')
     return reply.code(200).send(cancelled)
   })
 

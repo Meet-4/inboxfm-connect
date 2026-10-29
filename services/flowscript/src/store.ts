@@ -583,13 +583,16 @@ export async function cancelRun(
   projectId: string,
   runId: string,
   reason = 'Cancelled by user',
+  flowName?: string,
 ): Promise<{ id: string; status: string } | null> {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
     const check = await client.query<{ id: string; status: string }>(
-      'SELECT id, status FROM flowscript_runs WHERE project_id=$1 AND id=$2 FOR UPDATE',
-      [projectId, runId],
+      `SELECT id, status FROM flowscript_runs
+       WHERE project_id=$1 AND id=$2 AND ($3::text IS NULL OR flow_name=$3)
+       FOR UPDATE`,
+      [projectId, runId, flowName ?? null],
     )
     const run = check.rows[0]
     if (!run) {

@@ -81,6 +81,10 @@ Ingress endpoint for registered webhook triggers.
 
 Project ID is used in queries. Add cursor pagination before run history grows significantly.
 
+### POST /v1/flows/:name/runs/:id/cancel
+
+Cancels a queued or running run that belongs to the named flow. `:name` participates in the lookup: a run of a different flow in the same project (and a run of any other project) returns HTTP 404 `RUN_NOT_FOUND` without changing state, so a flow-scoped caller cannot cancel a sibling flow's run. `POST /v1/runs/:id/cancel` remains the project-wide variant and deliberately does not filter by flow.
+
 ## Request IDs and trace correlation
 - Every request accepts an optional `x-request-id` header from the client or edge gateway.
 - If omitted, the service generates a standard UUIDv4 request ID.
