@@ -62,6 +62,7 @@ export const platformProjectController: FastifyPluginAsyncZod = async (app) => {
 
     app.post('/:id', UpdateProjectRequest, async (request) => {
         const project = await projectService(request.log).getOneOrThrow(request.params.id)
+        const body = request.body as UpdateProjectPlatformRequest
         const haveTokenForTheProject = request.projectId === project.id
         const ownThePlatform = await isPlatformAdmin({
             platformId: request.principal.platform.id,
@@ -78,8 +79,17 @@ export const platformProjectController: FastifyPluginAsyncZod = async (app) => {
             platformId: request.principal.platform.id,
             projectId: request.params.id,
             request: {
-                ...request.body,
-                externalId: ownThePlatform ? request.body.externalId : undefined,
+                ...body,
+                externalId: ownThePlatform ? body.externalId : undefined,
+                // Assigning a global (PLATFORM-scope) connection to a project is
+                // what makes its credential usable from that project, and
+                // .agents/features/global-connections.md keeps that management
+                // surface platform-admin only. WRITE_PROJECT is a *project* role,
+                // so without this guard a project admin could attach any global
+                // connection of the platform — including one the platform admin
+                // shared with a different project only. Dropped for non-admins,
+                // exactly like externalId above.
+                globalConnectionExternalIds: ownThePlatform ? body.globalConnectionExternalIds : undefined,
             },
         })
     })
