@@ -26,14 +26,21 @@ export const propsProcessor = {
         if (authValue && requireAuth) {
             const authPropsToProcess = getAuthPropsToProcess(authValue, auth)
             if (authPropsToProcess) {
+                // V1+ pieces receive the connection value as a `{ type, props }` envelope;
+                // V0 pieces (undefined context version) get the bare props object. The
+                // processors/validators are keyed by the auth property names, so they must
+                // run against the field map itself — recursing on the envelope matched no
+                // property at all, leaving number/JSON/date auth fields unparsed and
+                // required auth fields unvalidated for every wrapped connection.
+                const { authProps, rebuildAuthValue } = unwrapAuthProps(authValue)
                 const { processedInput: authProcessedInput, errors: authErrors } = await propsProcessor.applyProcessorsAndValidators(
-                    resolvedInput[AUTHENTICATION_PROPERTY_NAME],
+                    authProps as StaticPropsValue<PiecePropertyMap>,
                     authPropsToProcess,
                     undefined,
                     false,
                     {},
                 )
-                processedInput[AUTHENTICATION_PROPERTY_NAME] = authProcessedInput
+                processedInput[AUTHENTICATION_PROPERTY_NAME] = rebuildAuthValue(authProcessedInput)
                 if (Object.keys(authErrors).length > 0) {
                     errors[AUTHENTICATION_PROPERTY_NAME] = authErrors
                 }
@@ -157,4 +164,24 @@ function getAuthPropsToProcess(authValue: AppConnectionValue, auth: PieceAuthPro
         return usedAuthProperty.props
     }
     return null
+}
+
+/**
+ * Splits a connection value into the auth field map the processors expect and a
+ * rebuild function that puts the processed fields back into the original shape.
+ * Wrapped (`{ type, props }`) values keep their envelope — dropping it would hand a
+ * V1 piece a bare props object and lose `access_token`/`data` for OAuth2.
+ */
+function unwrapAuthProps(authValue: AppConnectionValue): { authProps: Record<string, unknown>, rebuildAuthValue: (processed: StaticPropsValue<PiecePropertyMap>) => AppConnectionValue } {
+    const wrappedProps = (authValue as { props?: unknown }).props
+    if (!isNil((authValue as { type?: unknown }).type) && isObject(wrappedProps)) {
+        return {
+            authProps: wrappedProps,
+            rebuildAuthValue: (processed) => ({ ...authValue, props: processed }) as AppConnectionValue,
+        }
+    }
+    return {
+        authProps: authValue as unknown as Record<string, unknown>,
+        rebuildAuthValue: (processed) => processed as unknown as AppConnectionValue,
+    }
 }
