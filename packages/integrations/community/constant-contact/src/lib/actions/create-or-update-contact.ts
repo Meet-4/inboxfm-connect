@@ -80,7 +80,7 @@ export const createOrUpdateContact = createAction({
       description: 'The company name of the contact',
       required: false,
     }),
-    phoner_number: Property.ShortText({
+    phone_number: Property.ShortText({
       displayName: 'Phone Number',
       description: 'The phone number of the contact',
       required: false,
@@ -101,7 +101,12 @@ export const createOrUpdateContact = createAction({
           last_name: propsValue.last_name,
           job_title: propsValue.job_title,
           company_name: propsValue.company_name,
-          phoner_number: propsValue.phoner_number,
+          // Constant Contact stores phones as an array of {phone_number, kind}
+          // objects; the previous `phoner_number` key is not part of the contact
+          // schema and was dropped by the API.
+          ...(propsValue.phone_number
+            ? { phone_numbers: [{ phone_number: propsValue.phone_number, kind: 'work' }] }
+            : {}),
           list_memberships: propsValue.list,
         },
       })
