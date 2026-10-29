@@ -136,7 +136,7 @@ export const frameRegisterTrigger = ({
     async onEnable(context) {
       const response = await httpClient.sendRequest<WebhookInformation>({
         method: HttpMethod.POST,
-        url: `https://api.frame.com/api/v2/teams/${context.propsValue.team_id}/hooks`,
+        url: `https://api.frame.io/v2/teams/${context.propsValue.team_id}/hooks`,
         body: {
           name: displayName,
           url: context.webhookUrl,
