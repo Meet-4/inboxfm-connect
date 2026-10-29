@@ -130,6 +130,54 @@ describe('Project Role API', () => {
         })
     })
 
+    describe('List Project Members for Project Role', () => {
+        it('should refuse to list platform members for a non-admin user', async () => {
+            const ctx = await createTestContext(app!)
+            const projectRole = createMockProjectRole({
+                platformId: ctx.platform.id,
+                type: RoleType.CUSTOM,
+            })
+            await db.save('project_role', projectRole)
+
+            // Same platform, ordinary MEMBER account: the route used to answer with the
+            // whole platform's member rows (emails, names, platformRole, externalId).
+            const { mockUser } = await mockBasicUser({
+                user: {
+                    platformId: ctx.platform.id,
+                    platformRole: PlatformRole.MEMBER,
+                },
+            })
+            const testToken = await generateMockToken({
+                type: PrincipalType.USER,
+                id: mockUser.id,
+                platform: { id: ctx.platform.id },
+            })
+
+            const response = await app?.inject({
+                method: 'GET',
+                url: `/api/v1/project-roles/${projectRole.id}/project-members`,
+                headers: { authorization: `Bearer ${testToken}` },
+            })
+
+            expect(response?.statusCode).toBe(StatusCodes.FORBIDDEN)
+            expect(response?.json()).not.toHaveProperty('data')
+        })
+
+        it('should list project members for a platform admin', async () => {
+            const ctx = await createTestContext(app!)
+            const projectRole = createMockProjectRole({
+                platformId: ctx.platform.id,
+                type: RoleType.CUSTOM,
+            })
+            await db.save('project_role', projectRole)
+
+            const response = await ctx.get(`/v1/project-roles/${projectRole.id}/project-members`)
+
+            expect(response?.statusCode).toBe(StatusCodes.OK)
+            expect(response?.json()).toHaveProperty('data')
+        })
+    })
+
     describe('Update Project Role', () => {
         it('should update a project role', async () => {
             const ctx = await createTestContext(app!)

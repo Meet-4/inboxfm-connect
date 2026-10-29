@@ -150,7 +150,14 @@ const DeleteProjectRoleRequest = {
 
 const ListProjectMembersForProjectRoleRequest = {
     config: {
-        security: securityAccess.publicPlatform([PrincipalType.USER, PrincipalType.SERVICE]),
+        // This returns a platform-wide member directory: every project_member row of the
+        // platform whose projectRoleId matches, each carrying the user's email, name,
+        // platformRole and externalId. `publicPlatform` let any authenticated user of the
+        // platform — a VIEWER on a single project included — enumerate every user and every
+        // project membership of the platform, which the per-project sibling route
+        // (`GET /v1/project-members`, Permission.READ_PROJECT_MEMBER) deliberately refuses.
+        // A platform-scoped directory is an admin read.
+        security: securityAccess.platformAdminOnly([PrincipalType.USER, PrincipalType.SERVICE]),
     },
     schema: {
         tags: ['project-members'],
