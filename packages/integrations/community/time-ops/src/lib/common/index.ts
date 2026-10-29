@@ -1,6 +1,6 @@
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 
-export const BASE_URL = 'https://api.timeops.dk/api/v1';
+export const BASE_URL = 'https://api.timeops.dk';
 
 export const timeOpsClient = {
   async makeRequest<T>(
