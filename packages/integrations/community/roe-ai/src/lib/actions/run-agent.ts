@@ -39,7 +39,7 @@ export const runAgent = createAction({
       organization_id,
     };
     if (agent_input) {
-      payload.agent_input = agent_input;
+      payload.inputs = agent_input;
     }
     if (metadata) {
       payload.metadata = metadata;
