@@ -501,10 +501,16 @@ export async function recoverStaleRuns(options?: {
   defaultMaxAttempts?: number
   baseBackoffMs?: number
   maxBackoffMs?: number
+  /** Maximum number of expired leases swept per call (default 200, capped 1000). */
+  batchSize?: number
 }): Promise<StaleRecoveryResult> {
   const defaultMaxAttempts = options?.defaultMaxAttempts ?? 3
   const baseBackoffMs = options?.baseBackoffMs ?? 1000
   const maxBackoffMs = options?.maxBackoffMs ?? 30000
+  const requestedBatchSize = Math.floor(Number(options?.batchSize ?? 200))
+  const batchSize = Number.isFinite(requestedBatchSize)
+    ? Math.min(Math.max(requestedBatchSize, 1), 1000)
+    : 200
 
   const client = await pool.connect()
   const result: StaleRecoveryResult = {
@@ -516,6 +522,11 @@ export async function recoverStaleRuns(options?: {
 
   try {
     await client.query('BEGIN')
+    // Bounded sweep: a crash of every worker replica can leave the whole running
+    // set expired at once. Without a limit this locks and buffers every expired
+    // row in one transaction and issues one UPDATE round-trip per row, so the
+    // sweep itself becomes the outage. Oldest leases are recovered first and the
+    // worker re-runs the sweep on its next tick, so nothing starves.
     const expired = await client.query<{
       id: string
       project_id: string
@@ -526,7 +537,10 @@ export async function recoverStaleRuns(options?: {
       `SELECT id, project_id, attempt_count, max_attempts, had_non_idempotent_step
        FROM flowscript_runs
        WHERE status='running' AND lease_expires_at < now()
+       ORDER BY lease_expires_at ASC
+       LIMIT $1
        FOR UPDATE SKIP LOCKED`,
+      [batchSize],
     )
 
     for (const run of expired.rows) {

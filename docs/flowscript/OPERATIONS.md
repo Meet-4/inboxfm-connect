@@ -37,6 +37,7 @@ Check worker health/logs, DB connectivity, queue claim errors and locks. Inspect
 Workers claim runs with a 30-second lease (`lease_expires_at`) and actively heartbeat every 10 seconds.
 If a worker crashes or network partitions:
 - Automated recovery (`recoverStaleRuns`) executes every 15 seconds across workers.
+- Each sweep is bounded (200 expired leases by default, oldest first); a mass failure that expires thousands of runs at once drains over successive sweeps instead of locking the whole running set in one transaction.
 - Runs without non-idempotent steps whose `attempt_count < max_attempts` are automatically requeued for clean execution with backoff.
 - Runs whose retry count is exhausted transition to `dead_letter`.
 - Runs that executed non-idempotent steps (e.g. external actions lacking idempotency keys) are marked `uncertain` to prevent duplicate operations.
