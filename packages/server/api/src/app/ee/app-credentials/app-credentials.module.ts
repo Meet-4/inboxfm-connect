@@ -95,9 +95,15 @@ const UpsertAppCredentialRequestOptions = {
         body: UpsertAppCredentialRequest,
     },
     config: {
+        // A credential holds the OAuth2 client id/secret every connection of its
+        // piece is exchanged with, so writing one is writing credential material.
+        // It used to require project membership only (`permission` undefined →
+        // grantAccess() short-circuits to true), letting a read-only VIEWER plant
+        // or rotate the client secret; app connections already require
+        // WRITE_APP_CONNECTION for the same class of write.
         security: securityAccess.project(
             [PrincipalType.USER],
-            undefined,
+            Permission.WRITE_APP_CONNECTION,
             {
                 type: ProjectResourceType.BODY,
             },
@@ -109,7 +115,7 @@ const DeleteAppCredentialRequestOptions = {
     config: {
         security: securityAccess.project(
             [PrincipalType.USER],
-            undefined,
+            Permission.WRITE_APP_CONNECTION,
             {
                 type: ProjectResourceType.TABLE,
                 tableName: AppCredentialEntity,
