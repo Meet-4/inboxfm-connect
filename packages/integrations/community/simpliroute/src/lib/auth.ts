@@ -7,10 +7,8 @@ export const simplirouteAuth = PieceAuth.SecretText({
   description: 'Your SimpliRoute API token. You can find this in your SimpliRoute account settings under API section.',
   validate: async (auth) => {
     try {
-      console.log('Auth validation - received auth:', typeof auth, auth);
       const token = typeof auth === 'string' ? auth : (auth as { auth?: string })?.auth || auth;
-      console.log('Auth validation - extracted token:', token);
-      
+
       if (!token || typeof token !== 'string') {
         return {
           valid: false,

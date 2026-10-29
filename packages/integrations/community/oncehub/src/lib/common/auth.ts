@@ -8,7 +8,6 @@ export const oncehubAuth = PieceAuth.SecretText({
   required: true,
   validate: async ({ auth }) => {
     try {
-      console.log('auth', auth);
       await makeRequest(auth, HttpMethod.GET, '/test');
 
       return { valid: true };
