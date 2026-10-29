@@ -121,9 +121,20 @@ async function main() {
 
       console.log(JSON.stringify({ event: 'run_claimed', runId: job.id, workerId, attempt: job.attempt_count }))
 
-      const runPromise = processJob(job).finally(() => {
-        activeRuns.delete(runPromise)
-      })
+      const runPromise = processJob(job)
+        .catch((error) => {
+          // `processJob` only rejects when failure handling itself fails (for example `finishRun`
+          // during a database outage). Nothing awaits the tracked promise before shutdown, so an
+          // unhandled rejection would terminate the worker and drop every in-flight run.
+          console.error(JSON.stringify({
+            event: 'run_tracking_failed',
+            runId: job.id,
+            error: error instanceof Error ? error.message : String(error),
+          }))
+        })
+        .finally(() => {
+          activeRuns.delete(runPromise)
+        })
       activeRuns.add(runPromise)
     } catch (error) {
       console.error('FlowScript worker poll failed', error)
