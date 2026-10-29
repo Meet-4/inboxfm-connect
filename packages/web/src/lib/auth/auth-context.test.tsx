@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/api/client'
 import { AuthProvider, useAuth } from '@/lib/auth/auth-context'
 import { setAuthNavigator } from '@/lib/auth/auth-navigation'
+import { queryClient } from '@/lib/query/query-client'
 import { stubApi } from '@/test/api-stub'
 import { mount, waitFor } from '@/test/test-utils'
 
@@ -273,5 +274,34 @@ describe('auth session restore', () => {
     expect(capturedAuth?.token).toBeNull()
     expect(capturedAuth?.currentProject).toBeNull()
     setAuthNavigator(null)
+  })
+
+  it('drops cached API data on signOut so the next session cannot read it', async () => {
+    // Queries are served from cache for the 2-minute staleTime in query-client.ts.
+    // Signing out used to leave every entry in place, so the next sign-in on the
+    // same tab rendered the previous account's platform-wide data (AI providers,
+    // billing, API-key names) without refetching.
+    apiClient.setToken('real-jwt')
+    apiClient.setProjectId(REAL_PROJECT_ID)
+    localStorage.setItem('ap-user', JSON.stringify(REAL_USER))
+    queryClient.setQueryData(['ai-providers'], [{ id: 'aip_1', name: 'Previous account provider' }])
+    queryClient.setQueryData(['platform-billing-info'], { plan: { plan: 'enterprise' } })
+
+    stubApi([
+      {
+        match: (url) => url.pathname.endsWith('/api/v1/projects'),
+        respond: () => ({ status: 200, body: { data: [] } }),
+      },
+    ])
+
+    renderAuth()
+    await waitFor(() => capturedAuth?.isLoading === false)
+
+    act(() => {
+      requireAuth().signOut()
+    })
+
+    expect(queryClient.getQueryData(['ai-providers'])).toBeUndefined()
+    expect(queryClient.getQueryData(['platform-billing-info'])).toBeUndefined()
   })
 })

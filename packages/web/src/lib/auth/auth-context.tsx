@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { apiClient } from '../api/client'
 import { Project, User } from '../api/types'
+import { queryClient } from '../query/query-client'
 import { navigateToLogin } from './auth-navigation'
 
 interface AuthContextType {
@@ -76,6 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setProjects([])
     setCurrentProjectState(null)
+    // Cached API responses belong to the session that just ended. Queries are
+    // served from cache for 2 minutes (query-client staleTime), so without this
+    // the next sign-in on the same tab (or the next user of a shared workstation)
+    // rendered the previous account's connections, API-key names and billing data
+    // — keyed platform-wide, so a different user/project still hit those entries.
+    queryClient.clear()
   }
 
   const signOut = () => {
