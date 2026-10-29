@@ -37,6 +37,8 @@ Request: versionId UUID and optional environment (defaults to production). Activ
 
 Request: input object and optional environment. Resolves active deployment, persists a queued run and returns HTTP 202 with run ID. Integration-bearing flows are refused until the trusted adapter is wired.
 
+Deduplication uses `x-idempotency-key` / `idempotency-key` headers (or a body `idempotencyKey`), capped at 128 characters — longer keys return HTTP 400 `INVALID_IDEMPOTENCY_KEY` before the database is touched. Keys are scoped to project + flow + environment: repeating a key for the same target replays the original run (HTTP 200, `x-idempotent-replay: true`), while the same key used for a different flow or environment enqueues a separate run.
+
 ## Triggers
 
 Project-scoped trigger management routes require verified project identity (HMAC signature or Bearer token).
@@ -108,6 +110,7 @@ All error responses return a standardized JSON error envelope:
 ### Standardized error codes:
 - `400 BAD_REQUEST`: Malformed request syntax or invalid Zod parameters.
 - `400 FLOW_NAME_MISMATCH`: Deploying a version where the version's internal flow name does not match the URL `:name`.
+- `400 INVALID_IDEMPOTENCY_KEY`: The supplied idempotency key is longer than 128 characters.
 - `401 UNAUTHORIZED`: Missing or invalid gateway signature / bearer token.
 - `401 UNVERIFIED_PROJECT_IDENTITY`: `x-project-id` present without HMAC signature.
 - `401 INVALID_PROJECT_SIGNATURE`: HMAC signature does not match project ID.

@@ -101,7 +101,12 @@ export async function initializeStore(): Promise<void> {
     CREATE INDEX IF NOT EXISTS flowscript_runs_project_created_idx ON flowscript_runs(project_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS flowscript_runs_lease_idx ON flowscript_runs(status, lease_expires_at) WHERE status='running';
     CREATE INDEX IF NOT EXISTS flowscript_runs_retry_idx ON flowscript_runs(status, retry_at) WHERE status='queued';
-    CREATE UNIQUE INDEX IF NOT EXISTS flowscript_runs_idempotency_idx ON flowscript_runs(project_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+    -- Idempotency keys identify one request for one flow in one environment; the
+    -- older (project_id, idempotency_key) index deduplicated across flows and
+    -- environments, so a repeated key silently returned another flow's run.
+    CREATE UNIQUE INDEX IF NOT EXISTS flowscript_runs_idempotency_scope_idx
+      ON flowscript_runs(project_id, flow_name, environment, idempotency_key) WHERE idempotency_key IS NOT NULL;
+    DROP INDEX IF EXISTS flowscript_runs_idempotency_idx;
     CREATE TABLE IF NOT EXISTS flowscript_step_attempts (
       id uuid PRIMARY KEY,
       run_id uuid NOT NULL REFERENCES flowscript_runs(id) ON DELETE CASCADE,
@@ -220,6 +225,11 @@ export function computeBackoff(
   return Math.min(maxMs, Math.floor(exp * jitter))
 }
 
+/** Longest idempotency key accepted from callers. Keeps every key well below
+ * Postgres' ~2704-byte btree entry limit, so a unique-index insert can never
+ * fail on key size (which would surface as an opaque 500). */
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 128
+
 export async function createRun(params: {
   projectId: string
   flowName: string
@@ -230,10 +240,19 @@ export async function createRun(params: {
   idempotencyKey?: string
   maxAttempts?: number
 }): Promise<{ id: string; duplicate?: boolean }> {
-  if (params.idempotencyKey) {
+  const idempotencyKey = params.idempotencyKey?.trim() || undefined
+  if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new Error(`Idempotency key exceeds the maximum length of ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`)
+  }
+
+  if (idempotencyKey) {
+    // Scoped to the flow and environment the caller asked for: keying only on
+    // project_id made a key reused for another flow replay that flow's run and
+    // silently drop this request.
     const existing = await pool.query<{ id: string; status: string }>(
-      'SELECT id, status FROM flowscript_runs WHERE project_id=$1 AND idempotency_key=$2',
-      [params.projectId, params.idempotencyKey],
+      `SELECT id, status FROM flowscript_runs
+       WHERE project_id=$1 AND flow_name=$2 AND environment=$3 AND idempotency_key=$4`,
+      [params.projectId, params.flowName, params.environment, idempotencyKey],
     )
     if (existing.rows[0]) {
       return { id: existing.rows[0].id, duplicate: true }
@@ -247,17 +266,18 @@ export async function createRun(params: {
     await pool.query(
       `INSERT INTO flowscript_runs (id, project_id, flow_name, environment, version_id, trigger_kind, status, input, idempotency_key, max_attempts, started_at)
        VALUES ($1,$2,$3,$4,$5,$6,'queued',$7,$8,$9,NULL)`,
-      [id, params.projectId, params.flowName, params.environment, params.versionId, params.triggerKind, JSON.stringify(params.input), params.idempotencyKey ?? null, maxAttempts],
+      [id, params.projectId, params.flowName, params.environment, params.versionId, params.triggerKind, JSON.stringify(params.input), idempotencyKey ?? null, maxAttempts],
     )
     return { id, duplicate: false }
   } catch (err: unknown) {
     if (err && typeof err === 'object' && ('code' in err || 'message' in err)) {
       const e = err as { code?: string; message?: string }
-      if (e.code === '23505' || String(e.message).includes('unique') || String(e.message).includes('flowscript_runs_idempotency_idx')) {
-        if (params.idempotencyKey) {
+      if (e.code === '23505' || String(e.message).includes('unique') || String(e.message).includes('flowscript_runs_idempotency')) {
+        if (idempotencyKey) {
           const existing = await pool.query<{ id: string }>(
-            'SELECT id FROM flowscript_runs WHERE project_id=$1 AND idempotency_key=$2',
-            [params.projectId, params.idempotencyKey],
+            `SELECT id FROM flowscript_runs
+             WHERE project_id=$1 AND flow_name=$2 AND environment=$3 AND idempotency_key=$4`,
+            [params.projectId, params.flowName, params.environment, idempotencyKey],
           )
           if (existing.rows[0]) {
             return { id: existing.rows[0].id, duplicate: true }

@@ -24,6 +24,7 @@ import {
   validateScheduleConfig,
   cancelRun,
   listStepAttempts,
+  MAX_IDEMPOTENCY_KEY_LENGTH,
 } from './store.js'
 
 const envSchema = z.object({
@@ -510,7 +511,7 @@ export function buildServer(): FastifyInstance {
     const body = z.object({
       input: z.record(z.string(), z.unknown()).default({}),
       environment: z.string().min(1).max(64).default('production'),
-      idempotencyKey: z.string().min(1).max(128).optional(),
+      idempotencyKey: z.string().min(1).max(MAX_IDEMPOTENCY_KEY_LENGTH).optional(),
       maxAttempts: z.number().int().min(1).max(10).optional(),
     }).safeParse(request.body ?? {})
     if (!params.success || !body.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid run request')
@@ -528,6 +529,19 @@ export function buildServer(): FastifyInstance {
     const idempotencyKey = (typeof headerIdemp === 'string' && headerIdemp.trim().length > 0)
       ? headerIdemp.trim()
       : body.data.idempotencyKey
+
+    // The header carries no schema, so without this check an arbitrary-length key
+    // reaches the unique index on flowscript_runs.idempotency_key. Postgres rejects
+    // btree entries above ~2704 bytes (SQLSTATE 54000), which surfaced as an opaque
+    // 500; reject it as a client error before touching the database.
+    if (idempotencyKey !== undefined && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+      return sendError(
+        reply,
+        400,
+        'INVALID_IDEMPOTENCY_KEY',
+        `Idempotency key must be at most ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
+      )
+    }
 
     const runResult = await createRun({
       projectId,

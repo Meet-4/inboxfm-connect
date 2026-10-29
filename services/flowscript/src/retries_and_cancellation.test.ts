@@ -60,10 +60,10 @@ describe('FlowScript durable retries, stale-run recovery, and cancellation (issu
         return { rows: [], rowCount: 0 }
       }
 
-      if (trimmed.includes('FROM flowscript_runs WHERE project_id=$1 AND idempotency_key=$2')) {
-        const [projectId, key] = params
+      if (trimmed.includes('FROM flowscript_runs') && trimmed.includes('idempotency_key=$4')) {
+        const [projectId, flowName, environment, key] = params
         for (const r of runs.values()) {
-          if (r.project_id === projectId && r.idempotency_key === key) {
+          if (r.project_id === projectId && r.flow_name === flowName && r.environment === environment && r.idempotency_key === key) {
             return { rows: [{ id: r.id, status: r.status }], rowCount: 1 }
           }
         }
@@ -74,7 +74,7 @@ describe('FlowScript durable retries, stale-run recovery, and cancellation (issu
         const [id, projectId, flowName, env, versionId, triggerKind, input, idempotencyKey, maxAttempts] = params
         if (idempotencyKey) {
           for (const r of runs.values()) {
-            if (r.project_id === projectId && r.idempotency_key === idempotencyKey) {
+            if (r.project_id === projectId && r.flow_name === flowName && r.environment === env && r.idempotency_key === idempotencyKey) {
               const err = new Error('duplicate key value violates unique constraint')
               ;(err as any).code = '23505'
               throw err
