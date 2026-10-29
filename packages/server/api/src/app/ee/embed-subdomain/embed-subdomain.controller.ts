@@ -57,7 +57,14 @@ const GetSubdomainEndpoint = {
 
 const AddAllowedEmbedOriginsEndpoint = {
     config: {
-        security: securityAccess.publicPlatform([PrincipalType.SERVICE]),
+        // `allowedEmbedOrigins` is a platform-wide security control: it decides which
+        // third-party pages may iframe this platform. Widening it is a platform-owner
+        // action, so this is a platform-admin route — `publicPlatform([SERVICE])` let any
+        // service credential through (including a Connect API key bound to a single
+        // project, which must never reach platform scope) while rejecting the platform
+        // owner herself. The platform-console backend's platform-wide `sk-` key still
+        // passes; only project-bound credentials are turned away.
+        security: securityAccess.platformAdminOnly([PrincipalType.USER, PrincipalType.SERVICE]),
     },
     schema: {
         tags: ['embedding'],
