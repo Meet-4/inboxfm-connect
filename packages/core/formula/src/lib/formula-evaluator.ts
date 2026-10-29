@@ -562,6 +562,13 @@ function normalizeExpression(expr: string): string {
             if (rest.startsWith('round(')) {
                 result += 'ap_round('; i += 6; continue
             }
+            // `length` is shadowed the same way `round` is: expr-eval treats it
+            // as a BUILT-IN UNARY OPERATOR (code units of the operand), so a
+            // registered parser.functions.length never runs and the documented
+            // length() counted UTF-16 units. Rewrite to the aliased impl.
+            if (rest.startsWith('length(')) {
+                result += 'ap_length('; i += 7; continue
+            }
         }
 
         result += ch

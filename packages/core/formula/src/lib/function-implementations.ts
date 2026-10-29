@@ -43,17 +43,32 @@ parser.functions.replace = (s: unknown, from: unknown, to: unknown) =>
     String(s ?? '').split(String(from ?? '')).join(String(to ?? ''))
 parser.functions.remove = (s: unknown, sub: unknown) =>
     String(s ?? '').split(String(sub ?? '')).join('')
+// Text functions operate on CHARACTERS, not UTF-16 code units: `length("😀")`
+// was 2 and `first_n("😀abc"; 1)` returned the lone high surrogate "\ud83d" —
+// a string that cannot be encoded and is replaced by U+FFFD downstream (see
+// sanitizeObjectForPostgresql, which exists to strip such halves before they
+// reach the database). `reverse` already used code points; the rest now do too.
+// Code points, not grapheme clusters: full segmentation would need
+// Intl.Segmenter and would also change length() for combining accents.
+function toCharacters(value: unknown): string[] {
+    return Array.from(String(value ?? ''))
+}
+// Lists are counted by items (expr-eval's built-in unary `length` did that too,
+// so `length({{list}})` keeps working); everything else by code points.
+function codePointLength(value: unknown): number {
+    return Array.isArray(value) ? value.length : toCharacters(value).length
+}
 parser.functions.first_n = (s: unknown, n: unknown) =>
-    String(s ?? '').slice(0, Number(n))
+    toCharacters(s).slice(0, Number(n)).join('')
 parser.functions.last_n = (s: unknown, n: unknown) => {
-    const str = String(s ?? '')
+    const chars = toCharacters(s)
     const num = Number(n)
-    return str.slice(Math.max(0, str.length - num))
+    return chars.slice(Math.max(0, chars.length - num)).join('')
 }
 parser.functions.truncate = (s: unknown, n: unknown) => {
-    const str = String(s ?? '')
+    const chars = toCharacters(s)
     const num = Number(n)
-    return str.length > num ? str.slice(0, num) + '...' : str
+    return chars.length > num ? chars.slice(0, num).join('') + '...' : chars.join('')
 }
 parser.functions.split = (s: unknown, sep: unknown, idx: unknown) => {
     const parts = String(s ?? '').split(String(sep ?? ''))
@@ -77,7 +92,11 @@ parser.functions.extract_url = (s: unknown) => {
     const match = String(s ?? '').match(/https?:\/\/[^\s]+/)
     return match ? match[0] : ''
 }
-parser.functions.length = (s: unknown) => String(s ?? '').length
+parser.functions.length = (s: unknown) => codePointLength(s)
+// `length` is also a built-in expr-eval unary operator, which is what actually
+// runs for the documented `length( text )` syntax — see normalizeExpression.
+// The alias below receives the rewritten call.
+parser.functions.ap_length = (s: unknown) => codePointLength(s)
 parser.functions.contains = (s: unknown, sub: unknown) =>
     String(s ?? '').includes(String(sub ?? ''))
 parser.functions.starts_with = (s: unknown, prefix: unknown) =>
