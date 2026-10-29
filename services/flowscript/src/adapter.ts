@@ -171,6 +171,110 @@ export function redactSensitiveData(value: unknown): unknown {
   return value
 }
 
+type StructuredErrorFields = {
+  status?: unknown
+  statusCode?: unknown
+  status_code?: unknown
+  httpStatus?: unknown
+  code?: unknown
+  response?: unknown
+  cause?: unknown
+}
+
+/**
+ * Reads an HTTP status from the structured fields providers actually use.
+ *
+ * Substring matching on the message ("... 401 ...") is unreliable: a quota error
+ * such as "Error 1401: quota exceeded" or a transport error such as
+ * "connection reset 4010" used to classify as an expired connection. Numeric
+ * substrings are only honoured as whole tokens, and structured fields win.
+ */
+export function extractProviderStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const fields = error as StructuredErrorFields
+  const response = fields.response && typeof fields.response === 'object'
+    ? fields.response as { status?: unknown; statusCode?: unknown }
+    : undefined
+  const cause = fields.cause && typeof fields.cause === 'object'
+    ? fields.cause as { status?: unknown }
+    : undefined
+  return toHttpStatus(fields.status)
+    ?? toHttpStatus(fields.statusCode)
+    ?? toHttpStatus(fields.status_code)
+    ?? toHttpStatus(fields.httpStatus)
+    ?? toHttpStatus(response?.status)
+    ?? toHttpStatus(response?.statusCode)
+    ?? toHttpStatus(cause?.status)
+}
+
+function toHttpStatus(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) return value
+  if (typeof value === 'string' && /^[1-5]\d{2}$/.test(value.trim())) return Number(value.trim())
+  return undefined
+}
+
+const RATE_LIMIT_CODE_PATTERN = /^(?:rate[_-]?limit(?:ed|_exceeded|_error)?|too_many_requests|throttled|insufficient_quota|quota_exceeded)$/
+const AUTH_CODE_PATTERN = /^(?:unauthorized|authentication_error|invalid_api_key|invalid_authentication|invalid_token|token_expired|expired_token|permission_denied|forbidden)$/
+const VALIDATION_CODE_PATTERN = /^(?:invalid_request_error|validation_error|context_length_exceeded|bad_request|unprocessable_entity)$/
+const TIMEOUT_CODE_PATTERN = /^(?:etimedout|esockettimedout|timeout|request_timeout|deadline_exceeded)$/
+const NETWORK_CODE_PATTERN = /^(?:econnreset|econnrefused|econnaborted|epipe|eai_again|enetunreach|enotfound|socket_hang_up)$/
+
+const RATE_LIMIT_MESSAGE_PATTERNS = [
+  /\b429\b/i,
+  /\btoo many requests\b/i,
+  /\brate[\s_-]?limit/i,
+  /\bthrottl(?:ed|ing)\b/i,
+  /\bquota\b/i,
+]
+
+const AUTH_MESSAGE_PATTERNS = [
+  /\b40[13]\b/i,
+  /\bunauthori[sz]ed\b/i,
+  /\bforbidden\b/i,
+  /\btoken[\s_-]?(?:has\s+)?expired\b/i,
+  /\bexpired[\s_-]?token\b/i,
+  /\binvalid[\s_-]?credentials\b/i,
+  /\binvalid[\s_-]?(?:api[\s_-]?)?(?:token|key|client[\s_-]?id)\b/i,
+  /\bauthentication (?:failed|required|error)\b/i,
+]
+
+const PROVIDER_MESSAGE_PATTERNS = [
+  /\b50[0234]\b/i,
+  /\bbad gateway\b/i,
+  /\bgateway[\s_-]?time\s?out\b/i,
+  /\bservice[\s_-]?unavailable\b/i,
+  /\binternal server error\b/i,
+  /\bupstream (?:error|failure|failed)\b/i,
+]
+
+const NETWORK_MESSAGE_PATTERNS = [
+  /\bconnection reset\b/i,
+  /\beconn(?:reset|refused|aborted)\b/i,
+  /\bsocket hang up\b/i,
+  /\bepipe\b/i,
+  /\bnetwork error\b/i,
+]
+
+const TIMEOUT_MESSAGE_PATTERNS = [
+  /\btime(?:d\s*)?out\b/i,
+  /\betimedout\b/i,
+]
+
+function matchesAny(message: string, patterns: RegExp[]): boolean {
+  return patterns.some(pattern => pattern.test(message))
+}
+
+function classifyHttpStatus(status: number): { code: IntegrationErrorClassification; retryable: boolean } | null {
+  if (status === 429) return { code: 'RATE_LIMITED', retryable: true }
+  if (status === 401 || status === 403) return { code: 'AUTHENTICATION_EXPIRED', retryable: false }
+  if (status === 408) return { code: 'TIMEOUT', retryable: true }
+  if (status >= 500 && status <= 599) return { code: 'PROVIDER_ERROR', retryable: true }
+  if (status === 404) return { code: 'PROVIDER_ERROR', retryable: false }
+  if (status === 400 || status === 422) return { code: 'VALIDATION_ERROR', retryable: false }
+  if (status === 409 || status === 412) return { code: 'PROVIDER_ERROR', retryable: false }
+  return null
+}
+
 export function classifyProviderError(error: unknown): { code: IntegrationErrorClassification; message: string; retryable: boolean } {
   if (error instanceof FlowIntegrationError) {
     return {
@@ -181,29 +285,43 @@ export function classifyProviderError(error: unknown): { code: IntegrationErrorC
   }
 
   const rawMessage = error instanceof Error ? error.message : String(error)
-  const lower = rawMessage.toLowerCase()
-  const status = typeof error === 'object' && error !== null
-    ? (error as { status?: number; statusCode?: number; response?: { status?: number } }).status
-      ?? (error as { statusCode?: number }).statusCode
-      ?? (error as { response?: { status?: number } }).response?.status
-    : undefined
+  const status = extractProviderStatus(error)
+  if (status !== undefined) {
+    const classified = classifyHttpStatus(status)
+    if (classified) {
+      return { ...classified, message: rawMessage }
+    }
+  }
 
-  if (status === 429 || lower.includes('429') || lower.includes('rate limit') || lower.includes('too many requests')) {
+  const rawCode = error && typeof error === 'object' ? (error as StructuredErrorFields).code : undefined
+  const structuredCode = typeof rawCode === 'string' ? rawCode.trim().toLowerCase() : undefined
+  if (structuredCode) {
+    if (RATE_LIMIT_CODE_PATTERN.test(structuredCode)) return { code: 'RATE_LIMITED', message: rawMessage, retryable: true }
+    if (AUTH_CODE_PATTERN.test(structuredCode)) return { code: 'AUTHENTICATION_EXPIRED', message: rawMessage, retryable: false }
+    if (VALIDATION_CODE_PATTERN.test(structuredCode)) return { code: 'VALIDATION_ERROR', message: rawMessage, retryable: false }
+    if (TIMEOUT_CODE_PATTERN.test(structuredCode)) return { code: 'TIMEOUT', message: rawMessage, retryable: true }
+    if (NETWORK_CODE_PATTERN.test(structuredCode)) return { code: 'PROVIDER_ERROR', message: rawMessage, retryable: true }
+  }
+
+  if (matchesAny(rawMessage, RATE_LIMIT_MESSAGE_PATTERNS)) {
     return { code: 'RATE_LIMITED', message: rawMessage, retryable: true }
   }
-  if (status === 401 || status === 403 || lower.includes('401') || lower.includes('unauthorized') || lower.includes('token expired') || lower.includes('invalid credentials')) {
+  if (matchesAny(rawMessage, AUTH_MESSAGE_PATTERNS)) {
     return { code: 'AUTHENTICATION_EXPIRED', message: rawMessage, retryable: false }
   }
-  if ((status && status >= 500 && status < 600) || lower.includes('502') || lower.includes('503') || lower.includes('504') || lower.includes('bad gateway') || lower.includes('gateway timeout')) {
+  if (matchesAny(rawMessage, PROVIDER_MESSAGE_PATTERNS)) {
     return { code: 'PROVIDER_ERROR', message: rawMessage, retryable: true }
   }
-  if (status === 408 || lower.includes('timeout') || lower.includes('timed out') || lower.includes('etimedout')) {
+  if (matchesAny(rawMessage, NETWORK_MESSAGE_PATTERNS)) {
+    return { code: 'PROVIDER_ERROR', message: rawMessage, retryable: true }
+  }
+  if (matchesAny(rawMessage, TIMEOUT_MESSAGE_PATTERNS)) {
     return { code: 'TIMEOUT', message: rawMessage, retryable: true }
   }
-  if (lower.includes('connection not found') || lower.includes('entity_not_found') || lower.includes('app_connection_not_found')) {
+  if (/\bconnection not found\b/i.test(rawMessage) || /\bentity_not_found\b/i.test(rawMessage) || /\bapp_connection_not_found\b/i.test(rawMessage)) {
     return { code: 'CONNECTION_NOT_FOUND', message: rawMessage, retryable: false }
   }
-  if (status === 404 || lower.includes('not found')) {
+  if (/\b404\b/i.test(rawMessage) || /\bnot found\b/i.test(rawMessage)) {
     return { code: 'PROVIDER_ERROR', message: rawMessage, retryable: false }
   }
 

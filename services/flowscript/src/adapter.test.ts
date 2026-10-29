@@ -374,6 +374,68 @@ describe('classifyProviderError', () => {
       retryable: false,
     })
   })
+
+  it('does not read digit substrings of unrelated numbers as HTTP statuses', () => {
+    // "1401" contains "401": quota exhaustion is not an expired connection.
+    expect(classifyProviderError(new Error('Error 1401: quota exceeded for model gpt-4'))).toEqual({
+      code: 'RATE_LIMITED',
+      message: 'Error 1401: quota exceeded for model gpt-4',
+      retryable: true,
+    })
+    // "4010" contains "401": a reset connection is a transient transport failure.
+    expect(classifyProviderError(new Error('connection reset 4010 by peer'))).toEqual({
+      code: 'PROVIDER_ERROR',
+      message: 'connection reset 4010 by peer',
+      retryable: true,
+    })
+    // "4290" contains "429": a successfully processed batch must not be replayed as rate limited.
+    expect(classifyProviderError(new Error('Processed 4290 events in batch'))).toEqual({
+      code: 'ENGINE_OPERATION_FAILURE',
+      message: 'Processed 4290 events in batch',
+      retryable: false,
+    })
+    expect(classifyProviderError(new Error('Emitting 25030 rows'))).toEqual({
+      code: 'ENGINE_OPERATION_FAILURE',
+      message: 'Emitting 25030 rows',
+      retryable: false,
+    })
+  })
+
+  it('still classifies whole-token status numbers in messages', () => {
+    expect(classifyProviderError(new Error('HTTP 401 Unauthorized')).code).toBe('AUTHENTICATION_EXPIRED')
+    expect(classifyProviderError(new Error('upstream answered 503, retry later')).code).toBe('PROVIDER_ERROR')
+    expect(classifyProviderError(new Error('Status code: 429')).code).toBe('RATE_LIMITED')
+  })
+
+  it('reads statuses from numeric strings and nested response/cause fields', () => {
+    expect(classifyProviderError({ status: '429', message: 'slow down' })).toEqual({
+      code: 'RATE_LIMITED',
+      message: '[object Object]',
+      retryable: true,
+    })
+    expect(classifyProviderError({ response: { status: 401 }, message: 'nope' }).code).toBe('AUTHENTICATION_EXPIRED')
+    expect(classifyProviderError({ cause: { status: 503 }, message: 'upstream' }).code).toBe('PROVIDER_ERROR')
+    expect(classifyProviderError({ status_code: 422, message: 'bad payload' })).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: '[object Object]',
+      retryable: false,
+    })
+  })
+
+  it('classifies structured provider error codes without message guessing', () => {
+    expect(classifyProviderError({ code: 'ETIMEDOUT', message: 'socket stalled' })).toEqual({
+      code: 'TIMEOUT',
+      message: '[object Object]',
+      retryable: true,
+    })
+    expect(classifyProviderError({ code: 'insufficient_quota', message: 'billing' }).code).toBe('RATE_LIMITED')
+    expect(classifyProviderError({ code: 'invalid_api_key', message: 'bad key' }).code).toBe('AUTHENTICATION_EXPIRED')
+    expect(classifyProviderError({ code: 'ECONNRESET', message: 'socket' })).toEqual({
+      code: 'PROVIDER_ERROR',
+      message: '[object Object]',
+      retryable: true,
+    })
+  })
 })
 
 describe('redactSensitiveData', () => {
