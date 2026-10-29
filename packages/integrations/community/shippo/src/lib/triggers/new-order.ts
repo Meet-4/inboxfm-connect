@@ -25,7 +25,6 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof shippoAuth>, Sta
     const result = await client.listOrders({
       results_per_page: 100,
     });
-    console.log('Fetched orders:', JSON.stringify(result));
     const filteredOrders = result.results.filter((order) => {
       const orderTime = dayjs(order.placed_at).valueOf();
       return orderTime > lastFetchEpochMS;

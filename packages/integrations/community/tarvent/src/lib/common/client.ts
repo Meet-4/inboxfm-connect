@@ -380,7 +380,6 @@ export class TarventClient {
                 }
             },
         };
-        console.log(body);
         return await this.makeRequest<ListContactResponse>(body);
     }
 

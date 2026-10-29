@@ -71,7 +71,6 @@ export const ticketStatusChanged = createTrigger({
       data: { ticket_form_id: string };
     };
     const { ticket_form_id, status } = context.propsValue;
-    console.log(payloadBody)
     if (payloadBody.type !== 'ticket.status.changed') {
       return [];
     }

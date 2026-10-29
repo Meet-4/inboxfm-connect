@@ -71,7 +71,6 @@ export const updateSubscriptionAction = createAction({
 			body['custom_fields'] = transformedCustomFields;
 		}
 
-		console.log(JSON.stringify(body));
 		const response = await beehiivApiCall({
 			apiKey: context.auth.secret_text,
 			method: HttpMethod.PUT,

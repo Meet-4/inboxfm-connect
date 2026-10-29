@@ -83,7 +83,6 @@ export const userIdDropdown = (groupusers = false) =>
         );
 
         const users = await response.body;
-        console.log(JSON.stringify(users, null, 2));
         if (!Array.isArray(users)) {
           return {
             disabled: true,

@@ -22,7 +22,6 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof SiteSpeakAuth>, 
                 Accept: 'application/json',
             }
         );
-        console.log(response);
         const leads = response || [];
 
         return leads
