@@ -87,7 +87,7 @@ export async function getUpdatedOrNewEvents(
   // get changes since last call
   const weblingChanges: WeblingChanges = await getChanges(
     authProp,
-    lastFetchEpochMS / 1000
+    lastFetchEpochMS
   );
 
   // this will also include ids of deleted objects
