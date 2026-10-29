@@ -39,32 +39,30 @@ export class GenericStepOutput<T extends FlowActionType | FlowTriggerType, OUTPU
         this.errorMessage = step.errorMessage
     }
 
-    setOutput(output: OUTPUT): GenericStepOutput<T, OUTPUT> {
-        return new GenericStepOutput<T, OUTPUT>({
-            ...this,
-            output,
-        })
+    // Every builder returns a copy of THIS instance, not a base GenericStepOutput:
+    // a LoopStepOutput that went through setStatus()/setDuration() used to come back
+    // as a plain GenericStepOutput, losing setIterations/addIteration/hasIteration.
+    // The journal then crashed on resume (`setItemAndIndex is not a function`) as soon
+    // as the loop step's output had had its status or duration touched.
+    private withProps(overrides: Partial<BaseStepOutputParams<T, OUTPUT>>): this {
+        const StepOutputConstructor = this.constructor as new (step: BaseStepOutputParams<T, OUTPUT>) => this
+        return new StepOutputConstructor({ ...this, ...overrides })
     }
 
-    setStatus(status: StepOutputStatus): GenericStepOutput<T, OUTPUT> {
-        return new GenericStepOutput<T, OUTPUT>({
-            ...this,
-            status,
-        })
+    setOutput(output: OUTPUT): this {
+        return this.withProps({ output })
     }
 
-    setErrorMessage(errorMessage: string): GenericStepOutput<T, OUTPUT> {
-        return new GenericStepOutput<T, OUTPUT>({
-            ...this,
-            errorMessage,
-        })
+    setStatus(status: StepOutputStatus): this {
+        return this.withProps({ status })
     }
 
-    setDuration(duration: number): GenericStepOutput<T, OUTPUT> {
-        return new GenericStepOutput<T, OUTPUT>({
-            ...this,
-            duration,
-        })
+    setErrorMessage(errorMessage: string): this {
+        return this.withProps({ errorMessage })
+    }
+
+    setDuration(duration: number): this {
+        return this.withProps({ duration })
     }
 
     static create<T extends FlowActionType | FlowTriggerType, OUTPUT>({

@@ -79,5 +79,22 @@ describe('step-output classes and immutable state methods (Issue #141)', () => {
             expect(loop2.output?.index).toBe(1)
             expect(loop2.hasIteration(1)).toBe(true)
         })
+
+        it('keeps the loop subtype and iteration bookkeeping through inherited builders', () => {
+            // Regression: the inherited builders constructed a base GenericStepOutput,
+            // so a loop output that had its status/duration set lost
+            // setIterations/addIteration/hasIteration — and the journal crashed on it
+            // with "setItemAndIndex is not a function" when resuming into the loop.
+            const loop = LoopStepOutput.init({ input: [1] })
+
+            const stopped = loop.setStatus(StepOutputStatus.STOPPED).setDuration(12)
+            expect(stopped).toBeInstanceOf(LoopStepOutput)
+            expect(stopped.addIteration).toBeTypeOf('function')
+            expect(stopped.setItemAndIndex({ item: 1, index: 0 }).addIteration().hasIteration(0)).toBe(true)
+
+            const withOutput = loop.setOutput({ item: 1, index: 0, iterations: [] })
+            expect(withOutput).toBeInstanceOf(LoopStepOutput)
+            expect(withOutput.hasIteration(0)).toBe(false)
+        })
     })
 })
