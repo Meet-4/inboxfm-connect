@@ -82,8 +82,11 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof cloudinaryAuth>,
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth, propsValue }) => {
     const folder = propsValue.asset_folder?.trim() || undefined;
-    const resourceTypes =
-      !propsValue.resource_type || propsValue.resource_type === 'any'
+    // /resources/by_asset_folder already returns every resource type in the folder,
+    // so iterating types there would fetch (and emit) the same assets three times.
+    const resourceTypes = folder
+      ? ['image']
+      : !propsValue.resource_type || propsValue.resource_type === 'any'
         ? ['image', 'video', 'raw']
         : [propsValue.resource_type];
 
