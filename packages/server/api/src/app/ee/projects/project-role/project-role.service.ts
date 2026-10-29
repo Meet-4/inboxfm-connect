@@ -13,8 +13,26 @@ export const projectMemberRepo = repoFactory(ProjectMemberEntity)
 
 export const projectRoleService = {
 
-    async getOneOrThrowById({ id }: GetOneIdParams): Promise<ProjectRole> {
-        const projectRole = await projectRoleRepo().findOneBy({ id })
+    /**
+     * Looks a project role up by id.
+     *
+     * `platformId` is OPTIONAL only for internal callers that already resolved the id
+     * from a row they had scoped themselves (a `project_member.projectRoleId` reached
+     * through a project/platform-checked read). Any REST caller MUST pass it: role ids
+     * are global across platforms, so an unscoped lookup behind a
+     * `securityAccess.publicPlatform` route let any authenticated user of any platform
+     * read another tenant's custom-role name, permissions and owning platformId by id.
+     * DEFAULT roles are shared by every platform (seeded once with a fixed id and no
+     * platformId), so they stay readable — same predicate as `getOne()` below.
+     */
+    async getOneOrThrowById({ id, platformId }: GetOneIdParams): Promise<ProjectRole> {
+        const queryBuilder = projectRoleRepo()
+            .createQueryBuilder('projectRole')
+            .where('projectRole.id = :id', { id })
+        if (!isNil(platformId)) {
+            queryBuilder.andWhere(new Brackets(qb => qb.where({ platformId }).orWhere({ type: RoleType.DEFAULT })))
+        }
+        const projectRole = await queryBuilder.getOne()
         if (isNil(projectRole)) {
             throw new ActivepiecesError({
                 code: ErrorCode.ENTITY_NOT_FOUND,
@@ -163,4 +181,5 @@ type GetOneByNameParams = {
 
 type GetOneIdParams = {
     id: ApId
+    platformId?: PlatformId
 }

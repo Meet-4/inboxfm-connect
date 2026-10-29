@@ -1,4 +1,4 @@
-import { ProjectRole } from '@inboxfm-connect/core-utils'
+import { ProjectRole, RoleType } from '@inboxfm-connect/core-utils'
 import { PlatformRole, PrincipalType, UpdateProjectRoleRequestBody } from '@inboxfm-connect/shared'
 import { faker } from '@faker-js/faker'
 import { FastifyInstance } from 'fastify'
@@ -91,6 +91,42 @@ describe('Project Role API', () => {
             })
 
             expect(response?.statusCode).toBe(StatusCodes.OK)
+        })
+    })
+
+    describe('Get Project Role by id', () => {
+        it('should not return a project role owned by another platform', async () => {
+            const ctx = await createTestContext(app!)
+            const { mockPlatform: otherPlatform } = await mockAndSaveBasicSetup()
+            const foreignRole = createMockProjectRole({
+                platformId: otherPlatform.id,
+                type: RoleType.CUSTOM,
+            })
+            await db.save('project_role', foreignRole)
+
+            // The id is the only input, and ids are global across platforms, so an
+            // unscoped lookup hands the caller another tenant's role name, permissions
+            // and platformId.
+            const response = await ctx.get(`/v1/project-roles/${foreignRole.id}`)
+
+            expect(response?.statusCode).toBe(StatusCodes.NOT_FOUND)
+            expect(response?.json()).not.toHaveProperty('permissions')
+        })
+
+        it('should return a project role owned by the caller platform', async () => {
+            const ctx = await createTestContext(app!)
+            const projectRole = createMockProjectRole({
+                platformId: ctx.platform.id,
+                type: RoleType.CUSTOM,
+            })
+            await db.save('project_role', projectRole)
+
+            const response = await ctx.get(`/v1/project-roles/${projectRole.id}`)
+
+            expect(response?.statusCode).toBe(StatusCodes.OK)
+            const responseBody = response?.json() as ProjectRole
+            expect(responseBody.id).toBe(projectRole.id)
+            expect(responseBody.platformId).toBe(ctx.platform.id)
         })
     })
 

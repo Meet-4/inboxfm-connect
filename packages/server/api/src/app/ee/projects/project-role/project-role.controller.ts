@@ -16,6 +16,7 @@ export const projectRoleController: FastifyPluginAsyncZod = async (app) => {
     app.get('/:id', GetProjectRoleRequest, async (req) => {
         return projectRoleService.getOneOrThrowById({
             id: req.params.id,
+            platformId: req.principal.platform.id,
         })
     })
 
