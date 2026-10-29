@@ -111,7 +111,7 @@ const getProjectRoleAndAssertIfFound = async (platformId: string, request: SendU
     })
     return projectRole
 }
-async function getProjectIdAndAssertPermission<R extends Principal>(
+async function getProjectIdAndAssertPermission<R extends Principal & { platform: { id: string } }>(
     app: FastifyInstance,
     request: FastifyRequest,
     reply: FastifyReply,
@@ -124,6 +124,26 @@ async function getProjectIdAndAssertPermission<R extends Principal>(
         }
         await assertPrincipalHasPermissionToProject(app, request, reply, principal, requestQuery.projectId, Permission.READ_INVITATION)
         return requestQuery.projectId
+    }
+    if (!isNil(requestQuery.projectId)) {
+        // The route is guarded by publicPlatform, whose projectResource only
+        // populates request.projectId — it does not authorize it (the PLATFORM
+        // branch of the authz middleware drops projectResource). Returning the
+        // caller-supplied id unchecked let any platform member read another
+        // project's invitations (invitee emails) by passing its id, while the
+        // SERVICE branch above already asserts READ_INVITATION. Mirror that check
+        // for users; assertRoleHasPermission resolves platform admins to the
+        // ADMIN role, so the platform-wide admin view keeps working.
+        const project = await projectService(request.log).getOneOrThrow(requestQuery.projectId)
+        if (project.platformId !== principal.platform.id) {
+            throw new ActivepiecesError({
+                code: ErrorCode.AUTHORIZATION,
+                params: {
+                    message: 'user does not have access to the project',
+                },
+            })
+        }
+        await assertRoleHasPermission(principal, requestQuery.projectId, Permission.READ_INVITATION, request.log)
     }
     return requestQuery.projectId ?? null
 }
