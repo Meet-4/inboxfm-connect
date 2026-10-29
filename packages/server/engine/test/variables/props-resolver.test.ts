@@ -142,6 +142,38 @@ describe('Props resolver', () => {
         expect(resolvedInput).toEqual(['Alice Smith', 'Bob Doe'])
     })
 
+    test('flatten array path ending on objects keeps every object', async () => {
+        // The path is exhausted at `users`: each element is an object, and the helper
+        // used to return [] for it (path[0] was undefined inside the object branch),
+        // so the whole array silently disappeared from the resolved input.
+        const { resolvedInput } = await propsResolverService.resolve({ unresolvedInput: '{{flattenNestedKeys(trigger.output, [\'users\'])}}', executionState })
+        expect(resolvedInput).toEqual([{ name: 'Alice' }, { name: 'Bob' }])
+    })
+
+    test('flatten path ending on a single object keeps it', async () => {
+        const stateWithObject = await ExecutionContext.empty().upsertStep(
+            'trigger',
+            GenericStepOutput.create({
+                type: FlowTriggerType.PIECE,
+                status: StepOutputStatus.SUCCEEDED,
+                input: {},
+                output: { nested: { id: 7 } },
+            }),
+        )
+        const { resolvedInput } = await propsResolverService.resolve({ unresolvedInput: '{{flattenNestedKeys(trigger.output, [\'nested\'])}}', executionState: stateWithObject })
+        expect(resolvedInput).toEqual([{ id: 7 }])
+    })
+
+    test('flatten path ending on a scalar keeps a single value', async () => {
+        const { resolvedInput } = await propsResolverService.resolve({ unresolvedInput: '{{flattenNestedKeys(trigger.output, [\'name\'])}}', executionState })
+        expect(resolvedInput).toEqual(['John'])
+    })
+
+    test('flatten path that matches nothing stays empty', async () => {
+        const { resolvedInput } = await propsResolverService.resolve({ unresolvedInput: '{{flattenNestedKeys(trigger.output, [\'users\',\'missing\'])}}', executionState })
+        expect(resolvedInput).toEqual([])
+    })
+
     test('merge flatten array paths keeps $ characters in resolved values', async ()=>{
         const stateWithDollarValues = await ExecutionContext.empty().upsertStep(
             'trigger',

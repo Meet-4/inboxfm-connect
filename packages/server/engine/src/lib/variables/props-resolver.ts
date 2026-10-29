@@ -269,18 +269,23 @@ async function evalInScope(js: string, contextAsScope: Record<string, unknown>, 
 // passes them as unknown — the narrow runtime types are recovered inside the body.
 function flattenNestedKeys(data: unknown, pathToMatch: unknown): unknown[] {
     const path = Array.isArray(pathToMatch) ? pathToMatch : []
-    if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    if (Array.isArray(data)) {
+        return data.flatMap((d) => flattenNestedKeys(d, path))
+    }
+    if (path.length === 0) {
+        // The path is exhausted: everything from here is the value the caller asked
+        // for. Falls through the object branch below otherwise, where `path[0]` is
+        // undefined so no key matches and the value is dropped — that made every
+        // flattenNestedKeys path ending on an object (or on an array of objects) an
+        // empty array, e.g. {{flattenNestedKeys(output, ['users'])}}.
+        return [data]
+    }
+    if (typeof data === 'object' && data !== null) {
         for (const [key, value] of Object.entries(data)) {
             if (key === path[0]) {
                 return flattenNestedKeys(value, path.slice(1))
             }
         }
-    }
-    else if (Array.isArray(data)) {
-        return data.flatMap((d) => flattenNestedKeys(d, path))
-    }
-    else if (path.length === 0) {
-        return [data]
     }
     return []
 }
