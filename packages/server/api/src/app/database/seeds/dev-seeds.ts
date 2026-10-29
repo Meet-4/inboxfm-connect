@@ -52,7 +52,7 @@ const seedDevUser = async (): Promise<void> => {
         invalidatePreviousTokens: true,
     })
 
-    log.info({ email: DEV_EMAIL, password: DEV_PASSWORD }, '[devSeeds#seedDevUser] Dev user and platform created')
+    log.info({ email: DEV_EMAIL }, '[devSeeds#seedDevUser] Dev user and platform created')
 }
 const seedDevData = async (): Promise<void> => {
     if (currentEnvIsNotDev()) {
