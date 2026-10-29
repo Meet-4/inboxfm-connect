@@ -33,13 +33,29 @@ export function ensureTrailingSlash(url: string): string {
 }
 
 
+// `path` carries data — a field name from a record, an API payload or a
+// user-typed key — so no segment may resolve to an inherited member. Writing
+// through `__proto__` reaches Object.prototype and pollutes every object in the
+// process (`setAtPath({}, '__proto__.x', 1)`), `constructor.prototype` does the
+// same through the constructor function, and any other inherited name (e.g.
+// `toString`) hands back a function shared by every object instead of a child
+// object. Refuse such a path outright: a silent no-op is the safe failure for a
+// helper that resolves untrusted payloads.
+const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setAtPath<T, K extends keyof any>(obj: T, path: K | K[], value: any): void {
-    const pathArray = Array.isArray(path) ? path : (path as string).match(/([^[.\]])+/g) as unknown as K[]
+    const pathArray = (Array.isArray(path) ? path : (path as string).match(/([^[.\]])+/g) ?? []) as unknown as K[]
+    if (pathArray.some(key => UNSAFE_PATH_SEGMENTS.has(String(key)))) {
+        return
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pathArray.reduce((acc: any, key: K, i: number) => {
-        if (acc[key] === undefined) acc[key] = {}
+        // hasOwnProperty, not `acc[key] === undefined`: an inherited member is
+        // not a missing child, and treating it as one writes onto the shared
+        // function/prototype instead of creating a fresh object here.
+        if (!Object.prototype.hasOwnProperty.call(acc, key)) acc[key] = {}
         if (i === pathArray.length - 1) acc[key] = value
         return acc[key]
     }, obj)

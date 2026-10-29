@@ -15,6 +15,7 @@ import {
     parseToJsonIfPossible,
     partition,
     pickBy,
+    setAtPath,
     startCase,
     stringifyNullOrUndefined,
     truncateString,
@@ -261,6 +262,59 @@ describe('insertAt', () => {
         const result = insertAt(source, 1, 'second')
         expect(result).toEqual(['first', 'second', 'third'])
         expect(source).toEqual(['first', 'third'])
+    })
+})
+
+describe('setAtPath', () => {
+    it('sets a value at a dot-separated path', () => {
+        const obj: Record<string, unknown> = {}
+        setAtPath(obj, 'a.b.c', 42)
+        expect((obj as { a: { b: { c: number } } }).a.b.c).toBe(42)
+    })
+
+    it('sets a value through bracket notation', () => {
+        const obj: Record<string, unknown> = { items: [0, 0, 0] }
+        setAtPath(obj, 'items[1]', 99)
+        expect((obj as { items: number[] }).items[1]).toBe(99)
+    })
+
+    // Paths are data: a field name can come from a record, an API payload or a
+    // user-typed key. A segment that names an Object.prototype member does not
+    // create a child object — it resolves to the shared prototype (or to
+    // `constructor`'s function), so the assignment escaped the target object and
+    // polluted every object in the process.
+    it('refuses a __proto__ segment instead of polluting Object.prototype', () => {
+        const obj: Record<string, unknown> = {}
+        setAtPath(obj, '__proto__.polluted', 'yes')
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+        expect(obj).toEqual({})
+    })
+
+    it('refuses a constructor.prototype segment', () => {
+        const obj: Record<string, unknown> = {}
+        setAtPath(obj, 'constructor.prototype.polluted', 'yes')
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    })
+
+    it('refuses a prototype segment in an array path', () => {
+        const obj: Record<string, unknown> = {}
+        setAtPath(obj, ['__proto__', 'polluted'], 'yes')
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    })
+
+    it('ignores an empty path instead of throwing', () => {
+        const obj: Record<string, unknown> = {}
+        expect(() => setAtPath(obj, '', 'x')).not.toThrow()
+        expect(obj).toEqual({})
+    })
+
+    // Inherited members other than the three blocked names are just as shared:
+    // writing through `toString` mutated the function every object inherits.
+    it('creates an own property instead of writing through an inherited member', () => {
+        const obj: Record<string, unknown> = {}
+        setAtPath(obj, 'toString.polluted', 'yes')
+        expect(({} as unknown as Record<string, unknown>).polluted).toBeUndefined()
+        expect((obj.toString as unknown as Record<string, unknown>).polluted).toBe('yes')
     })
 })
 
