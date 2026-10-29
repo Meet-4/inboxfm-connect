@@ -169,7 +169,6 @@ export const rescheduleAppointment = createAction({
       },
       body: formData,
     });
-    console.log(auth.access_token)
     const responseBody = response.body.response;
     if (responseBody.status !== 'success') {
       throw new Error(
