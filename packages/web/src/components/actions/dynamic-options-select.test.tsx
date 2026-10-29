@@ -1,4 +1,4 @@
-import { act } from 'react'
+import { act, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -239,4 +239,73 @@ describe('DynamicOptionsSelect', () => {
     )
     await waitFor(() => container.textContent?.includes('vedlabs/inboxfm') === true)
   }, 15000)
+
+  it('refetches options when the input they depend on changes', async () => {
+    const { requests } = stubApi([
+      {
+        match: (url) => url.pathname === '/api/v1/integrations/options',
+        respond: (_url, _method, body) => {
+          const parent = (body as { input?: { spreadsheetId?: string } })?.input?.spreadsheetId
+          return {
+            status: 200,
+            body: {
+              options:
+                parent === 'sheet_2'
+                  ? [{ label: 'Tab of the second sheet', value: 'tab_b' }]
+                  : [{ label: 'Tab of the first sheet', value: 'tab_a' }],
+            },
+          }
+        },
+      },
+    ])
+
+    function ParentDrivenSelect() {
+      const [spreadsheetId, setSpreadsheetId] = useState('sheet_1')
+      return (
+        <div>
+          <button type="button" data-testid="switch-parent" onClick={() => setSpreadsheetId('sheet_2')}>
+            switch
+          </button>
+          <DynamicOptionsSelect
+            pieceName="google-sheets"
+            pieceVersion="0.1.0"
+            actionOrTriggerName="readRows"
+            propertyName="worksheet"
+            getInput={() => ({ spreadsheetId })}
+            value=""
+            onChange={() => undefined}
+            id="prop-worksheet"
+          />
+        </div>
+      )
+    }
+
+    const queryClient = createTestQueryClient()
+    const container = mount(
+      <QueryClientProvider client={queryClient}>
+        <ParentDrivenSelect />
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => container.textContent?.includes('Tab of the first sheet') === true)
+
+    const switchButton = container.querySelector<HTMLButtonElement>('[data-testid="switch-parent"]')
+    expect(switchButton).not.toBeNull()
+    await act(async () => {
+      switchButton?.click()
+    })
+
+    // A stale query key served the first spreadsheet's tabs for the full 2-minute
+    // staleTime, so the form let the user pick and submit a worksheet that belongs
+    // to the spreadsheet they had already replaced.
+    await waitFor(() => container.textContent?.includes('Tab of the second sheet') === true, 5000)
+
+    const posted = requests.filter((request) => request.url.includes('/api/v1/integrations/options'))
+    expect(
+      posted.some(
+        (request) => (request.body as { input?: { spreadsheetId?: string } })?.input?.spreadsheetId === 'sheet_2'
+      )
+    ).toBe(true)
+    expect(container.textContent).not.toContain('Tab of the first sheet')
+  }, 20000)
 })

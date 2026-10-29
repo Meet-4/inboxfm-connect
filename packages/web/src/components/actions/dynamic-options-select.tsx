@@ -10,6 +10,32 @@ import { cn } from '@/lib/utils/cn'
 
 const SEARCH_DEBOUNCE_MS = 300
 
+/**
+ * Signature of every input EXCEPT the property being edited.
+ *
+ * `/v1/integrations/options` is told what the user picked for the other props
+ * (the chosen spreadsheet decides which worksheets exist, the chosen repo decides
+ * which branches exist). Without it in the query key React Query kept serving the
+ * cached list from the previous parent selection for the whole 2-minute staleTime,
+ * so the form offered — and submitted — a resource belonging to a parent the user
+ * had already replaced.
+ */
+function dependentInputSignature(
+  getInput: () => Record<string, unknown>,
+  propertyName: string
+): string {
+  const input = getInput()
+  const entries = Object.keys(input)
+    .filter((key) => key !== propertyName)
+    .sort()
+    .map((key) => [key, input[key]] as const)
+  try {
+    return JSON.stringify(entries)
+  } catch {
+    return ''
+  }
+}
+
 export interface DynamicOptionsSelectProps {
   pieceName: string
   pieceVersion: string
@@ -52,6 +78,12 @@ export function DynamicOptionsSelect({
   const debouncedSearch = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS)
   const inputRef = useRef(getInput)
   inputRef.current = getInput
+  // Debounced like the search term: typing in a sibling text input must not fire
+  // one options request per keystroke for every dependent dropdown on the form.
+  const dependentInput = useDebouncedValue(
+    dependentInputSignature(inputRef.current, propertyName),
+    SEARCH_DEBOUNCE_MS
+  )
 
   // `/v1/integrations/options` is guarded by ProjectResourceType.BODY, so `projectId`
   // must travel in the body — the server never reads the x-project-id header for it.
@@ -66,6 +98,7 @@ export function DynamicOptionsSelect({
       actionOrTriggerName,
       propertyName,
       debouncedSearch,
+      dependentInput,
     ],
     enabled: !disabled,
     retry: false,
