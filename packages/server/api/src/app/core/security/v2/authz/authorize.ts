@@ -81,6 +81,13 @@ async function assertNonEmbedOrAdmin(principal: Principal, log: FastifyBaseLogge
 
 async function assertPlatformIsOwnedByCurrentPrincipal(principal: Principal, log: FastifyBaseLogger): Promise<void> {
     if (principal.type === PrincipalType.SERVICE) {
+        // Only a platform-wide API key may stand in for the platform owner here. A
+        // Connect API key (`cak-`) is minted by a project admin and authenticates as a
+        // SERVICE principal carrying `projectId` (see authenticate.ts); treating it like
+        // the platform's own `sk-` credential let any project admin mint a key and then
+        // rewrite platform-level resources — event destinations, global connections,
+        // platform roles, projects — with it.
+        assertServicePrincipalIsNotProjectScoped(principal)
         return
     }
     const user = await userService(log).getOneOrFail({ id: principal.id })
@@ -92,6 +99,23 @@ async function assertPlatformIsOwnedByCurrentPrincipal(principal: Principal, log
             },
         })
     }
+}
+
+// The companion of `assertServicePrincipalScope` below: that one pins a project-bound
+// SERVICE principal to its own project for PROJECT-scoped routes, this one keeps it out
+// of PLATFORM-scoped routes, where a project binding has no meaning and the only
+// legitimate SERVICE caller is a platform-wide key.
+function assertServicePrincipalIsNotProjectScoped(principal: Principal): void {
+    if (principal.type !== PrincipalType.SERVICE || isNil(principal.projectId)) {
+        return
+    }
+    throw new ActivepiecesError({
+        code: ErrorCode.AUTHORIZATION,
+        params: {
+            message: 'This API key is scoped to a single project and cannot access platform-level resources',
+            projectId: principal.projectId,
+        },
+    })
 }
 
 
