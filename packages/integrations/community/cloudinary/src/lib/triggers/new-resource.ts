@@ -18,6 +18,21 @@ import { makeRequest } from '../common/client';
 import dayjs from 'dayjs';
 
 const props = {
+  resource_type: Property.StaticDropdown({
+    displayName: 'Resource Type',
+    description:
+      'The kind of asset to watch. Cloudinary stores images, videos and raw files in separate collections, so a single poll can only list one of them unless "Any" is selected.',
+    required: false,
+    defaultValue: 'image',
+    options: {
+      options: [
+        { label: 'Image', value: 'image' },
+        { label: 'Video', value: 'video' },
+        { label: 'Raw', value: 'raw' },
+        { label: 'Any (image, video and raw)', value: 'any' },
+      ],
+    },
+  }),
   asset_folder: Property.ShortText({
     displayName: 'Asset Folder',
     description: 'The Cloudinary folder to watch for new resources. Leave empty to watch the entire account.',
@@ -25,18 +40,59 @@ const props = {
   }),
 };
 
+// Cloudinary returns 10 results when max_results is omitted (500 is the documented
+// maximum), so a poll without paging silently loses every upload past the newest ten.
+const PAGE_SIZE = 500;
+const MAX_PAGES = 20;
+
+async function listResources(
+  auth: AppConnectionValueForAuthProperty<typeof cloudinaryAuth>,
+  resourceType: string,
+  folder: string | undefined
+): Promise<any[]> {
+  const endpoint = folder ? '/resources/by_asset_folder' : `/resources/${resourceType}`;
+  const collected: any[] = [];
+  let nextCursor: string | undefined = undefined;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const queryParams: Record<string, string> = {
+      max_results: String(PAGE_SIZE),
+    };
+    if (folder) {
+      queryParams['asset_folder'] = folder;
+    }
+    if (nextCursor) {
+      queryParams['next_cursor'] = nextCursor;
+    }
+
+    const response = await makeRequest(auth, HttpMethod.GET, endpoint, undefined, queryParams);
+    const batch: any[] = response.resources ?? [];
+    collected.push(...batch);
+
+    nextCursor = response.next_cursor;
+    if (!nextCursor || batch.length < PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return collected;
+}
+
 const polling: Polling<AppConnectionValueForAuthProperty<typeof cloudinaryAuth>, StaticPropsValue<typeof props>> = {
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth, propsValue }) => {
-    let endpoint = '/resources/image'; // Default to all resources
-    
-    if (propsValue.asset_folder && propsValue.asset_folder.trim()) {
-      endpoint = `/resources/by_asset_folder?asset_folder=${encodeURIComponent(propsValue.asset_folder.trim())}`;
+    const folder = propsValue.asset_folder?.trim() || undefined;
+    const resourceTypes =
+      !propsValue.resource_type || propsValue.resource_type === 'any'
+        ? ['image', 'video', 'raw']
+        : [propsValue.resource_type];
+
+    const resources: any[] = [];
+    for (const resourceType of resourceTypes) {
+      resources.push(...(await listResources(auth, resourceType, folder)));
     }
-    
-    const resources = await makeRequest(auth, HttpMethod.GET, endpoint);
-    
-    return (resources.resources || []).map((item: any) => ({
+
+    return resources.map((item: any) => ({
       epochMilliSeconds: dayjs(item.created_at).valueOf(),
       data: item,
     }));

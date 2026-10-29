@@ -38,19 +38,40 @@ const props = {
     }),
 };
 
+// Cloudinary caps a page at 500 results and defaults to 10, so any asset outside the
+// newest page was never inspected for tag changes.
+const PAGE_SIZE = 500;
+const MAX_PAGES = 20;
+
 const polling: Polling<AppConnectionValueForAuthProperty<typeof cloudinaryAuth>, StaticPropsValue<typeof props>> = {
     strategy: DedupeStrategy.TIMEBASED,
     items: async ({ auth, propsValue, lastFetchEpochMS }) => {
         const resourceType = propsValue.resource_type || 'image';
         const endpoint = `/resources/${resourceType}`;
-        
-        const queryParams: Record<string, string> = {};
-        if (propsValue.asset_folder && propsValue.asset_folder.trim()) {
-            queryParams['prefix'] = propsValue.asset_folder.trim();
+
+        const items: any[] = [];
+        let nextCursor: string | undefined = undefined;
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+            const queryParams: Record<string, string> = {
+                max_results: String(PAGE_SIZE),
+            };
+            if (propsValue.asset_folder && propsValue.asset_folder.trim()) {
+                queryParams['prefix'] = propsValue.asset_folder.trim();
+            }
+            if (nextCursor) {
+                queryParams['next_cursor'] = nextCursor;
+            }
+
+            const response = await makeRequest(auth, HttpMethod.GET, endpoint, undefined, queryParams);
+            const batch: any[] = response.resources || [];
+            items.push(...batch);
+
+            nextCursor = response.next_cursor;
+            if (!nextCursor || batch.length < PAGE_SIZE) {
+                break;
+            }
         }
-        
-        const response = await makeRequest(auth, HttpMethod.GET, endpoint, undefined, queryParams);
-        const items = response.resources || [];
         
         return items
             .filter((item: any) => {
