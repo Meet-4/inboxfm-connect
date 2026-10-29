@@ -159,6 +159,32 @@ export function sendError(
   })
 }
 
+const TRUTHY_FLAGS = new Set(['1', 'true', 'yes', 'on'])
+
+/**
+ * `/v1/source/compile`, `/v1/ir/validate` and `/v1/ir/execute-local` are documented as
+ * internal-only tooling, but they share the service port with the project-scoped routes.
+ * `execute-local` executes caller-supplied IR and resolves `FLOWSCRIPT_ENV_*` values into
+ * the response (that prefix is the sanctioned way to hand config/secrets to flow runs), so
+ * an unauthenticated caller could read them. They therefore require gateway-verified
+ * identity, with an explicit opt-in for non-production local tooling.
+ */
+export function anonymousInternalEndpointsAllowed(sourceEnv: NodeJS.ProcessEnv = process.env): boolean {
+  const flag = (sourceEnv.FLOWSCRIPT_ALLOW_UNAUTHENTICATED_DEV ?? '').trim().toLowerCase()
+  if (!TRUTHY_FLAGS.has(flag)) return false
+  return (sourceEnv.NODE_ENV ?? '').trim().toLowerCase() !== 'production'
+}
+
+function authorizeInternalRequest(request: FastifyRequest, reply: FastifyReply): boolean {
+  if (anonymousInternalEndpointsAllowed()) return true
+  const auth = verifyProjectIdentity(request)
+  if (!auth.valid || !auth.projectId) {
+    sendError(reply, 401, auth.code ?? 'UNAUTHORIZED', auth.error ?? 'Verified x-project-id header is required from the trusted API gateway')
+    return false
+  }
+  return true
+}
+
 export function buildServer(): FastifyInstance {
   const app = Fastify({
     bodyLimit: 1_048_576,
@@ -229,6 +255,7 @@ export function buildServer(): FastifyInstance {
   }))
 
   app.post('/v1/source/compile', async (request, reply) => {
+    if (!authorizeInternalRequest(request, reply)) return reply
     const body = z.object({ source: z.string().min(1).max(1_000_000) }).safeParse(request.body)
     if (!body.success) return sendError(reply, 400, 'BAD_REQUEST', 'Expected { source: string }', { issues: body.error.issues })
     const result = compileFlowSource(body.data.source)
@@ -247,6 +274,7 @@ export function buildServer(): FastifyInstance {
   })
 
   app.post('/v1/ir/execute-local', async (request, reply) => {
+    if (!authorizeInternalRequest(request, reply)) return reply
     const body = z.object({
       flow: FlowIRSchema,
       input: z.record(z.string(), z.unknown()).optional(),
@@ -623,6 +651,7 @@ export function buildServer(): FastifyInstance {
   })
 
   app.post('/v1/ir/validate', async (request, reply) => {
+    if (!authorizeInternalRequest(request, reply)) return reply
     const result = validateFlowIR(request.body)
     if (!result.valid) {
       return sendError(reply, 400, 'BAD_REQUEST', 'Invalid Flow IR', { valid: false, issues: result.issues })

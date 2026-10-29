@@ -80,6 +80,7 @@ describe('getSafeExecutionEnv', () => {
 
 describe('server endpoints', () => {
   const app = buildServer()
+  const trustedHeaders = { 'x-project-id': 'proj_local', 'x-project-signature': signProjectId('proj_local') }
 
   it('/v1/ir/execute-local isolates server environment secrets', async () => {
     process.env.FLOWSCRIPT_TEST_SECRET = 'leak_me_if_you_can'
@@ -90,6 +91,7 @@ describe('server endpoints', () => {
       const secretResponse = await app.inject({
         method: 'POST',
         url: '/v1/ir/execute-local',
+        headers: trustedHeaders,
         payload: {
           flow: {
             irVersion: 1,
@@ -120,6 +122,7 @@ describe('server endpoints', () => {
       const safeResponse = await app.inject({
         method: 'POST',
         url: '/v1/ir/execute-local',
+        headers: trustedHeaders,
         payload: {
           flow: {
             irVersion: 1,
@@ -160,6 +163,7 @@ describe('server endpoints', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/v1/ir/execute-local',
+      headers: trustedHeaders,
       payload: { flow: base },
     })
     expect(response.statusCode).toBe(501)

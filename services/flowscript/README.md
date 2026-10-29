@@ -80,9 +80,9 @@ Use `--input path.json` to pass structured input. Local run refuses integration 
 
 - `GET /health`
 - `GET /ready`
-- `POST /v1/source/compile` with `{"source":"..."}`
-- `POST /v1/ir/validate`
-- `POST /v1/ir/execute-local` for pure local flows only
+- `POST /v1/source/compile` with `{"source":"..."}` (verified project identity required; `FLOWSCRIPT_ALLOW_UNAUTHENTICATED_DEV=true` for local tooling)
+- `POST /v1/ir/validate` (same identity requirement)
+- `POST /v1/ir/execute-local` for pure local flows only (same identity requirement; resolves `FLOWSCRIPT_ENV_*` values)
 - `POST /v1/flows/publish` with a trusted `x-project-id` header
 - `POST /v1/flows/:name/deploy`
 - `POST /v1/flows/:name/run` (queues pure flows for the worker)

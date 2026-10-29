@@ -9,6 +9,8 @@ Base URL: internal service network, port 8081. These endpoints are not safe to e
 
 ## Compile and validate
 
+All three routes below are internal tooling and require the same verified project identity as the project-scoped routes (`x-project-id` + `x-project-signature`, or a signed Bearer token). `execute-local` resolves `FLOWSCRIPT_ENV_*` values into step output, so anonymous access would disclose them. For local development only, set `FLOWSCRIPT_ALLOW_UNAUTHENTICATED_DEV=true` to skip identity verification; the opt-in is ignored whenever `NODE_ENV=production`.
+
 ### POST /v1/source/compile
 
 Request is a JSON object with a source string. Returns valid=true, hash, IR and diagnostics, or HTTP 422 with path-addressed diagnostics. Source limit is 1 MB.
