@@ -139,9 +139,20 @@ parser.functions.repeat = (s: unknown, count: unknown) => {
     return String(s ?? '').repeat(n)
 }
 parser.functions.reverse = (s: unknown) => [...String(s ?? '')].reverse().join('')
+// Only letters that NFKD decomposes into ASCII survive the [^a-z0-9] strip below;
+// ß, Ø, Æ, Ł, Đ, Þ and friends do not decompose, so they were treated as
+// separators and lost: slug("Straße 5") was "stra-e-5" and slug("Øre") was "re"
+// — distinct titles collapsing onto one URL key. Fold those letters explicitly
+// before decomposing. (Non-Latin scripts are still dropped; transliterating
+// Cyrillic/CJK is a separate, much larger table.)
+const LATIN_LETTER_FOLDS: Record<string, string> = {
+    'ß': 'ss', 'æ': 'ae', 'œ': 'oe', 'ø': 'o', 'đ': 'd', 'ð': 'd', 'þ': 'th',
+    'ł': 'l', 'ı': 'i', 'ħ': 'h', 'ŋ': 'n', 'ŧ': 't', 'ĳ': 'ij', 'ſ': 's',
+}
 parser.functions.slug = (s: unknown) =>
     String(s ?? '')
         .toLowerCase()
+        .replace(/[ßæœøđðþłıħŋŧĳſ]/g, (letter) => LATIN_LETTER_FOLDS[letter] ?? letter)
         .normalize('NFKD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
