@@ -235,6 +235,13 @@ export const triggerHelper = {
                 }
                 return triggerRunResult
             }
+            // A hook type outside this enum cannot be dispatched. Falling out of the
+            // switch used to return `undefined`, which triggerHookOperation wrapped as a
+            // successful OK response — the caller believed the trigger was enabled,
+            // disabled or renewed while nothing ran.
+            default: {
+                throw new EngineGenericError('InvalidTriggerHookTypeError', `Unknown trigger hook type: ${String(params.hookType)}`)
+            }
         }
     },
 }
