@@ -9,7 +9,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { SharedV3ProviderOptions } from '@ai-sdk/provider'
 import { createOpenRouter, OpenRouterChatSettings } from '@openrouter/ai-sdk-provider'
 import { LanguageModel, ModelMessage, SystemModelMessage, ToolSet } from 'ai'
-import { parseAllowListFromEnv } from './safe-http'
+import { parseAllowListFromEnv, safeHttp } from './safe-http'
 
 const MAX_WEB_SEARCH_RESULTS = 5
 
@@ -60,6 +60,13 @@ function openRouterModelSettings(provider: AIProviderName, webSearchEnabled: boo
 // the key and hand the response back to the caller, so the host is checked here as well as in the
 // config schema — this also covers rows persisted before the schema was tightened. Private hosts
 // stay usable for self-hosted gateways via AP_SSRF_ALLOW_LIST, the same escape hatch safeHttp offers.
+//
+// The check above can only judge what the URL spells out: `isBlockedOutboundHost` deliberately lets
+// DNS names through, because a name's address is only knowable at connect time. That deferral is
+// only sound if the request really is made by the SSRF-filtered agent — so the provider below is
+// built with `safeHttp.createSafeFetch()` instead of the SDK's default `globalThis.fetch`, which
+// would resolve the name itself and reach any private/loopback/metadata address a public-looking
+// hostname points at.
 function assertCustomProviderEgressAllowed({ baseUrl }: { baseUrl: string }): void {
     const { data: url } = tryCatchSync(() => new URL(baseUrl))
     const isBlocked = isNil(url)
@@ -129,6 +136,9 @@ function createChatModel({ provider, auth, config, modelId, webSearchEnabled = f
                     ...(defaultHeaders ?? {}),
                     [apiKeyHeader]: apiKey,
                 },
+                // Per-request egress filtering: the SDK resolves baseUrl itself with the
+                // global fetch, so without this every hostname target bypasses the guard.
+                fetch: safeHttp.createSafeFetch(),
             }).chatModel(modelId)
         }
         case AIProviderName.MISTRAL:

@@ -35,6 +35,96 @@ function buildAgents({ allowList, httpAgentOptions, httpsAgentOptions }: BuildAg
     }
 }
 
+/**
+ * `fetch`-shaped adapter over the SSRF-filtered axios client.
+ *
+ * Third-party SDKs that speak the WHATWG `fetch` API (AI SDK providers, the MCP client
+ * transport) default to `globalThis.fetch`, which has no SSRF filtering at all. Handing
+ * them the global fetch therefore silently opts that code path out of the guard: a
+ * hostname is only judged at connect time by the egress agent, so a name that resolves
+ * to a private/loopback/metadata address reaches it unchecked. Routing those SDKs
+ * through this adapter keeps the resolution inside `request-filtering-agent`, where the
+ * peer address is checked on every request (including each redirect hop).
+ */
+function createSafeFetch(fetchOptions: SafeFetchOptions = {}): SafeFetchFn {
+    const client = createAxios({
+        timeout: fetchOptions.timeoutMs ?? DEFAULT_SAFE_FETCH_TIMEOUT_MS,
+        maxContentLength: fetchOptions.maxResponseBytes ?? DEFAULT_SAFE_FETCH_MAX_BYTES,
+        maxBodyLength: fetchOptions.maxResponseBytes ?? DEFAULT_SAFE_FETCH_MAX_BYTES,
+        responseType: 'arraybuffer',
+        validateStatus: () => true,
+    })
+    return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const response = await client.request<ArrayBuffer>({
+            url: resolveFetchUrl(input),
+            method: init?.method ?? 'GET',
+            headers: collectFetchHeaders(input, init),
+            data: init?.body ?? undefined,
+            signal: init?.signal ?? undefined,
+            responseType: 'arraybuffer',
+            validateStatus: () => true,
+        })
+        // axios already transparently decoded any content-encoding; forwarding the header
+        // (or the pre-decoding content-length) would make the consumer decode twice or
+        // truncate the body it reads.
+        const headers = new Headers(normalizeResponseHeaders(response.headers as Record<string, unknown>))
+        headers.delete('content-encoding')
+        headers.delete('content-length')
+        headers.delete('transfer-encoding')
+        return new Response(response.data, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+        })
+    }
+}
+
+function resolveFetchUrl(input: string | URL | Request): string {
+    if (typeof input === 'string') return input
+    if (input instanceof URL) return input.toString()
+    return input.url
+}
+
+function collectFetchHeaders(input: string | URL | Request, init?: RequestInit): Record<string, string> {
+    const headers: Record<string, string> = {}
+    if (input instanceof Request) {
+        input.headers.forEach((value, key) => {
+            headers[key] = value
+        })
+    }
+    const initHeaders = init?.headers
+    if (initHeaders instanceof Headers) {
+        initHeaders.forEach((value, key) => {
+            headers[key] = value
+        })
+    }
+    else if (Array.isArray(initHeaders)) {
+        for (const [key, value] of initHeaders) {
+            headers[key] = value
+        }
+    }
+    else if (initHeaders !== undefined) {
+        Object.assign(headers, initHeaders)
+    }
+    return headers
+}
+
+function normalizeResponseHeaders(headers: Record<string, unknown>): Record<string, string> {
+    const normalized: Record<string, string> = {}
+    for (const [key, value] of Object.entries(headers)) {
+        if (typeof value === 'string') {
+            normalized[key] = value
+        }
+        else if (typeof value === 'number' || typeof value === 'boolean') {
+            normalized[key] = String(value)
+        }
+        else if (Array.isArray(value)) {
+            normalized[key] = value.map(String).join(', ')
+        }
+    }
+    return normalized
+}
+
 function isSsrfFilterError(error: unknown): boolean {
     if (!(error instanceof Error)) return false
     const message = typeof error.message === 'string' ? error.message : ''
@@ -59,6 +149,10 @@ function attachSsrfErrorInterceptor(instance: AxiosInstance): AxiosInstance {
 // upstream. Bound that here with a conservative default; an explicit caller
 // value still wins because ...config spreads after it.
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+// Same ceilings the hand-rolled guarded fetch adapters in the api package used, so moving
+// an SDK onto this helper cannot quietly widen its response budget.
+const DEFAULT_SAFE_FETCH_TIMEOUT_MS = 30_000
+const DEFAULT_SAFE_FETCH_MAX_BYTES = 10 * 1024 * 1024
 
 function createAxios(config?: AxiosRequestConfig, { httpAgentOptions, httpsAgentOptions }: SafeAxiosOptions = {}): AxiosInstance {
     const { httpAgent, httpsAgent } = buildAgents({
@@ -95,6 +189,7 @@ export const safeHttp = {
     buildAgents,
     createAxios,
     createRetryingAxios,
+    createSafeFetch,
     get axios(): AxiosInstance {
         lazyDefaultAxios ??= createAxios()
         return lazyDefaultAxios
@@ -112,7 +207,14 @@ export type SsrfAgents = {
 
 export type SafeAxiosOptions = {
     httpAgentOptions?: http.AgentOptions
-    httpsAgentOptions?: https.AgentOptions
+    httpsAgentOptions?: http.AgentOptions
+}
+
+export type SafeFetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+
+export type SafeFetchOptions = {
+    timeoutMs?: number
+    maxResponseBytes?: number
 }
 
 type BuildAgentsParams = {
