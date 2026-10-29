@@ -121,6 +121,43 @@ export async function executeFlowIR(
   if (ir.steps.length > maxSteps) throw new Error(`Flow exceeds maximum step count (${maxSteps})`)
   const context = (): StepContext => ({ input, trigger, outputs, env: options.env ?? {} })
 
+  /**
+   * Persist a step-attempt record without letting the audit write decide the run
+   * outcome. These callbacks run *after* the step body, so a failed record write
+   * (DB hiccup, pool exhaustion) used to be caught by the step's own catch block:
+   * a step whose side effect had already happened was reported as failed, its
+   * output was dropped, and integration steps could be retried into a duplicate
+   * side effect. Log the loss instead and keep the step result truthful.
+   */
+  const recordAttemptFinish = async (
+    stepId: string,
+    attempt: number,
+    attemptId: string | void,
+    details: {
+      status: 'succeeded' | 'failed'
+      errorCode?: string
+      errorMessage?: string
+      retryable?: boolean
+      durationMs: number
+    },
+  ): Promise<void> => {
+    const finish = options.onStepAttemptFinish
+    if (!finish) return
+    try {
+      await finish(attemptId, details)
+    } catch (recordError) {
+      console.warn(JSON.stringify({
+        event: 'step_attempt_record_failed',
+        stepId,
+        attempt,
+        attemptId: typeof attemptId === 'string' ? attemptId : null,
+        stepStatus: details.status,
+        error: recordError instanceof Error ? recordError.message : String(recordError),
+        note: 'Step attempt audit row was not persisted; run outcome is unaffected',
+      }))
+    }
+  }
+
   const orderedSteps = topologicallySortSteps(ir.steps)
   for (const step of orderedSteps) {
     if (options.signal?.aborted) {
@@ -209,7 +246,7 @@ export async function executeFlowIR(
         completed.add(step.id)
 
         if (options.onStepAttemptFinish) {
-          await options.onStepAttemptFinish(attemptId, {
+          await recordAttemptFinish(step.id, attempt, attemptId, {
             status: 'succeeded',
             durationMs: Date.now() - attemptStart,
           })
@@ -243,7 +280,7 @@ export async function executeFlowIR(
         }
 
         if (options.onStepAttemptFinish) {
-          await options.onStepAttemptFinish(attemptId, {
+          await recordAttemptFinish(step.id, attempt, attemptId, {
             status: 'failed',
             errorCode: lastErrorCode,
             errorMessage: sanitizedError,

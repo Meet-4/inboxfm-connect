@@ -27,6 +27,7 @@ Persisted statuses are `queued`, `running`, `succeeded`, `failed`, `cancelled`, 
 - Steps are evaluated in declared topological order with full dependency validation.
 - Every step attempt is recorded in `flowscript_step_attempts` with `attempt`, `status` (`running`, `succeeded`, `failed`, `skipped`), `started_at`, `finished_at`, `duration_ms`, structured `error_code`, and sanitized/redacted `error_message`.
 - Step attempts history is queryable via `GET /v1/runs/:id/attempts`.
+- Attempt tracking is best-effort: the record is written after the step body runs, so a failed record write is logged (`step_attempt_record_failed`) instead of being reported as a step failure. Run outcomes never depend on the audit write.
 - Timeouts and cancellations propagate via standard `AbortSignal`. Worker heartbeat monitors run status; if cancellation or lease loss is detected, the run aborts immediately.
 
 ## Connect integration adapter contract
