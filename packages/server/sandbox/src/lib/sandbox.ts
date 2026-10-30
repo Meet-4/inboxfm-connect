@@ -48,7 +48,7 @@ export function createSandboxRuntime({ concurrency = 1, basePath, getSettings }:
             }
 
             const execute = async (): Promise<RuntimeExecutionResult> => {
-                const sandbox = manager.acquire({ log })
+                const sandbox = await manager.acquire({ log })
 
                 const provisionStartedAt = Date.now()
                 const { error: provisionError } = await tryCatch(() => localExecutionCache(log, basePath, getSettings).provision({

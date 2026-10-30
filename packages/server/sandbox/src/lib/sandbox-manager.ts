@@ -9,15 +9,24 @@ export function createSandboxManager({ boxId, basePath, getSettings }: { boxId: 
     let currentSandbox: Sandbox | null = null
 
     return {
-        acquire(params: { log: ApLogger }): Sandbox {
+        async acquire(params: { log: ApLogger }): Promise<Sandbox> {
             if (canReuseSandbox(getSettings) && currentSandbox && currentSandbox.isReady()) {
                 return currentSandbox
             }
             if (currentSandbox) {
                 params.log.info('Sandbox not ready or not reusable, creating fresh one')
-                currentSandbox.shutdown().catch((err) =>
-                    params.log.error({ error: err }, 'Error shutting down previous sandbox'),
-                )
+                // The replacement gets the SAME box-id, so the previous sandbox
+                // must be fully torn down first: a fire-and-forget kill races
+                // the new box's --cleanup/--init (isolate box lock held by the
+                // dying process → spawn failures) and leaves the old ws server
+                // holding the box's fixed port. Shutdown errors are logged,
+                // not thrown — a dead box must never block the replacement.
+                try {
+                    await currentSandbox.shutdown()
+                }
+                catch (err) {
+                    params.log.error({ error: err }, 'Error shutting down previous sandbox')
+                }
             }
             currentSandbox = createSandboxForJob({ ...params, boxId, reusable: canReuseSandbox(getSettings), basePath, getSettings })
             return currentSandbox
@@ -79,7 +88,7 @@ export type ActiveSandboxInfo = {
 }
 
 export type SandboxManager = {
-    acquire(params: { log: ApLogger }): Sandbox
+    acquire(params: { log: ApLogger }): Promise<Sandbox>
     invalidate(log: ApLogger): Promise<void>
     release(log: ApLogger): Promise<void>
     shutdown(log: ApLogger): Promise<void>

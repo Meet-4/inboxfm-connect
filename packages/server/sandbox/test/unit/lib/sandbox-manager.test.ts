@@ -61,13 +61,13 @@ describe('sandbox-manager canReuseSandbox', () => {
         })
 
         const manager = createSandboxManager({ boxId: 1, basePath: '/tmp', getSettings: () => settings })
-        manager.acquire({ log })
+        await manager.acquire({ log })
         await manager.release(log)
 
         const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
         expect(createSandboxForJob).toHaveBeenCalledTimes(1)
 
-        manager.acquire({ log })
+        await manager.acquire({ log })
         expect(createSandboxForJob).toHaveBeenCalledTimes(2)
     })
 
@@ -82,7 +82,7 @@ describe('sandbox-manager canReuseSandbox', () => {
         await manager.release(log)
 
         const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
-        manager.acquire({ log })
+        await manager.acquire({ log })
         expect(createSandboxForJob).toHaveBeenCalledTimes(2)
     })
 
@@ -97,7 +97,7 @@ describe('sandbox-manager canReuseSandbox', () => {
         await manager.release(log)
 
         const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
-        manager.acquire({ log })
+        await manager.acquire({ log })
         expect(createSandboxForJob).toHaveBeenCalledTimes(1)
     })
 
@@ -108,11 +108,11 @@ describe('sandbox-manager canReuseSandbox', () => {
         })
 
         const manager = createSandboxManager({ boxId: 1, basePath: '/tmp', getSettings: () => settings })
-        manager.acquire({ log })
+        await manager.acquire({ log })
         await manager.release(log)
 
         const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
-        manager.acquire({ log })
+        await manager.acquire({ log })
         expect(createSandboxForJob).toHaveBeenCalledTimes(1)
     })
 
@@ -123,11 +123,68 @@ describe('sandbox-manager canReuseSandbox', () => {
         })
 
         const manager = createSandboxManager({ boxId: 1, basePath: '/tmp', getSettings: () => settings })
-        manager.acquire({ log })
+        await manager.acquire({ log })
         await manager.release(log)
 
         const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
-        manager.acquire({ log })
+        await manager.acquire({ log })
         expect(createSandboxForJob).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('sandbox-manager acquire replacement', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('awaits the previous sandbox shutdown before creating a replacement (no kill-race on the same box)', async () => {
+        const settings = buildSettings({
+            executionMode: ExecutionMode.SANDBOX_PROCESS,
+            environment: ApEnvironment.PRODUCTION,
+        })
+
+        const events: string[] = []
+        let releaseShutdown: (() => void) | null = null
+        const slowShutdown = new Promise<void>((resolve) => {
+            releaseShutdown = resolve
+        })
+
+        const { createSandboxForJob } = await import('../../../src/lib/create-sandbox-for-job')
+        vi.mocked(createSandboxForJob)
+            // First sandbox: not ready anymore (e.g. crashed between runs).
+            .mockImplementationOnce(() => ({
+                isReady: () => false,
+                shutdown: vi.fn(() => {
+                    events.push('shutdown-start')
+                    return slowShutdown.then(() => events.push('shutdown-end'))
+                }),
+            }) as never)
+            // Replacement sandbox: record the exact moment it is created.
+            .mockImplementationOnce(() => {
+                events.push('sandbox-created')
+                return {
+                    isReady: () => true,
+                    shutdown: vi.fn().mockResolvedValue(undefined),
+                } as never
+            })
+
+        const manager = createSandboxManager({ boxId: 1, basePath: '/tmp', getSettings: () => settings })
+        await manager.acquire({ log })
+
+        // Second acquire sees the dead sandbox and must replace it — but only
+        // after the old one (same isolate box-id!) has fully shut down.
+        const secondAcquire = manager.acquire({ log })
+        await new Promise((resolve) => setImmediate(resolve))
+
+        // Let the in-flight shutdown complete, then collect the acquire.
+        releaseShutdown!()
+        await secondAcquire
+
+        // The replacement may only be created once the previous sandbox's
+        // process tree is confirmed dead: both share one isolate box-id, so a
+        // replacement racing the kill re-inits/cleans the box underneath a
+        // still-running old process (box lock contention → transient run
+        // failures) and re-binds the box's fixed ws port under the old server.
+        expect(events).toEqual(['shutdown-start', 'shutdown-end', 'sandbox-created'])
     })
 })
