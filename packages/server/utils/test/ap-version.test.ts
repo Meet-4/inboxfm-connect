@@ -1,6 +1,7 @@
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let tempDir: string
 let originalCwd: string
@@ -90,5 +91,52 @@ describe('apVersionUtil.versionsAreCompatible', () => {
     it('returns false when both sides are 0.0.0 (both failed to read)', async () => {
         const apVersionUtil = await loadApVersionUtil()
         expect(apVersionUtil.versionsAreCompatible({ versionA: '0.0.0', versionB: '0.0.0' })).toBe(false)
+    })
+})
+
+// getLatestRelease performs an outbound HTTP request via safeHttp — mock the
+// axios instance it builds so the suite never touches the network and every
+// response shape (including the failure modes) is deterministic.
+const safeHttpMock = vi.hoisted(() => ({
+    get: vi.fn(),
+}))
+
+vi.mock('../src/safe-http', () => ({
+    safeHttp: {
+        createAxios: vi.fn(() => ({ get: safeHttpMock.get })),
+    },
+}))
+
+describe('apVersionUtil.getLatestRelease', () => {
+    beforeEach(() => {
+        safeHttpMock.get.mockReset()
+    })
+
+    it('returns the version from a successful JSON response', async () => {
+        safeHttpMock.get.mockResolvedValue({ status: 200, data: { version: '0.20.0' } })
+        const apVersionUtil = await loadApVersionUtil()
+        await expect(apVersionUtil.getLatestRelease()).resolves.toBe('0.20.0')
+    })
+
+    it('falls back to the 0.0.0 sentinel on a 404 text response', async () => {
+        // validateStatus: () => true means 404 resolves instead of throwing, and
+        // the 404 body from raw.githubusercontent is plain text — reading
+        // `.version` off it yields undefined, violating the Promise<string>
+        // contract and rendering a missing latestVersion in the health payload.
+        safeHttpMock.get.mockResolvedValue({ status: 404, data: '404: Not Found' })
+        const apVersionUtil = await loadApVersionUtil()
+        await expect(apVersionUtil.getLatestRelease()).resolves.toBe('0.0.0')
+    })
+
+    it('falls back to the 0.0.0 sentinel when the body has no string version', async () => {
+        safeHttpMock.get.mockResolvedValue({ status: 200, data: { name: 'activepieces' } })
+        const apVersionUtil = await loadApVersionUtil()
+        await expect(apVersionUtil.getLatestRelease()).resolves.toBe('0.0.0')
+    })
+
+    it('falls back to the 0.0.0 sentinel when the request throws', async () => {
+        safeHttpMock.get.mockRejectedValue(new Error('network offline'))
+        const apVersionUtil = await loadApVersionUtil()
+        await expect(apVersionUtil.getLatestRelease()).resolves.toBe('0.0.0')
     })
 })

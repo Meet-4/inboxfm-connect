@@ -42,7 +42,14 @@ export const apVersionUtil = {
                     timeout: 5000,
                 },
             )
-            const data = response.data as PackageJson
+            // validateStatus: () => true means 404s/rate-limits resolve instead
+            // of throwing, and the failure bodies are plain text with no
+            // `.version` — return the read-failure sentinel so the health
+            // payload's latestVersion stays a string.
+            const data = response.data as PackageJson | undefined
+            if (typeof data?.version !== 'string' || data.version.length === 0) {
+                return UNKNOWN_VERSION
+            }
             return data.version
         }
         catch (ex) {
