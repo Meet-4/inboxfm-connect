@@ -19,6 +19,9 @@ export const youformAuth = PieceAuth.SecretText({
           type: AuthenticationType.BEARER_TOKEN,
           token: auth,
         },
+        // Unauthenticated requests to Youform's API redirect (302) to the
+        // login page; following it would land on a 200 and accept any token.
+        followRedirects: false,
       });
       return {
         valid: true,
