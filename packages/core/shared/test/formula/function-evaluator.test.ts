@@ -723,8 +723,15 @@ describe('implicit string quoting', () => {
     it('combine with quoted space separator still works', () =>
         expect(result('combine(John;Smith;" ")')).toBe('John Smith'))
 
-    it('combine preserves spaces typed inside an arg', () =>
-        expect(result('combine(hello;    world)')).toBe('hello    world'))
+    it('incidental spacing around a bare arg is not part of the value', () => {
+        // The reference documents `combine(John; Smith; " ")` → `John Smith`
+        // and `prefix(10042; ORD-)` → `ORD-10042`: the space after `;` is
+        // separator styling, not data. Whitespace the user actually wants
+        // must be quoted — `combine("hello";"    world")` keeps its spaces.
+        expect(result('combine(John; Smith; " ")')).toBe('John Smith')
+        expect(result('prefix(10042; ORD-)')).toBe('ORD-10042')
+        expect(result('combine("hello";"    world")')).toBe('hello    world')
+    })
 
     it('replace without quotes on search and replacement', () =>
         expect(result('replace(hello world;world;there)')).toBe('hello there'))
