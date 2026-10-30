@@ -168,6 +168,7 @@ run data is kept. The **Cloud** values and how these interact are covered in
 | `AP_ISSUE_ARCHIVE_DAYS` | Issues not updated for this many days are automatically archived. | `7` |
 | `AP_MAX_FILE_SIZE_MB` | Maximum size (MB) for files uploaded in steps or triggers. Larger files are rejected. | `25` |
 | `AP_MAX_FLOW_RUN_LOG_SIZE_MB` | Declared cap (MB) for the combined size of a run's step inputs and outputs. Currently **unenforced**: no execution path in this codebase checks it, and a run never ends with `LOG_SIZE_EXCEEDED`. See [Limits → Files & flow run logs](/install/reference/limits#files-flow-run-logs). | `50` |
+| `AP_FLOW_RUN_LOG_INPUT_TRUNCATE_THRESHOLD_KB` | Step-input fields larger than this (KB) are replaced in the run log with a `(truncated, original size …)` marker, keeping logs readable when a step receives a huge payload. Read by the engine at startup; non-numeric values fall back to the default. | `2` |
 | `AP_MAX_WEBHOOK_PAYLOAD_SIZE_MB` | Maximum incoming webhook payload size (MB). Larger payloads are rejected with HTTP 413. | `25` |
 | `AP_WEBHOOK_PAYLOAD_INLINE_THRESHOLD_KB` | Webhook payloads below this (KB) are stored inline in Redis; larger ones are offloaded to file storage to protect Redis memory. | `512` |
 | `AP_WEBHOOK_TIMEOUT_SECONDS` | Default timeout for synchronous webhooks. Maximum 15 minutes; note Cloudflare caps it at 30 seconds. | `30` |

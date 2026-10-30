@@ -48,6 +48,8 @@ Please note that "docker-compose" (with a dash) is an outdated version of Docker
 docker compose -p inboxfm-connect up
 ```
 
+Once the stack is up, the proxy (nginx) publishes the whole app on **http://localhost:8080** — open that in your browser. (The app container itself listens on 80 behind the proxy; the FlowScript service is internal on 8081.)
+
 ## 4. Configure Webhook URL (Important for Triggers, Optional If you have public IP)
 
 **Note:** By default, Inboxfm Connect will try to use your public IP for webhooks. If you are self-hosting on a personal machine, you must configure the frontend URL so that the webhook is accessible from the internet.
