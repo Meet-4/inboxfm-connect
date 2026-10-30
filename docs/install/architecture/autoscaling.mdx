@@ -1,42 +1,60 @@
 ---
 title: "Autoscaling"
-description: "Measured numbers for scaling the worker fleet: pod boot time, image pull, node provisioning, and graceful drain"
+description: "What scaling means when execution runs in-process: capacity is app replicas, admission control is 429s, and nothing is held in a queue"
 icon: "arrows-up-down"
 ---
 
-Workers are the unit you scale — one worker runs one flow at a time ([Production Setup](/install/configure-operate/production-setup)). This page gives the **measured** answers autoscaling decisions hang on: how fast new capacity arrives, and whether removing it is safe.
+Execution in this codebase is **synchronous and in-process**: every operation — `POST /v1/execute`, MCP tool calls, piece property loading, auth refresh, trigger hooks — runs inside the app container, against a fixed pool of sandboxed engine processes. There is no execution queue and no worker tier to scale ([Workers](/install/architecture/workers), [Separate Workers](/install/configure-operate/separate-workers)).
+
+That changes what autoscaling means here. You scale **app replicas** (`AP_CONTAINER_TYPE=APP`, or the default `WORKER_AND_APP`), and capacity is simply "more replicas serving synchronous HTTP".
 
 <Note>
-**Scope:** the recommended production shape (`SANDBOX_CODE_ONLY`, `AP_REUSE_SANDBOX=true`, one flow per worker at 0.5 vCPU / 1 GB), measured on GKE with the cluster autoscaler. Other platforms differ mainly in node-provisioning time.
+**Scope:** the unified image in this repository. Scaling replicas of `AP_CONTAINER_TYPE=WORKER` adds no capacity — a `WORKER` container registers only the health routes; every execution-bearing module is gated on the app role.
 </Note>
+
+## The unit of capacity: one app replica
+
+Each app replica owns its own, in-process:
+
+- **Sandbox pool for interactive operations** — a fixed pool of ten sandbox "boxes" (`user-interaction-watcher.ts` routes property loads, auth validation, trigger hooks, and piece metadata round-robin across them; each box runs one operation at a time).
+- **Sandbox for tool executions** — `POST /v1/execute` and the MCP `ap_run_action` tool run against a single-box runtime (`packages/runtime`), one tool execution at a time per replica.
+
+The pool sizes are fixed in code — they are not tunable knobs. A replica's ceiling is its pools plus its CPU, and past that ceiling requests are **rejected, not queued** (see below).
 
 ## How fast capacity arrives
 
-<img src="/resources/diagrams/autoscaling-capacity-arrival.png" alt="Capacity arrival timeline: a warm node (room in the cluster, image cached) has a worker polling for jobs in ~5 s; a new node (cluster autoscaler adds a VM) takes ~87 s, dominated by ~60 s node provisioning and a ~24 s image pull" />
+A new replica is useful as soon as it is serving HTTP. What happens on the way:
 
-| Path | Ready to take jobs |
-|---|---|
-| **Warm node** — cluster has room, image cached | **~5 s** |
-| **New node** — cluster autoscaler adds a VM | **~85–90 s** |
+1. **Pod scheduling + image pull** — the orchestrator starts the container; this dominates cold-start scenarios and is ordinary Kubernetes/Docker behavior, not application behavior.
+2. **Process boot** — the API registers its routes and connects to Postgres/Redis.
+3. **Lazy sandbox builds** — nothing pre-builds. The first execution on a replica provisions its pieces into the local on-disk cache and forks the engine; later executions reuse both while the sandbox stays warm.
 
-Measured from the scale command to the worker polling for jobs (workers have no readiness probe — pod `Ready` only means the container started). The worker's own boot is ~3–5 s on both paths; node provisioning and the image pull are the difference.
+We do not publish numbers for these phases: prior figures on this page were measured against the retired queue-and-worker-fleet model and say nothing about this architecture. For current measurement methodology, see [Benchmark](/install/architecture/benchmark).
 
-The worker image is **126 MB** compressed — a single pre-bundled `worker.js` with no `node_modules` — precisely because the pull sits on this critical path (the app image, which you scale rarely, is 551 MB). Keep it in a **same-region registry**; the pull times above include cross-region transfer.
+## Scaling down is graceful — but nothing holds your work
 
-A new worker's first flow pays the one-time [cold start](/install/architecture/latency) (~2–3 s, piece install + engine boot); its second run is already warm.
+On `SIGTERM`/`SIGINT` the app stops accepting new requests and closes the HTTP server, letting in-flight requests finish, then exits. Because execution is synchronous and there is no queue:
 
-## Scaling down is safe
+- Requests that complete before the process exits succeed.
+- Any execution still running when the process exits is **lost to its caller** — the client sees a connection error and is expected to retry.
 
-<img src="/resources/diagrams/autoscaling-drain.png" alt="Drain timeline: a worker pod deleted under load finishes its in-flight run in 0.42 s, exits at 0.49 s, and is gone in 1.7 s — 747/747 requests returned 200 and zero runs failed" />
+There is no drain window to respect beyond your orchestrator's termination grace period: give slow executions enough grace to finish, or front them with a retrying client. Kubernetes' default 30 s period is shorter than the maximum time an execution may legally take (see [Latency](/install/architecture/latency) for the timeout budget).
 
-On `SIGTERM` the worker stops polling, finishes its in-flight flow, and exits (forced exit only after 30 s, matching Kubernetes' default grace period). Deleting a busy pod mid-load lost nothing: every request returned 200 and the flow-runs API showed zero failures. Runs that would have landed on the draining worker stay queued in Redis and drain to the remaining fleet.
+## Saturation is signaled with 429s, not backlog
 
-## When to autoscale — and when not to
+When a replica's pools are busy or a project is over its cap, the platform does not stash work for later. Two admission controls reject immediately:
 
-- **Async and scheduled workloads: autoscale freely.** Scale-up lag just shifts the backlog curve; scale on queue depth or worker CPU. Add the HPA's own reaction time (typically 15–60 s) in front of both paths above.
-- **Synchronous webhooks: size statically for peak.** A burst that needs a *new node* (~90 s) blows the 30 s sync budget before capacity arrives — hence [Production Setup](/install/configure-operate/production-setup#sizing)'s pre-sized fleet. Keep **min replicas ≥ your sync peak** and let the autoscaler own the burst headroom above it.
-- **Scale-down is free.** Drain is sub-second and lossless, so aggressive scale-down policies don't risk runs.
+- **Per-project execution concurrency limit** — an atomic Redis-backed counter admits up to `AP_PROJECT_EXECUTION_CONCURRENCY_LIMIT` (default 5) concurrent executions per project when the limiter is enabled; over-limit requests get `HTTP 429` with a `Retry-After` header. See [Manage Concurrency](/admin-guide/guides/manage-concurrency).
+- **Sync-tier rate limit** — `POST /v1/execute` is rate-limited per project (`AP_API_RATE_LIMIT_SYNC_MAX`, default 60 per `AP_API_RATE_LIMIT_SYNC_WINDOW`, default 1 minute; disable with `AP_API_RATE_LIMIT_SYNC_ENABLED=false`).
 
-## How this was measured
+Scale on what these produce: replica CPU, request rate, and the 429 rate. There is no queue depth to alert on, because there is no queue.
 
-GKE standard, `e2-standard-4` with the cluster autoscaler (2–5 nodes), Inboxfm Connect 0.85. Scale-ups timed from `kubectl scale` to the worker's "polling for jobs" log line via pod events and worker logs (7 warm samples, 4.6–5.0 s; new-node path timed end-to-end); drain timed from `kubectl delete pod` under `hey` load with server-side run statuses verified. Full methodology and raw logs: `benchmark/EXPERIMENTS.md` (Experiment 2) and `benchmark/data/autoscaling-2026-07-02/` in the repo. Throughput and latency for the same shape: [Benchmark](/install/architecture/benchmark), [Latency](/install/architecture/latency).
+## Scheduled work survives restarts, runs in-process
+
+Scheduled tasks are rows in Postgres fired by an in-process cron scheduler. On boot, each app replica re-registers the enabled schedules from the database, so scaling up does not duplicate them and restarts do not lose them. They are not queued work: a schedule fires as an in-process operation, and a fire time that passes with no replica running is **skipped, not caught up** — registration always computes the next occurrence from the present, so the schedule resumes with the next occurrence after boot.
+
+## What to autoscale — and when not to
+
+- **Tool executions (`POST /v1/execute`, MCP):** these are synchronous request/response calls. Autoscaling app replicas helps a growing *rate*; it cannot help a single slow execution. Size replicas for sustained rate, and set per-project concurrency caps to keep one project from consuming every box.
+- **Bursty clients:** because over-capacity requests are rejected with `Retry-After`, clients must retry — an autoscaler reacting to 429s only helps if the load persists. For spiky synchronous load, prefer client-side rate shaping over elastic capacity.
+- **Scale-down risk is caller-visible:** taking replicas away during load turns in-flight executions into client errors. Scale down when traffic is low, not merely when average CPU is low.

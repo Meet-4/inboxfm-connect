@@ -1,74 +1,64 @@
 ---
 title: "Latency"
-description: "What Inboxfm Connect adds to a synchronous webhook, warm versus cold, so you can set expectations before building on it"
+description: "What Inboxfm Connect adds on top of a synchronous execution — warm versus cold sandboxes, the timeout budget, and where the time actually goes"
 icon: "stopwatch"
 ---
 
-A **synchronous webhook** holds the connection open until your flow returns, so the caller waits for the orchestration around your flow plus your flow's own work. These are floor numbers, slow paths included.
+The headless API has no synchronous-webhook flow execution. Its synchronous surfaces are single **operations**: `POST /v1/execute` (run one piece action), MCP tool calls, and the interactive operations behind the console and MCP (piece property loading, auth validation, trigger hooks). The caller waits for the orchestration around the operation plus the operation's own work.
 
 <Note>
-**Scope:** the recommended production setup (`SANDBOX_CODE_ONLY`, `AP_REUSE_SANDBOX=true`, one flow per worker), which self-hosted deployments and **dedicated Cloud workers** run. The shared Cloud freemium pool uses a different sandbox. See [Production Setup](/install/configure-operate/production-setup).
+**Scope:** every execution runs **in-process in the app container** against a fixed pool of sandboxed engine processes — there is no queue wait and no dispatch hop. Sandbox behavior depends on `AP_EXECUTION_MODE` (`UNSANDBOXED` by default; see [Sandboxing](/install/architecture/sandboxing)).
 </Note>
 
-## What to expect
+## What shapes the wait
 
-| Situation | Caller waits |
+| Situation | Caller waits for |
 |---|---|
-| **Warm** (the normal case) | **~0.2 s** |
-| **Cold** (first request on a fresh worker) | **~2 s** |
-| **Under heavy load** (every worker busy) | **~0.5 s** |
-| **Timeout** (flow never responds) | 30 s, then the connection closes |
+| **Warm** — the operation's sandbox is already up and the pieces are cached | Provision + boot are near-zero; the operation's own work dominates |
+| **Cold** — first use of a sandbox on a replica, or a non-reusable execution mode | Provisioning pieces into the local cache, then forking and booting the engine |
+| **Timeout** — the operation never returns in time | The operation is failed with a timeout error; see the budget below |
 
 ## Warm vs cold
 
-<img src="/resources/diagrams/cold-vs-warm.png" alt="Warm vs cold latency: a warm sync webhook returns in ~0.2 s, while a cold first request on a fresh worker takes ~2 s, dominated by installing pieces (~0.5 s) and booting the engine (~0.9 s)" />
+A sandbox is an engine child process forked by the app. Whether it is reused across operations is decided by `AP_EXECUTION_MODE` — there is no separate reuse knob:
 
-**Cold** means a worker that has never seen this flow: it installs the pieces, fetches the bundle, and forks an engine first. **Warm** reuses all three. You hit cold when:
+- `UNSANDBOXED` (the default) and `SANDBOX_CODE_ONLY` are trusted reuse modes: a sandbox that finished cleanly is kept warm and the **next operation on the same box reuses the booted engine process**.
+- `SANDBOX_PROCESS` and `SANDBOX_CODE_AND_PROCESS` are cold by design: every operation gets a fresh isolation box.
 
-- It is the first request after a deploy, restart, or scale-up.
-- `AP_REUSE_SANDBOX` is off (then every request is cold).
-- A burst exceeds your warm worker count. Each worker runs one flow at a time, so the surplus queues or starts cold.
+You hit cold when:
 
-<Tip>
-Size **statically for peak** so a warm slot is always waiting. Autoscaling's boot lag cannot defend a 30 s sync budget ([measured numbers](/install/architecture/autoscaling)). Cold starts are not Cloud-specific, they are how the engine boots, and you will see them anywhere.
-</Tip>
+- It is the first execution after a deploy, restart, or scale-up (boxes build lazily on first use).
+- The pieces involved are not yet in the replica's local on-disk cache — provisioning installs them once, then the cache serves later executions.
+- The execution mode is a process-isolation mode, where cold is the guarantee you asked for.
+- A previous operation on the same box failed — a failed box is torn down and rebuilt rather than reused.
 
-## Per-run breakdown
+A cold path pays provisioning (piece install, cache write) plus boot (fork the engine, engine startup, socket handshake) before the operation itself runs. We do not publish millisecond figures on this page: the numbers that were here were measured against the retired worker-fleet model. Current measurements belong to the [benchmark gate](/install/architecture/benchmark), which runs against the live headless API.
 
-Every run records where its wall-clock time went, shown as a four-phase bar. **To view it, open any run and hover the info icon next to the run's duration** ("Took") in the run header.
+## Where the time goes
 
-<img src="/resources/diagrams/run-timeline-breakdown.png" alt="Run latency breakdown popover: a stacked bar split into Queue (20 ms, waiting for a free worker), Setup (19 ms, installing pieces and engine), Warm-up (0 ms, starting the engine), and Run (32 ms, executing your flow)" />
-
-The phases run in order:
+Every execution passes through three phases, in order:
 
 | Phase | What it covers | Warm | Cold |
 |---|---|---|---|
-| **Queue** | Waiting after the run is created until a worker picks it up and starts setup — contention (every worker busy) plus dispatch overhead. | ~0 | grows under load |
-| **Setup** | Fetching the flow bundle and installing the pieces, engine, and code steps into the sandbox (provisioning). | ~0 (cached) | ~0.5 s |
-| **Warm-up** | Forking the engine process, Node boot, `isolated-vm` init, and the socket handshake (engine boot). | ~0 (reused) | ~0.9 s |
-| **Run** | Executing the flow's trigger and steps — the same number reported as the run's duration (**Took**). Your own work and third-party calls dominate here. | your flow | your flow |
+| **Provision** | Installing the operation's pieces and code artifacts into the local on-disk cache. | cache hits | real work |
+| **Boot** | Forking the engine child process, Node startup, and the socket handshake. | skipped (reused) | real work |
+| **Run** | The engine executing the operation — the piece's own code and any third-party calls it makes. | always | always |
 
-Queue, Setup, and Warm-up are the orchestration around your flow; **Run** is the flow itself. On a warm worker the first three collapse toward zero — the reused sandbox is already booted, so Warm-up is ~0 — and the bar is almost entirely **Run**, which is why warm calls are dominated by your own work.
+The runtime records these three durations per execution (`provisionMs`, `bootMs`, `runMs`) as structured observability events, so a deployment can attribute its own latency from its own logs. There is no in-app popover UI for this breakdown.
 
-## Your own work usually dominates
+Your own work usually dominates the **Run** phase: a piece action that calls a third-party API waits on that API. Next to a real outbound call, the platform's provision/boot overhead is the smaller number — and on a warm box it is near zero.
 
-A warm call is almost entirely per-step bookkeeping, not your code: a progress callback per step, tens of ms each. A step that calls a third-party API waits on that API, often far longer. Next to a real outbound call, the Inboxfm Connect overhead is the smaller number.
+## The timeout budget
 
-## Measured (warm)
+Each operation is capped at **60 seconds** (a code constant on both execution paths), enforced inside the sandbox: an operation that exceeds it fails with a sandbox timeout error rather than hanging the caller. The engine child process itself is additionally bounded by `AP_FLOW_TIMEOUT_SECONDS` (default 600 s) and by the sandbox memory limit `AP_SANDBOX_MEMORY_LIMIT` (KB; default 1048576 = 1 GB) — see [Reserved Resources](/install/guarantees/reserved-resources).
 
-Four-step flow (webhook, math, code in `isolated-vm`, response), single warm call, no contention:
+## Admission control: expect 429s, not waits
 
-| p50 | avg | p95 | p99 |
-|---|---|---|---|
-| 163 ms | 176 ms | 260 ms | 343 ms |
-
-<Note>
-The same setup measures ~165 ms unloaded but ~505 ms under sustained peak: the app tier saturating, not the flow slowing. Always ask which load a figure was measured under. Throughput view: [Benchmark](/install/architecture/benchmark).
-</Note>
+When a project exceeds its execution concurrency cap, or the sync tier's rate limit (`AP_API_RATE_LIMIT_SYNC_MAX`, default 60/min) is hit, the request is rejected with `HTTP 429` and a `Retry-After` header — it is **not** held in a queue. A latency-sensitive client should treat 429 as the platform's honest "busy now" signal. See [Manage Concurrency](/admin-guide/guides/manage-concurrency) and [Autoscaling](/install/architecture/autoscaling).
 
 ## Reduce it
 
-- **Keep workers warm:** `AP_REUSE_SANDBOX=true` plus a statically sized, always-on fleet.
-- **Size for peak concurrency:** N concurrent requests need N warm workers ([sizing](/install/configure-operate/production-setup#sizing)).
-- **Fewer, heavier steps:** each step adds overhead.
-- **Don't let a slow third party block the response:** use an async webhook and callback instead of holding against the 30 s ceiling.
+- **Stay in a reuse mode:** the default `AP_EXECUTION_MODE=UNSANDBOXED` (or `SANDBOX_CODE_ONLY` for multi-tenant isolation) keeps boxes warm. Process-isolation modes are cold by design.
+- **Scale replicas, not hopes:** each app replica brings its own fixed pools. More replicas raise concurrent capacity; they do not speed up any single execution. See [Autoscaling](/install/architecture/autoscaling).
+- **Cache-friendly pieces:** the first execution of a piece pays its install; steady-state traffic does not.
+- **Don't hold a synchronous call against a slow third party:** if the piece's work can be slow, invoke it from a caller that can retry on the 60 s cap rather than a request path that cannot.

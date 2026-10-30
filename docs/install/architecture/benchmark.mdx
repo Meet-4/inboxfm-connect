@@ -1,109 +1,57 @@
 ---
 title: "Benchmark"
-description: "Warm webhook throughput of the worker-is-the-sandbox model on GKE as the fleet scales at the recommended 1:10 app-to-worker ratio"
+description: "How throughput and latency are measured against the headless API, where execution runs in-process in the app tier and scales with app replicas"
 icon: "gauge-high"
 ---
 
-This benchmark answers one question for the recommended production shape: **at the 1:10 app-to-worker ratio, how does throughput scale as you grow the fleet from 40 to 160 workers?** It runs the [worker-is-the-sandbox](/install/architecture/workers) model on a real GKE cluster, against a same-region object store with signed URLs and official piece tarballs served from the CDN.
+This page describes the benchmarking harness in `benchmark/` and what it measures against this codebase. The numbers that previously lived here (throughput of a 40–160 worker fleet at a 1:10 app-to-worker ratio) were measured against the retired queue-and-worker-fleet execution model, which does not exist in this tree: execution is synchronous and in-process in the app container, there is no job queue, and a `WORKER` container registers only health routes. Those results are preserved as a historical experiment record in `benchmark/EXPERIMENTS.md`; they are not reproduced here because they say nothing about the current architecture.
 
-<img src="/resources/diagrams/activepieces-architecture.png" alt="Inboxfm Connect production architecture: client, app, Redis job queue, Postgres, S3, and one-flow-per-worker execution tier" />
+For current numbers, run the measurement yourself with the harness below — we deliberately do not publish figures we have not measured against this model.
 
-_The shape under test: app tier, Redis job queue, Postgres, S3, and a one-flow-per-worker execution tier._
-
-## What's measured
-
-A 4-node **synchronous** webhook flow that holds the HTTP connection open until the flow returns:
+## What executes under load
 
 <Steps>
-  <Step title="Webhook trigger">
-    Catches the request on a `/sync` URL and holds the connection until the flow finishes.
+  <Step title="A piece action via POST /v1/execute">
+    The gate's `execute-text-helper` scenario runs `@inboxfm-connect/piece-text-helper` `concat` through the synchronous execute endpoint, asserting the output.
   </Step>
-  <Step title="Math Helper">
-    Adds `2 + 3`.
-  </Step>
-  <Step title="Code step">
-    Runs `return inputs.sum + 1` inside an `isolated-vm` context.
-  </Step>
-  <Step title="Webhook response">
-    Returns the result, closing the held connection.
+  <Step title="An auth + database read path">
+    The `connections-list` scenario exercises `GET /v1/connections` — request authentication plus a database read — to track the control plane separately from execution.
   </Step>
 </Steps>
 
-The compute is sub-millisecond by design — everything measured below is orchestration (queueing, callbacks, sandbox boot), which is what actually shapes production latency.
+The compute is trivial by design: what the benchmark measures is the orchestration around the operation — admission control, provisioning from the piece cache, sandbox reuse, and the engine round-trip — which is what actually shapes production latency.
 
-Each fleet size is held at the recommended **1:10** ratio (1 app per 10 workers) and run **warm** (`AP_REUSE_SANDBOX=true`) — the engine process is reused between jobs.
+## The shape under test
 
-## Results
+- **Execution is in-process in the app tier.** `POST /v1/execute` runs in the app container against a single-box sandbox runtime; the interactive operations run against a fixed ten-box pool per replica. There is no queue and no execution in any other container.
+- **Throughput scales with app replicas** (`APP_REPLICAS`), each bringing its own pools. `WORKER` replicas add no execution capacity (see [Workers](/install/architecture/workers)).
+- **Admission control is visible in the results:** per-project concurrency limits and the sync-tier rate limit reject over-capacity requests with `429` + `Retry-After` instead of queueing them, so load profiles must stay under those caps or the gate measures rejections, not service time.
+- **Warm vs cold is decided by `AP_EXECUTION_MODE`:** trusted modes (`UNSANDBOXED`, `SANDBOX_CODE_ONLY`) reuse booted engine processes across executions; process-isolation modes are cold by design. See [Latency](/install/architecture/latency).
 
-<CardGroup cols={2}>
-  <Card title="686 req/s" icon="gauge-high">
-    Peak warm throughput — 16 apps, 160 workers.
-  </Card>
-  <Card title="~4.5 req/s" icon="arrow-trend-up">
-    Per worker, held flat from 40 to 160 workers — throughput scales linearly with the fleet.
-  </Card>
-</CardGroup>
+## The harness
 
-Each worker is one sandbox at concurrency 1, hard-capped at 0.5 vCPU / 1 GB. Apps are 1 vCPU / 1 GB. Load concurrency is matched to the worker count so requests don't queue behind the concurrency-1 workers.
+`benchmark/gate` is a repeatable gate that compares a run against a committed, reviewed baseline (`benchmark/baselines/`) and fails when latency, throughput, or the error rate regresses beyond a noise-aware threshold. It is plain Node with no dependencies:
 
-| Apps · Workers | Ratio | Warm req/s | Warm req/s **per worker** |
-|---|---|---|---|
-| 4 app · 40 workers | 1:10 | 185.3 | 4.6 |
-| 8 app · 80 workers | 1:10 | 409.5 | 5.1 |
-| 12 app · 120 workers | 1:10 | 553.0 | 4.6 |
-| 16 app · 160 workers | 1:10 | 686.3 | 4.3 |
+- **selftest** — runs on every PR touching `benchmark/gate/**` against an in-process stub server.
+- **nightly** — runs against a configured deployment; skips safely when the target isn't configured.
+- **full fleet** — manual, opt-in: GKE via `benchmark/run-gke.sh`.
 
-### What each tier ran — and what it was actually doing
+```bash
+node benchmark/gate/cli.mjs selftest
+node benchmark/gate/cli.mjs run --scenario execute-text-helper --tier nightly --out results.json
+node benchmark/gate/cli.mjs compare --baseline benchmark/baselines/execute-text-helper.nightly.json --results results.json --summary summary.md
+```
 
-Only the **app** and **worker** counts scale (1:10). **Postgres and Redis are a single fixed-size pod each — the same for every row below.** CPU is the average across three warm load tests; the singletons' figures are the whole pod, app/worker are per pod.
+See `benchmark/gate/README.md` for the scenarios, required environment variables (`BENCH_BASE_URL`, `BENCH_API_KEY`, `BENCH_PROJECT_ID`, `BENCH_CONNECTION_ID`), and the results format.
 
-| Apps · Workers | Warm req/s | Postgres `used / cap` | Redis `used / cap` | App `used / cap` (per pod) | Worker `used / cap` (per pod) |
-|---|---|---|---|---|---|
-| 4 · 40   | 185 | 522m / 3000m | 134m / 2000m | 782m / 1000m | 102m / 500m |
-| 8 · 80   | 410 | 640m / 3000m | 150m / 2000m | 518m / 1000m | 72m / 500m |
-| 12 · 120 | 553 | 546m / 3000m | 132m / 2000m | 311m / 1000m | 50m / 500m |
-| 16 · 160 | 686 | 396m / 3000m | 169m / 2000m | 205m / 1000m | 37m / 500m |
-
-Postgres never crosses ~0.65 of a core and Redis never crosses ~0.17, both far below their caps and **flat as the fleet quadruples** — they are not absorbing a growing share of anything. Workers sit at ≤0.1 of their 0.5-core cap. No tier approaches saturation, which is exactly why each added worker keeps adding throughput. (The singletons are sized this large on purpose — see [Test environment](#test-environment) — so they provably stay off the critical path; the default Postgres `max_connections=100` *would* cap the fleet at ~10 apps, which is the artifact behind the earlier "120 cliff".)
-
-## How throughput scales
-
-- **Warm scales linearly with the fleet.** Per-worker throughput stays flat at ~4.5 req/s from 40 to 160 workers, so total throughput tracks the worker count (185 → 410 → 553 → 686; 3.7× for 4× the fleet). The shared Postgres and Redis singletons are **not** the wall — they sit near-idle at every fleet size (Postgres under 0.6 of a core, Redis under 0.2, both far below their caps), and raising their resources several-fold does not move the curve. The ceiling is the **concurrency-1 worker model**: each worker is busy for the *whole* per-flow time — engine run plus the end-of-run run-log persistence it finishes before taking the next job — so fleet throughput is `workers ÷ per-flow-time`, which is linear in the fleet. (The synchronous response reaches the client sooner than that — it is sent at the response step, before the worker wraps up the log write — so client-perceived latency is lower than the worker-busy time that sets throughput.) Per-flow time carries run-to-run variance (the object-store log-write tail), which is why a single run's curve looks bumpy; the invariant that the per-worker rate holds constant is what shows the scaling is linear.
-<Note>
-**Why Production Setup recommends 1:10.** Apps at 1 vCPU are cheap relative to the worker fleet, and 1:10 is the warm-headroom margin that keeps the app tier from becoming the wall during bursts. See [Production Setup](/install/configure-operate/production-setup).
-</Note>
-
-## Latency anatomy
-
-Where the worker's milliseconds go — warm at peak (16 app · 160 w):
-
-| Layer | Warm |
-|---|---|
-| Provision (flow bundle + piece + engine, mostly disk-cache hits) | ~10 ms |
-| Sandbox boot (engine process reused) | ~5 ms |
-| Flow run (4 steps: engine→app callbacks + end-of-run log persist) | ~203 ms |
-| **Worker-busy avg per job** | **~218 ms** |
-
-This is the time the **worker** is occupied per job — and at concurrency 1 it is what sets throughput (`workers ÷ worker-busy-time`). The synchronous client sees less: the response is published at the flow's response step, before the worker finishes persisting the run log, so client-perceived latency runs below the worker-busy figure.
-
-## Test environment
-
-- **Cluster**: GKE `n2-standard-16` × 10 nodes, `europe-west1-b`
-- **Worker**: 0.5 vCPU / 1 GB, concurrency 1, `SANDBOX_CODE_ONLY` (Node fork + `isolated-vm`)
-- **App**: 1 vCPU / 1 GB
-- **Object store**: same-region GCS bucket (`europe-west1`) over the S3-interop endpoint, path-style SigV4 presigned URLs (`AP_S3_USE_SIGNED_URLS=true`)
-- **Piece bundles**: official tarballs served from the Inboxfm Connect CDN (`AP_USE_CDN_FOR_BUNDLES=true`)
-- **Postgres + Redis**: in-cluster singletons, deliberately over-provisioned so they stay off the critical path — Postgres at 3 vCPU / 3 GB with `max_connections=2000` (the default 100 would starve the app pools past ~10 apps), durability off, and its data dir on tmpfs; Redis at 2 vCPU / 2 GB with `io-threads`. Under load both stay near-idle (Postgres `<0.6` core, Redis `<0.2`), confirming the worker tier, not the singletons, is the ceiling.
-- **Load**: `hey`, concurrency matched to worker count (40/80/120/160) so requests don't queue behind the concurrency-1 workers — latency reflects real service time, not backlog
-
-## How to reproduce
+## Reproducing at cluster scale
 
 ```bash
 benchmark/run-gke.sh [requests_per_round] [concurrency] [rounds]
 ```
 
-The results above were measured on the flow-webhook path, which the headless API no longer has. The script now deploys `benchmark/k8s-sandbox.yaml`, provisions a Text Helper connection and API key, and drives `POST /v1/execute` through the app LoadBalancer with the load runner in `benchmark/gate`. It reports cold-boot latency, warm latency and throughput, and app vs worker CPU. `/v1/execute` runs in the app tier, so scale with `APP_REPLICAS`.
+The script deploys `benchmark/k8s-sandbox.yaml` (app replicas, Postgres, Redis), provisions a Text Helper connection and API key, and drives `POST /v1/execute` through the app load balancer with the load runner in `benchmark/gate`. It reports cold-boot latency, warm latency and throughput, and per-pod CPU. `/v1/execute` runs in the app tier, so scale with `APP_REPLICAS`. The manifest still carries a vestigial `worker` Deployment (including `AP_WORKER_CONCURRENCY` and `AP_REUSE_SANDBOX` env entries that no current code reads); with current code those pods register only health routes and execute nothing.
 
 <Tip>
-This benchmark runs in `SANDBOX_CODE_ONLY` mode. It does **not** represent the performance of Inboxfm Connect Cloud, which uses a different sandboxing mechanism for multi-tenancy. See [Sandboxing](/install/architecture/sandboxing).
+The GKE rig runs in `SANDBOX_CODE_ONLY` mode (V8 isolation), a trusted reuse mode — booted engine processes are kept warm across executions. It does **not** represent the performance of process-isolation modes, which are cold by design, and it does **not** represent the performance of Inboxfm Connect Cloud, which uses a different sandboxing mechanism for multi-tenancy. See [Sandboxing](/install/architecture/sandboxing).
 </Tip>
