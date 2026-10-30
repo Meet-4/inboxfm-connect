@@ -45,7 +45,7 @@ export const plantTrees = createAction({
     const response = await makeRequest(
       auth.secret_text,
       HttpMethod.POST,
-      '/plant_trees',
+      '/plant_tree',
       body
     );
     return response;
