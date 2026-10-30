@@ -4,7 +4,13 @@ import { Migration } from '../../migration'
 export class AddPositionToField1790153790769 implements Migration {
     name = 'AddPositionToField1790153790769'
     breaking = false
-    release = '0.86.1'
+    // Labeled 0.87.0, not 0.86.1: this migration executes AFTER AddApiKeyExpiry
+    // (0.87.0), and release labels must be non-decreasing in execution order or
+    // rollbackToVersion can never revert a contiguous suffix (see
+    // migration-release-order.test.ts). PR #90 predates the ApiKeyExpiry migration
+    // being registered first; both are on the same unreleased train (repo version
+    // is 0.86.1), so no already-shipped release contains either.
+    release = '0.87.0'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query('ALTER TABLE "field" ADD COLUMN "position" integer')

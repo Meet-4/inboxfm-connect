@@ -4,7 +4,15 @@ import { Migration } from '../../migration'
 export class AddAgentEntity1790153850000 implements Migration {
     name = 'AddAgentEntity1790153850000'
     breaking = false
-    release = '0.88.0'
+    // Labeled 0.87.0, not 0.88.0: this migration executes BEFORE
+    // AddMcpOAuthTokenLineage / AddConnectionHealthCheckColumns /
+    // FixPlatformAnalyticsReportCachedAtType (all 0.87.0), so no release can contain
+    // those without also containing this one — a higher label here made
+    // rollbackToVersion('0.87.0') select a non-suffix candidate set and abort every
+    // rollback with a misleading "Migration order mismatch" (see
+    // migration-release-order.test.ts). All six post-squash migrations are on the
+    // same unreleased train (repo version is 0.86.1).
+    release = '0.87.0'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
