@@ -1,76 +1,16 @@
 ---
 title: "Queues Dashboard"
-description: "Inspect job queues to diagnose stuck schedules and flow runs"
+description: "The job-queue dashboard older deployments shipped (Bull Board) does not exist in this codebase — what to use instead"
 icon: "gauge-high"
 ---
 
-<Info>
-This section collects fixes for things that go wrong at runtime. If you're still *setting up* a deployment, see [Configure & Operate](../configure-operate/production-setup) first.
-</Info>
+Older versions of this page explained how to enable **Bull Board** — `AP_QUEUE_UI_ENABLED`, `AP_QUEUE_UI_USERNAME`, `AP_QUEUE_UI_PASSWORD`, UI at `/api/ui` — to inspect the `workerJobs` job queue: stuck flow runs, delayed jobs, retry backoff.
 
-The Bull Board is a tool that allows you to check issues with scheduling and internal flow runs issues.
+**None of that exists in this codebase.** There is no job queue to inspect: executions run synchronously and in-process in the app container ([Workers](../architecture/workers)), and no route serves `/api/ui`. The `AP_QUEUE_UI_*` variables are still *defined* (the property system accepts them) but nothing reads them — setting them changes nothing.
 
-![BullBoard Overview](https://raw.githubusercontent.com/felixmosh/bull-board/master/screenshots/overview.png)
+## What to use instead
 
-## Setup BullBoard
-
-To enable the Bull Board UI in your self-hosted installation:
-
-1. Define these environment variables:
-   - `AP_QUEUE_UI_ENABLED`: Set to `true`
-   - `AP_QUEUE_UI_USERNAME`: Set your desired username
-   - `AP_QUEUE_UI_PASSWORD`: Set your desired password
-
-2. Access the UI at `/api/ui`
-
-
-<Tip>
-For cloud installations, please ask your team for access to the internal documentation that explains how to access BullBoard.
-</Tip>
-
-## Queue Overview
-
-We have one main queue called `workerJobs` that handles all job types. Each job has a `jobType` field that tells us what it does:
-
-### Low Priority Jobs
-
-#### RENEW_WEBHOOK
-Renews webhooks for pieces that have webhooks channel with expiration like Google Sheets.
-
-#### EXECUTE_POLLING
-Checks external services for new data at regular intervals.
-
-### Medium Priority Jobs
-
-#### EXECUTE_FLOW
-Runs flows when they're triggered.
-
-#### EXECUTE_WEBHOOK
-Processes incoming webhook requests that start flow runs.
-
-#### DELAYED_FLOW
-Runs flows that were scheduled for later, like paused flows or delayed executions.
-
-### High Priority Jobs
-
-#### EXECUTE_PROPERTY
-Loads dynamic properties for pieces that need them at runtime.
-
-#### EXECUTE_EXTRACT_PIECE_INFORMATION
-Gets information about pieces when they're being installed or set up.
-
-#### EXECUTE_VALIDATION
-Checks that flow settings, inputs, or data are correct before running.
-
-#### EXECUTE_TRIGGER_HOOK
-Runs special logic before or after triggers fire.
-
-
-<Info>
-Failed jobs are not normal and need to be checked right away to find and fix what's causing them. 
-They require immediate investigation as they represent executions that failed for unknown reasons that could indicate system issues.
-</Info>
-
-<Tip>
-Delayed jobs represent either paused flows scheduled for future execution, upcoming polling job iterations, or jobs being retried due to temporary failures. They indicate an internal system error occurred and the job will be retried automatically according to the backoff policy.
-</Tip>
+- **`GET /api/v1/health`** — the health endpoint, served by every container role (it is the only route a `WORKER` container registers). Use it for the app tier's liveness.
+- **Execution results** — every operation is synchronous: a call either returned, failed with an error its caller can see, or the process died mid-flight ([Crash Recovery](../guarantees/crash-recovery)). There is no "stuck in queue" state to hunt for.
+- **`429` + `Retry-After` responses** — the platform's honest "busy now" signal when a project is over its concurrency cap or the sync rate limit is hit. A project that suddenly 429s while little is executing is usually waiting on a concurrency slot held by a dead process: slots self-release after `AP_PROJECT_EXECUTION_CONCURRENCY_SLOT_TTL_SECONDS` (default 900 s). See [Manage Concurrency](../../admin-guide/guides/manage-concurrency).
+- **`pool` log fields** — Postgres pool saturation is logged under the `pool` field group (startup budget, background errors, a 60-second snapshot); see [Postgres Connection Budget](../configure-operate/postgres-connection-budget#metrics).
