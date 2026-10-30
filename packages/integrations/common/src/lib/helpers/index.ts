@@ -372,9 +372,10 @@ i.e ${getBaseUrlForDescription(baseUrl, auth)}/resource or /resource`,
         url: fullUrl,
         headers: {
           ...((headers ?? {}) as HttpHeaders),
-          ...(authLocation === 'headers' || !isNil(authLocation)
-            ? authValue
-            : {}),
+          // authLocation defaults to 'headers', so this is true only for
+          // header auth — a queryParams mapping must not also be injected as
+          // headers (it leaks the secret into an unintended header).
+          ...(authLocation === 'headers' ? authValue : {}),
         },
         queryParams: {
           ...(authLocation === 'queryParams' ? (authValue as QueryParams) : {}),
