@@ -1,28 +1,26 @@
 ---
 title: "Overview"
-description: "How Inboxfm Connect is put together, and why it runs flows the way it does"
+description: "How Inboxfm Connect is put together, and why it runs executions the way it does"
 icon: "cube"
 ---
 
-This section explains **why** Inboxfm Connect works the way it does: the components, the execution model, and the trade-offs behind them. If you want to *do* something (size a deployment, set up SSL, scale workers), start with [Configure & Operate](../configure-operate/production-setup). Come here when you want the reasoning under those choices.
+This section explains **why** Inboxfm Connect works the way it does: the components, the execution model, and the trade-offs behind them. If you want to *do* something (size a deployment, set up SSL, scale capacity), start with [Configure & Operate](../configure-operate/production-setup). Come here when you want the reasoning under those choices.
 
-This page describes the main components, with a focus on how flows run.
+This page describes the main components, with a focus on how executions run.
 
 ## Components
 
-<img src="/resources/diagrams/activepieces-architecture.png" alt="Inboxfm Connect production architecture: client, app, Redis job queue, Postgres, S3, and one-flow-per-worker execution tier" />
-
 **Inboxfm Connect:**
 
-- **App**: The main application that organizes everything from APIs to scheduled jobs.
-- **Worker**: Polls for new jobs, allocates a sandbox from the pool, executes the flows with the engine inside the sandbox, and sends results back to the app.
-- **Sandbox**: An isolated execution environment that manages process lifecycle, resource limits, and communication with the engine via WebSocket.
-- **Engine**: TypeScript code that parses flow JSON and executes it. It is compiled into a single JS file and runs inside the sandbox.
+- **App**: The Fastify application that serves everything: the public API, the console, MCP, and — in-process — the execution of every operation (`POST /v1/execute`, piece property loading, auth validation, trigger hooks).
+- **Sandbox runtime**: A fixed pool of sandbox "boxes" inside each app replica. Each box owns one engine child process at a time; executions are routed to boxes and serialized per box. See [Workers](./workers).
+- **Engine**: TypeScript code compiled to a single JS file that runs inside the sandboxed child process and executes piece operations (property resolution, auth validation/refresh, trigger hooks, metadata extraction, tool calls).
 - **UI**: Frontend written in React.
 
-**Third Party**:
+**Third Party:**
+
 - **Postgres**: The main database for Inboxfm Connect.
-- **Redis**: Powers the queue using [BullMQ](https://docs.bullmq.io/).
+- **Redis**: Used for what it is good at — distributed locks, rate limiting, the per-project execution-concurrency guard, and the socket.io pub/sub adapter. It is **not** a job queue: nothing is enqueued for later execution, and no process polls Redis for work.
 
 ## Reliability & Scalability
 
@@ -30,9 +28,9 @@ This page describes the main components, with a focus on how flows run.
 Postgres and Redis availability is outside the scope of this documentation, as many cloud providers already implement best practices to ensure their availability.
 </Tip>
 
-Everything is queue-backed: webhooks and recurring jobs land on Redis, and workers poll them off it. A spike does not drop work. It queues and drains as slots free. For exactly what survives a crash, what runs at-least-once, and where each promise stops, see [Guarantees](../guarantees/crash-recovery).
+Executions are synchronous HTTP: the caller's request executes in-process against a sandbox pool and returns. A spike does not pile work onto a queue for later — it is absorbed by the admission controls, which reject over-capacity requests with `HTTP 429` + `Retry-After` (per-project concurrency caps and the sync-tier rate limit) so callers can back off and retry. For exactly what survives a crash and what does not, see [Guarantees](../guarantees/crash-recovery).
 
-To scale Inboxfm Connect, add replicas of the workers, the app, or the Postgres database. A small Redis instance is enough: it handles thousands of jobs per second and rarely becomes a bottleneck. For the concrete sizing model, see [Production Setup](../configure-operate/production-setup).
+To scale Inboxfm Connect, add replicas of the app. Each replica brings its own pools and its own slice of CPU and memory; throughput follows the replica count. Postgres and Redis should be provisioned for the resulting connection and lock traffic. For the concrete model, see [Production Setup](../configure-operate/production-setup) and [Autoscaling](./autoscaling).
 
 ## Repository Structure
 
@@ -42,24 +40,35 @@ The repository is a monorepo built with Turbo, with TypeScript as the primary la
 ```
 .
 ├── packages
-│   ├── web
+│   ├── cli
+│   ├── connect-sdk
+│   ├── core
+│   │   ├── execution
+│   │   ├── formula
+│   │   ├── piece-types
+│   │   ├── shared
+│   │   └── utils
+│   ├── ee
+│   ├── integrations
+│   ├── runtime
+│   ├── scheduler
 │   ├── server
 │   │   ├── api
-│   │   ├── worker
 │   │   ├── engine
 │   │   ├── sandbox
-│   │   └── common
-│   ├── ee
-│   ├── pieces
-│   └── shared
+│   │   └── utils
+│   ├── tests-e2e
+│   └── web
 ```
 
-- `web`: This package contains the user interface, implemented using the React framework.
-- `api`: This package contains the main application written in TypeScript with the Fastify framework.
-- `worker`: This package contains the logic of accepting flow jobs and executing them using the engine.
-- `server-sandbox`: This package contains the sandbox execution environment, including process isolation, pool management, and WebSocket communication between the worker and engine.
-- `common`: This package contains the shared logic between worker and app.
-- `engine`: This package contains the logic for flow execution within the sandbox. Located under `server/engine`.
-- `pieces`: This package contains the implementation of triggers and actions for third-party apps.
-- `shared`: This package contains shared data models and helper functions used by the other packages.
-- `ee`: This package contains features that are only available in the paid edition.
+- `cli`: The `pieces-cli` command-line tool for piece development and publishing.
+- `connect-sdk`: The SDK third parties use to call the headless API.
+- `core`: Shared foundations — `execution` (engine/worker contracts and piece operations), `formula` (the formula evaluator), `piece-types`, `shared` (data models), and `utils`.
+- `ee`: Features that are only available in the paid edition.
+- `integrations`: The pieces — implementations of triggers and actions for third-party apps.
+- `runtime`: The headless execution runtime used by `POST /v1/execute` and MCP tool calls.
+- `scheduler`: The in-process cron scheduler behind scheduled tasks.
+- `server/api`: The main application (Fastify).
+- `server/engine`: The flow/piece execution engine, forked as a sandboxed child process.
+- `server/sandbox`: The sandbox execution environment — process lifecycle, resource limits, pool management, and communication with the engine.
+- `web`: The user interface, implemented using the React framework.

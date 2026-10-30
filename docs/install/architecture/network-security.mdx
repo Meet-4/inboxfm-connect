@@ -23,7 +23,7 @@ Every flow eventually runs **user-supplied code**: Code steps, piece actions, HT
 
 | Value | Effect |
 |---|---|
-| `UNRESTRICTED` | No outbound guard. User code can reach any host the worker can reach. |
+| `UNRESTRICTED` | No outbound guard. User code can reach any host the app container can reach. |
 | `STRICT` | The engine SSRF guard is installed. Outbound connections to private, loopback, link-local, and cloud-metadata IPs are blocked from user code. |
 
 Related env var:
@@ -61,7 +61,7 @@ With `AP_NETWORK_MODE=STRICT` you should see an `SSRFBlockedError`. With `UNREST
 
 1. Start in `UNRESTRICTED` (default) and identify any internal services that legitimate flows need to reach (internal APIs, databases used by Code steps, and so on).
 2. Add those IPs to `AP_SSRF_ALLOW_LIST`.
-3. Switch to `AP_NETWORK_MODE=STRICT`. Watch worker logs for `SSRFBlockedError`. Each one is either an attack, a misconfigured flow, or a missing allow-list entry.
+3. Switch to `AP_NETWORK_MODE=STRICT`. Watch the app logs for `SSRFBlockedError`. Each one is either an attack, a misconfigured piece, or a missing allow-list entry.
 
 ## Server-side egress
 

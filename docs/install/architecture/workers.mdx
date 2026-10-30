@@ -1,34 +1,44 @@
 ---
 title: "Workers"
-description: "Run, scale, and tune the container that executes your flows"
+description: "The WORKER container role in the unified image — and why execution does not run there in this codebase"
 icon: "gears"
 ---
 
-The **worker** is the container that runs flows. It pulls jobs from Redis, runs each one inside a sandbox, and streams results back to the app. This page covers operating it: how many to run, how to size them, and what happens when one dies mid-flow.
+In this codebase, **no container named "worker" executes anything.** Every execution — `POST /v1/execute`, MCP tool calls, piece property loading, auth validation and refresh, trigger hooks, piece metadata extraction — runs **synchronously, in-process, inside the app container**, against a fixed pool of sandboxed engine processes. There is no job queue to pull from and no dispatch to another tier.
 
-## What a Worker Does
+The `WORKER` **container role** still exists in the unified image (`AP_CONTAINER_TYPE=WORKER`, the same image as the app), so this page documents what it actually does — and what it no longer does.
 
-Each worker pulls jobs off the BullMQ queue in Redis, hands them to a sandboxed engine process, and posts progress and results back to the app over HTTP. Workers are **stateless**: they hold no per-flow memory, which is what makes horizontal scaling and crash recovery simple.
+## What a WORKER container actually does
 
-## Scaling
+Almost nothing, and that is by construction:
 
-Workers scale **horizontally**: add replicas behind any orchestrator (Docker Compose, Kubernetes, Nomad). The recommended model is **one flow per worker** (concurrency 1, one worker per concurrent flow), so you size the fleet from a single number.
+- `server.ts` gates every module on `system.isApp()`; a `WORKER` container registers **only the health routes** (`/api/v1/health`). It serves no API, no console, no MCP, no execution path.
+- `system.isWorker()` exists only to flip the in-process health flag the health endpoint reports.
+- It does not consume a Postgres connection-pool slot for its modules (see the [Postgres connection budget](../configure-operate/postgres-connection-budget)).
 
-For the full sizing recommendation (worker and app sizes, the 1:10 app-to-worker ratio, the slot-based capacity formula, and database sizing), see [Production Setup](../configure-operate/production-setup).
+Scaling `AP_CONTAINER_TYPE=WORKER` replicas therefore adds no execution capacity. Run and scale the default `WORKER_AND_APP` (or `APP`) container instead. For the full breakdown, see [Separate Workers](../configure-operate/separate-workers).
 
-<Warning>
-The shipped default `AP_WORKER_CONCURRENCY=5` runs multiple sandboxes in one container as a transitional compatibility mode. It widens the OOM blast radius to all in-flight jobs in that container. Prefer `AP_WORKER_CONCURRENCY=1` and scale by replicas.
-</Warning>
+## How execution actually scales
 
-## Failure Behaviour
+Because execution lives in the app process, the scaling and capacity questions are the app's:
 
-A worker that crashes, is evicted, or loses its Redis lease mid-run survives the failure: BullMQ requeues the job, another worker picks it up, and durable replay skips every completed step. You do not need to drain traffic before rolling workers.
+- Each app replica owns its own fixed pools: a ten-box sandbox pool for interactive operations, and a single-box runtime for `POST /v1/execute` and MCP tool calls. The pool sizes are constants in code, not configuration.
+- Throughput grows by adding **app replicas**; there is no fleet to rebalance and no queue to drain.
+- Over-capacity requests are rejected with `HTTP 429` + `Retry-After` (per-project execution concurrency caps, and the sync-tier rate limit), never queued.
 
-For the exact promises (what re-runs, what runs at-least-once, and where each boundary is), see [Guarantees](../guarantees/crash-recovery). For how replay is persisted, see [Durable Execution](./durable-execution).
+See [Autoscaling](./autoscaling) for the capacity and shutdown semantics, and [Latency](./latency) for what a single caller waits on.
+
+## Failure behaviour
+
+There is no queue to requeue work and no second tier to hand it to:
+
+- A request that completes, completes; a request in flight when the process dies is **lost to its caller**, which sees a connection error and is expected to retry.
+- On `SIGTERM`/`SIGINT` the app closes its HTTP server and lets in-flight requests settle before exiting — but there is no drain protocol and nothing survives the process.
+- Durable state is your database: connections, tables, records, and scheduled-task definitions persist in Postgres regardless of app crashes. See [Crash Recovery](../guarantees/crash-recovery) for the honest guarantees.
 
 ## Sandbox & Network Isolation
 
-How flows are isolated from the worker container and the outside world is two independent choices:
+How the code the engine runs is isolated is two independent choices:
 
 - [**Sandboxing**](./sandboxing): `AP_EXECUTION_MODE` decides how user code is isolated from the host kernel. This is the most important security decision for multi-tenant deployments.
-- [**Network Security**](./network-security): `AP_NETWORK_MODE` decides what the sandbox is allowed to reach on the network.
+- [**Network Security**](./network-security): `AP_NETWORK_MODE` decides what the sandboxed code is allowed to reach on the network.

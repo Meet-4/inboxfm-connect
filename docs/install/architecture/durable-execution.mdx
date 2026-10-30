@@ -1,47 +1,31 @@
 ---
 title: "Durable Execution"
-description: "Interrupted runs resume from their last checkpoint instead of starting over"
+description: "What this codebase actually persists across crashes — and what it deliberately does not: executions are synchronous and are not replayed"
 icon: "shield-check"
 ---
 
-<img src="/resources/diagrams/replay-and-skip.png" alt="Replay and skip: on the first attempt the trigger and step 2 are logged before the worker dies at step 3; on resume a fresh worker skips the logged trigger and step 2, re-runs the in-flight step 3, then continues fresh from step 4" />
+Older versions of this page described a run-log replay system: every flow run checkpointed to a compressed log, a worker that died mid-run having its job re-queued and replayed by a fresh worker, steps skipped up to the interruption point. **None of that machinery exists in this codebase.** There is no run-log checkpoint loop, no queue to reassign interrupted work to, and no flow-run execution at all — the `flow` and `flow_run` tables were removed from the schema (the migration that drops them notes workflows are dropped permanently), and the engine's operation set contains no flow execution.
 
-Without it, a worker that dies mid-flow would restart the whole run from the trigger and re-send emails, re-charge cards, and re-call APIs. Instead, a fresh worker reuses the saved output of every finished step and runs only the first step that had not completed. The same mechanism covers crashes, deploys, long pauses, and retries.
+What this page documents instead is the honest contract: what an interrupted execution does, and what state actually survives a restart.
 
-## The run log
+## What happens to an in-flight execution
 
-Every flow run has a **run log**: one compressed checkpoint file with everything needed to resume the run on a fresh worker.
+Executions here are **single, synchronous operations** — `POST /v1/execute`, an MCP tool call, a piece property load, an auth refresh, a trigger hook. The caller's HTTP request holds the execution in the app's process:
 
-What is in it:
+- If the app process exits mid-execution (crash, OOM kill, deployment), the execution is **interrupted and lost to its caller** — the client sees a connection error. It is not re-run anywhere.
+- Recovery belongs to the caller: the SDK, MCP client, or integration retries the request. Because an operation that never returned may have partially executed, treat any retried operation as a potential repeat and make its side effects idempotent where that matters.
+- A slow operation that exceeds its sandbox timeout fails with a timeout error to the caller — same rule: the caller decides whether to retry.
 
-- One entry per finished step, keyed by step name: input (secrets hidden), output, status, duration, and the error message for failed steps.
-- Loop iterations and router branches use the same shape, nested under their parent step.
-- Run-level tags.
+## What actually persists
 
-When it is written:
+The data plane is durable because it lives in your database, not in the execution path:
 
-- Once at the start, before the first step runs.
-- Every 15 seconds while the run executes, from a background loop that snapshots whatever finished since the last write.
-- Once on the final state (success, failure, or pause).
+- **Postgres** — connections, tables, records, scheduled-task definitions, users, platform configuration. All of it survives every restart, crash, and redeploy.
+- **Object storage / DB-backed file store** — files created before an interruption are already persisted; nothing about an interrupted execution is.
+- **Scheduled tasks** — their definitions are rows in Postgres, re-registered by each app replica on boot, so a restart does not lose them (see [Workers](../architecture/workers)).
 
-Each write overwrites the previous copy. Only the latest checkpoint is kept, and the file is compressed before upload.
+## What this means operationally
 
-## Replay and skip
-
-Resume is not a special path. Each time a worker starts a run, it walks the flow graph from the trigger and asks at every step: is this step's output already in the log?
-
-- If yes, and the step finished (`SUCCEEDED` or `PAUSED`), the engine returns the saved output and moves on.
-- If no, the engine runs the step, records its output, and continues.
-
-On the first run the log is empty, so every step runs. After a resume the log is full up to the interruption, so the engine skips through all of it and runs only what came next.
-
-The most a crash can lose is the single step that was running when the worker died. That step runs again from the last checkpoint, and everything before it is skipped.
-
-## What triggers a resume
-
-Every interruption resolves through the same replay path. Only the trigger differs.
-
-- **Worker crash or deployment.** The queue reassigns the run to another worker, which loads the log and replays.
-- **Paused step.** The piece creates a [waitpoint](/install/architecture/waitpoints). When the waitpoint fires, a resume job is queued and a worker replays the run.
-- **Retry from a failed step.** The same log is reused. The run is re-queued and a worker replays from the failure point.
-- **Normal progression within one worker.** Same replay model, without leaving the process.
+- There is **no replay guarantee to rely on**: an operation is either completed (its result was returned and its side effects persisted) or failed. There is no "resumes from its last checkpoint".
+- **Rolling deploys still work** — a replica terminating at grace lets in-flight requests finish; anything slower than the grace period fails to its caller. See [Autoscaling](../architecture/autoscaling).
+- **Idempotency is the durability tool**: for operations with external side effects (sending a message, charging a card), design them to tolerate a client retry, because the platform will not de-duplicate a re-sent request.
