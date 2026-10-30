@@ -27,7 +27,7 @@ export const scrapegraphai = createPiece({
     localScraper,
     markdownify,
     createCustomApiCallAction({
-      baseUrl: () => 'https://api.scrapegraphai.com/v1',
+      baseUrl: () => 'https://v2-api.scrapegraphai.com/api',
       auth: scrapegraphaiAuth,
       authMapping: async (auth) => ({
         'SGAI-APIKEY': `${auth.secret_text}`,

@@ -17,14 +17,14 @@ export const scrapegraphaiAuth = PieceAuth.SecretText({
     try {
       await httpClient.sendRequest({
         method: HttpMethod.POST,
-        url: 'https://api.scrapegraphai.com/v1/smartscraper',
+        url: 'https://v2-api.scrapegraphai.com/api/extract',
         headers: {
           'Content-Type': 'application/json',
           'SGAI-APIKEY': auth,
         },
         body: {
-          user_prompt: 'test',
-          website_url: 'https://www.example.com',
+          prompt: 'test',
+          url: 'https://www.example.com',
         },
       });
       return {

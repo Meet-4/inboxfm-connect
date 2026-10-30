@@ -29,15 +29,17 @@ export const smartScraper = createAction({
   async run({ auth, propsValue }) {
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: 'https://api.scrapegraphai.com/v1/smartscraper',
+      url: 'https://v2-api.scrapegraphai.com/api/extract',
       headers: {
         'Content-Type': 'application/json',
         'SGAI-APIKEY': auth.secret_text,
       },
       body: {
-        website_url: propsValue.website_url,
-        user_prompt: propsValue.user_prompt,
-        output_schema: propsValue.output_schema,
+        url: propsValue.website_url,
+        prompt: propsValue.user_prompt,
+        ...(propsValue.output_schema
+          ? { schema: propsValue.output_schema }
+          : {}),
       },
     });
 

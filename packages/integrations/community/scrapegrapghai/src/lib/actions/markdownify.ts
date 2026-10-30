@@ -19,13 +19,14 @@ export const markdownify = createAction({
   async run({ auth, propsValue }) {
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: 'https://api.scrapegraphai.com/v1/markdownify',
+      url: 'https://v2-api.scrapegraphai.com/api/scrape',
       headers: {
         'Content-Type': 'application/json',
         'SGAI-APIKEY': auth.secret_text,
       },
       body: {
-        website_url: propsValue.website_url,
+        url: propsValue.website_url,
+        formats: [{ type: 'markdown' }],
       },
     });
 

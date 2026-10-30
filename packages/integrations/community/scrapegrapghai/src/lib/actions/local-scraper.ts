@@ -29,15 +29,17 @@ export const localScraper = createAction({
   async run({ auth, propsValue }) {
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: 'https://api.scrapegraphai.com/v1/localscraper',
+      url: 'https://v2-api.scrapegraphai.com/api/extract',
       headers: {
         'Content-Type': 'application/json',
         'SGAI-APIKEY': auth.secret_text,
       },
       body: {
-        website_html: propsValue.website_html,
-        user_prompt: propsValue.user_prompt,
-        output_schema: propsValue.output_schema,
+        html: propsValue.website_html,
+        prompt: propsValue.user_prompt,
+        ...(propsValue.output_schema
+          ? { schema: propsValue.output_schema }
+          : {}),
       },
     });
 
