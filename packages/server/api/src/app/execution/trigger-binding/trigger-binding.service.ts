@@ -69,6 +69,18 @@ export const triggerBindingService = {
             status: request.status ?? TriggerBindingStatus.ENABLED,
         }
 
+        // Validate schedule-affecting settings BEFORE the row is persisted or the
+        // ON_ENABLE engine hook runs. Previously syncTriggerSchedule was the first
+        // place an invalid cron/timezone was rejected: the row was already saved
+        // (status ENABLED) and, for webhook triggers, the piece had already
+        // registered the ingress URL at the external system — both left behind a
+        // create the caller saw rejected with a 4xx. A phantom ENABLED row never
+        // re-registers its schedule on boot (reRegisterEnabledSchedules skips it),
+        // so the binding silently never fires.
+        if (newBinding.status === TriggerBindingStatus.ENABLED) {
+            validateBindingSchedule(newBinding)
+        }
+
         const saved = await triggerBindingRepo().save(newBinding)
 
         if (saved.status === TriggerBindingStatus.ENABLED) {
@@ -147,6 +159,19 @@ export const triggerBindingService = {
             updated: new Date().toISOString(),
         }
 
+        // Validate schedule-affecting settings BEFORE the row is persisted (and,
+        // for the DISABLED→ENABLED transition, before the ON_ENABLE hook fires at
+        // the external system). The same conditions as the branches below choose
+        // when validation applies, so an already-enabled row whose schedule fields
+        // the request does not touch keeps its previous validation-free behavior —
+        // only the rejection point moves ahead of every side effect. Rejecting
+        // after the save persisted the invalid settings behind a 4xx response, and
+        // rejecting after ON_ENABLE left an externally-registered webhook on a
+        // binding the caller saw fail.
+        if (updatedBinding.status === TriggerBindingStatus.ENABLED && (oldStatus === TriggerBindingStatus.DISABLED || touchesSchedule(request))) {
+            validateBindingSchedule(updatedBinding)
+        }
+
         const saved = await triggerBindingRepo().save(updatedBinding)
 
         if (oldStatus === TriggerBindingStatus.DISABLED && saved.status === TriggerBindingStatus.ENABLED) {
@@ -162,9 +187,9 @@ export const triggerBindingService = {
             // re-register the in-memory jobs: the scheduler closures captured the cron
             // expression at registration time, so without this a changed cron keeps
             // firing on the old schedule, and a removed cron/renewCron keeps firing
-            // forever, until the next process restart. Validate before unsyncing so an
-            // invalid expression/timezone rejects the request with the previous schedule intact.
-            validateBindingSchedule(saved)
+            // forever, until the next process restart. The invalid-expression/
+            // timezone rejection already happened before the save (see above), so the
+            // request rejects with the previous row AND the previous schedule intact.
             await unsyncTriggerSchedule(saved.id)
             await syncTriggerSchedule(saved)
         }

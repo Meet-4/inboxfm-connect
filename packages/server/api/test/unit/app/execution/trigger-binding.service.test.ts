@@ -310,9 +310,113 @@ describe('TriggerBinding Schedule Re-sync on Update', () => {
             },
         })).rejects.toThrow(ActivepiecesError)
 
+        // Validation now happens BEFORE the row is persisted or the ON_ENABLE hook
+        // runs: a rejected create must not leave a phantom ENABLED binding (nor a
+        // webhook already registered at the external system) behind a 4xx response.
         // node-cron would have thrown a raw RangeError from Intl.DateTimeFormat instead.
+        expect(repositoryMock.save).not.toHaveBeenCalled()
         expect(schedulerSpies.cron).not.toHaveBeenCalled()
-        expect(watcherSpy).toHaveBeenCalledTimes(1)
+        expect(watcherSpy).not.toHaveBeenCalled()
+    })
+
+    describe('validation ordering: reject before persistence and engine hooks', () => {
+        const invalidCronCreateRequest = {
+            pieceName: '@inboxfm-connect/piece-test',
+            pieceVersion: '1.0.0',
+            triggerName: 'new_message',
+            connectionId: null,
+            promptTemplate: 'Handle message',
+            settings: { cronExpression: 'not a cron' },
+            status: TriggerBindingStatus.ENABLED,
+        }
+
+        it('create() rejects an invalid cron before persisting the binding or firing ON_ENABLE', async () => {
+            const watcherSpy = vi.spyOn(userInteractionWatcher, 'submitAndWaitForResponse').mockResolvedValue({ output: [] })
+
+            await expect(triggerBindingService.create({
+                projectId: 'proj_order_1',
+                platformId: 'plat_order_1',
+                request: invalidCronCreateRequest,
+            })).rejects.toThrow(ActivepiecesError)
+
+            expect(repositoryMock.save).not.toHaveBeenCalled()
+            expect(watcherSpy).not.toHaveBeenCalled()
+            expect(schedulerSpies.cron).not.toHaveBeenCalled()
+        })
+
+        it('create() rejects a structurally unfireable cron before persisting the binding', async () => {
+            await expect(triggerBindingService.create({
+                projectId: 'proj_order_2',
+                platformId: 'plat_order_2',
+                request: { ...invalidCronCreateRequest, settings: { cronExpression: '0 0 31 2 *' } },
+            })).rejects.toThrow(ActivepiecesError)
+
+            expect(repositoryMock.save).not.toHaveBeenCalled()
+        })
+
+        it('update() rejects an invalid cron before persisting the new settings', async () => {
+            const binding = existingBinding('tb_order_update', { cronExpression: '0 0 * * *' })
+            repositoryMock.findOneBy.mockResolvedValue(binding)
+
+            await expect(triggerBindingService.update({
+                id: binding.id,
+                projectId: binding.projectId,
+                platformId: binding.platformId,
+                request: { settings: { cronExpression: '0 0 31 2 *' } },
+            })).rejects.toThrow(ActivepiecesError)
+
+            // The row keeps the previous valid settings — the invalid ones must not
+            // be persisted behind the rejected response (they would silently stop
+            // the binding from re-registering on the next process restart).
+            expect(repositoryMock.save).not.toHaveBeenCalled()
+            expect(schedulerSpies.cancel).not.toHaveBeenCalled()
+            expect(schedulerSpies.cron).not.toHaveBeenCalled()
+        })
+
+        it('enable() on a binding with an invalid stored cron rejects before persisting or firing ON_ENABLE', async () => {
+            const watcherSpy = vi.spyOn(userInteractionWatcher, 'submitAndWaitForResponse').mockResolvedValue({ output: [] })
+            const disabled = {
+                ...existingBinding('tb_order_enable', { cronExpression: 'not a cron' }),
+                status: TriggerBindingStatus.DISABLED,
+            }
+            repositoryMock.findOneBy.mockResolvedValue(disabled)
+
+            await expect(triggerBindingService.enable({
+                id: disabled.id,
+                projectId: disabled.projectId,
+                platformId: disabled.platformId,
+            })).rejects.toThrow(ActivepiecesError)
+
+            // Enabling used to persist the ENABLED row and run ON_ENABLE before the
+            // cron validation rejected the request, leaving a binding that LOOKS
+            // enabled in the API but never registers its schedule.
+            expect(repositoryMock.save).not.toHaveBeenCalled()
+            expect(watcherSpy).not.toHaveBeenCalled()
+            expect(schedulerSpies.cron).not.toHaveBeenCalled()
+        })
+
+        it('enable() with valid settings still saves and fires ON_ENABLE exactly once', async () => {
+            const watcherSpy = vi.spyOn(userInteractionWatcher, 'submitAndWaitForResponse').mockResolvedValue({ output: [] })
+            const disabled = {
+                ...existingBinding('tb_order_enable_ok', { cronExpression: '0 8 * * *' }),
+                status: TriggerBindingStatus.DISABLED,
+            }
+            repositoryMock.findOneBy.mockResolvedValue(disabled)
+
+            const enabled = await triggerBindingService.enable({
+                id: disabled.id,
+                projectId: disabled.projectId,
+                platformId: disabled.platformId,
+            })
+
+            expect(enabled.status).toBe(TriggerBindingStatus.ENABLED)
+            expect(repositoryMock.save).toHaveBeenCalledTimes(1)
+            expect(watcherSpy).toHaveBeenCalledTimes(1)
+            expect(schedulerSpies.cron).toHaveBeenCalledWith(expect.objectContaining({
+                name: `trigger-cron-${disabled.id}`,
+                cronExpression: '0 8 * * *',
+            }))
+        })
     })
 })
 
