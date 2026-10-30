@@ -221,6 +221,49 @@ describe('Files Controller', () => {
 
             expect(response?.statusCode).toBe(StatusCodes.UNAUTHORIZED)
         })
+
+        it('rejects an engine token with no project scope (fail closed, like the PUT branch)', async () => {
+            const { mockProject, mockPlatform } = await mockAndSaveBasicSetup()
+            const engineToken = await generateMockToken({
+                type: PrincipalType.ENGINE,
+                id: apId(),
+                projectId: mockProject.id,
+                platform: { id: mockPlatform.id },
+            })
+            const fileId = apId()
+
+            const putResponse = await app!.inject({
+                method: 'PUT',
+                url: `/api/v1/files/${fileId}`,
+                query: { token: engineToken },
+                headers: {
+                    'content-type': 'application/octet-stream',
+                    'x-ap-file-type': FileType.FLOW_STEP_FILE,
+                },
+                payload: Buffer.from('scope guarded', 'utf-8'),
+            })
+            expect(putResponse?.statusCode).toBe(StatusCodes.OK)
+
+            // The API really mints project-less ENGINE tokens for platform-scoped
+            // operations (EnginePrincipal.projectId is `ProjectId | undefined`; see
+            // user-interaction-watcher + piece metadata extraction), so this is the
+            // token class a scopeless read must be hardened against.
+            const scopelessEngineToken = await generateMockToken({
+                type: PrincipalType.ENGINE,
+                id: apId(),
+                projectId: undefined,
+                platform: { id: mockPlatform.id },
+            })
+
+            const response = await app!.inject({
+                method: 'GET',
+                url: `/api/v1/files/${fileId}`,
+                query: { token: scopelessEngineToken },
+            })
+
+            expect(response?.statusCode).toBe(StatusCodes.UNAUTHORIZED)
+            expect(response?.rawPayload.includes('scope guarded')).toBe(false)
+        })
     })
 
     describe('GET /v1/step-files/signed (backward-compat alias)', () => {

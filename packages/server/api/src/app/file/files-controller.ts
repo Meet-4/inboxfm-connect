@@ -193,10 +193,29 @@ type AuthorizeReadParams = {
 async function authorizeRead({ token, fileId, log }: AuthorizeReadParams): Promise<string | undefined> {
     const readToken = await tryVerifyReadToken(token, fileId)
     if (readToken) {
+        // Intentionally unscoped: a FILE_READ token is HMAC-bound to this exact fileId
+        // (see filesService#constructReadUrl), so the project filter must stay OFF for
+        // it — do not "harden" this branch to a project lookup.
         return undefined
     }
     const principal = await tryVerifyEnginePrincipal(token, log)
     if (principal) {
+        // Fail closed on a scopeless engine token, mirroring the PUT branches above
+        // (#443/#444): the ownership predicate is only sound when the principal's scope
+        // is fully resolved. The API really mints project-less ENGINE tokens for
+        // platform-scoped operations (EnginePrincipal.projectId is `ProjectId | undefined`;
+        // see userInteractionWatcher -> extractPieceInformation passing `projectId:
+        // undefined`), so an undefined projectId must DENY here — TypeORM skips undefined
+        // findOneBy keys, so returning it would silently widen the read to every
+        // tenant's file rows.
+        if (isNil(principal.projectId) || isNil(principal.platform?.id)) {
+            throw new ActivepiecesError({
+                code: ErrorCode.INVALID_BEARER_TOKEN,
+                params: {
+                    message: 'engine token is not project-scoped',
+                },
+            })
+        }
         return principal.projectId
     }
     throw new ActivepiecesError({
