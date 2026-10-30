@@ -1,4 +1,6 @@
+import { isNil } from '@inboxfm-connect/core-utils'
 import { ConnectionMappingSchema, Permission, PlatformRole, PrincipalType, ProjectReplaceApplyRequest, ProjectStateSnapshot, ProviderMappingSchema } from '@inboxfm-connect/shared'
+import { FastifyReply, FastifyRequest } from 'fastify'
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
@@ -139,16 +141,8 @@ export const projectReplaceController: FastifyPluginAsyncZod = async (fastify) =
         const projectId = request.params.projectId
         const platformId = request.principal.platform.id
 
-        if (request.body.deployCustomIntegrations) {
-            if (request.principal.type === PrincipalType.USER) {
-                const user = await userService(request.log).getOneOrFail({ id: request.principal.id })
-                if (user.platformRole !== PlatformRole.ADMIN) {
-                    return reply.status(StatusCodes.FORBIDDEN).send({
-                        code: 'PERMISSION_DENIED',
-                        message: 'Deploying custom integrations platform-wide requires platform administrator permissions.',
-                    })
-                }
-            }
+        if (!(await assertCanDeployCustomIntegrations(request, reply))) {
+            return reply
         }
 
         const result = await projectReplaceService(request.log).applyPlan({
@@ -198,16 +192,8 @@ export const projectReplaceController: FastifyPluginAsyncZod = async (fastify) =
         const platformId = request.principal.platform.id
         const service = projectReplaceService(request.log)
 
-        if (request.body.deployCustomIntegrations) {
-            if (request.principal.type === PrincipalType.USER) {
-                const user = await userService(request.log).getOneOrFail({ id: request.principal.id })
-                if (user.platformRole !== PlatformRole.ADMIN) {
-                    return reply.status(StatusCodes.FORBIDDEN).send({
-                        code: 'PERMISSION_DENIED',
-                        message: 'Deploying custom integrations platform-wide requires platform administrator permissions.',
-                    })
-                }
-            }
+        if (!(await assertCanDeployCustomIntegrations(request, reply))) {
+            return reply
         }
 
         const plan = await service.createPlan({
@@ -256,4 +242,56 @@ export const projectReplaceController: FastifyPluginAsyncZod = async (fastify) =
         const statusCode = result.failed.length > 0 ? StatusCodes.MULTI_STATUS : StatusCodes.OK
         return reply.status(statusCode).send(result)
     })
+}
+
+/**
+ * Gate for `deployCustomIntegrations`: the flag makes applyPlan install piece
+ * archives with PieceScope.PLATFORM on the caller's platform (see Phase 0 in
+ * project-replace.service.ts) — a platform-wide effect that must stay a
+ * platform-admin capability even though the replace routes themselves are
+ * project-scoped.
+ *
+ * - USER principals are checked by platform role, as before.
+ * - A platform-wide service key (`sk-`, SERVICE principal with no bound
+ *   projectId) is the platform-grade credential — it keeps the ability, the
+ *   same way it may call platformAdminOnly routes.
+ * - A project-scoped Connect API key (`cak-`, SERVICE principal carrying the
+ *   single project it was minted for) must NOT reach a platform-wide
+ *   deployment from a project-scoped route: nothing in its grant expresses
+ *   "this project may install code for the whole platform" (same class as the
+ *   SERVICE-principal scope guard in authorize.ts).
+ *
+ * Returns true when the request may proceed; false when the 403 reply has
+ * already been sent.
+ */
+async function assertCanDeployCustomIntegrations(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+    const body = request.body as { deployCustomIntegrations?: boolean | undefined }
+    if (!body.deployCustomIntegrations) {
+        return true
+    }
+    switch (request.principal.type) {
+        case PrincipalType.USER: {
+            const user = await userService(request.log).getOneOrFail({ id: request.principal.id })
+            if (user.platformRole !== PlatformRole.ADMIN) {
+                await reply.status(StatusCodes.FORBIDDEN).send({
+                    code: 'PERMISSION_DENIED',
+                    message: 'Deploying custom integrations platform-wide requires platform administrator permissions.',
+                })
+                return false
+            }
+            return true
+        }
+        case PrincipalType.SERVICE: {
+            if (!isNil(request.principal.projectId)) {
+                await reply.status(StatusCodes.FORBIDDEN).send({
+                    code: 'PERMISSION_DENIED',
+                    message: 'Deploying custom integrations platform-wide requires a platform administrator or a platform-wide API key; this API key is scoped to a single project.',
+                })
+                return false
+            }
+            return true
+        }
+        default:
+            return true
+    }
 }
