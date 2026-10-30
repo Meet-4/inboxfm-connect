@@ -6,17 +6,16 @@ icon: "database"
 
 Each replica running the `APP` role (`AP_CONTAINER_TYPE=APP` or the default `WORKER_AND_APP`) opens
 its own Postgres connection pool, sized by `AP_POSTGRES_POOL_SIZE`. Postgres's own `max_connections`
-(default **100**) is shared across the *whole* fleet — so a pool size chosen for one replica can
-starve the database once you scale out, at a replica count nobody deliberately chose. The
-[benchmark](../architecture/benchmark#test-environment) that documents this fork's production shape
-runs Postgres with `max_connections=2000` specifically because the default of 100 would cap the app
-tier at roughly 10 replicas.
+(default **100**) is shared by every replica — so a pool size chosen for one replica can
+starve the database once you scale out, at a replica count nobody deliberately chose. At the default
+pool size of 10, `max_connections=100` funds fewer than eight app replicas before the boot check
+fails (see the worked examples below).
 
 <Note>
 Only `APP` / `WORKER_AND_APP` replicas count here. A pure `WORKER` replica (`AP_CONTAINER_TYPE=WORKER`)
-never registers any DB-touching module — see [Workers](../architecture/workers) — and talks to the app
-tier over HTTP callbacks instead of a direct Postgres connection. Size this page's numbers off your
-**app replica count**, not your total fleet size.
+never registers any DB-touching module — see [Workers](../architecture/workers) — so it holds no
+Postgres pool at all. Size this page's numbers off your **app replica count**: under the default
+`WORKER_AND_APP`, that is every replica you run.
 </Note>
 
 ## The budget formula
@@ -50,7 +49,7 @@ failing because of it:
 |---|---|
 | Nothing | Check skipped entirely. No `AP_POSTGRES_MAX_CONNECTIONS` means Inboxfm Connect doesn't know your database's capacity, so it doesn't guess. |
 | `AP_POSTGRES_MAX_CONNECTIONS` only | `AP_POSTGRES_EXPECTED_APP_REPLICAS` defaults to `1` — the common single-replica / `docker-compose` shape — so the check runs and (for any sane pool size) passes. |
-| Both `AP_POSTGRES_MAX_CONNECTIONS` and `AP_POSTGRES_EXPECTED_APP_REPLICAS` | The full budget check runs against your declared fleet shape. |
+| Both `AP_POSTGRES_MAX_CONNECTIONS` and `AP_POSTGRES_EXPECTED_APP_REPLICAS` | The full budget check runs against your declared replica count. |
 
 The check also only runs for `AP_DB_TYPE=POSTGRES` — it's a no-op for the embedded PGlite database,
 which has no `max_connections` concept.
@@ -66,10 +65,9 @@ Using the default Postgres `max_connections=100` → `budget = floor((100 − 3 
 | 10 | 8 | 80 | 105% | **Fails fast at boot** |
 | 5 | 15 | 75 | 99% | Boots, logs a warning |
 
-Following [Production Setup](./production-setup)'s `apps = ceil(workers / 10)` sizing at the default
-pool size of 10: a 50-worker fleet needs 5 apps (50 required connections, comfortably under 76), but
-a 160-worker fleet needs 16 apps (160 required connections) — **well past what `max_connections=100`
-can fund**, even before counting migrations. At that scale, either raise Postgres's
+The same arithmetic bites when you scale the app tier itself: at the default pool size of 10, the
+eighth replica needs 80 connections — already past the 76-connection budget of a stock
+`max_connections=100` (the failing row above). Past that point, either raise Postgres's
 `max_connections` (and `AP_POSTGRES_MAX_CONNECTIONS` to match), lower `AP_POSTGRES_POOL_SIZE`, or put
 [PgBouncer](#pgbouncer--managed-proxies) in front.
 
@@ -119,7 +117,7 @@ field group (see `packages/server/AGENTS.md`'s field-schema convention):
 
 - **Startup budget computation** — `pool: { maxConnections, budget, poolSize, expectedAppReplicas, requiredConnections }` at `info` (or `warn` above 80% of budget).
 - **Background pool errors** — `pool: { poolError }` at `error`, from the underlying `pg.Pool`'s `'error'` event (e.g. an idle connection dropped by the server).
-- **Periodic saturation snapshot** (every 60s, app-role replicas only) — `pool: { totalCount, activeCount, idleCount, serverMaxConnections, utilizationRatio, expectedAppReplicas, declaredMaxConnections }`, sourced from `pg_stat_activity` rather than driver internals, so it reflects real fleet-wide usage against the server's actual `max_connections` — not just one replica's local pool. Logs at `warn` once `utilizationRatio` crosses 80%.
+- **Periodic saturation snapshot** (every 60s, app-role replicas only) — `pool: { totalCount, activeCount, idleCount, serverMaxConnections, utilizationRatio, expectedAppReplicas, declaredMaxConnections }`, sourced from `pg_stat_activity` rather than driver internals, so it reflects real usage across all your app replicas against the server's actual `max_connections` — not just one replica's local pool. Logs at `warn` once `utilizationRatio` crosses 80%.
 
 ## Scale testing
 
@@ -128,5 +126,5 @@ pool exhaustion against a real Postgres instance with a deliberately undersized 
 slots of a 2-connection pool with long-running queries, asserts a third acquisition rejects within
 `AP_POSTGRES_CONNECTION_TIMEOUT_MS` (not indefinitely), and asserts the pool recovers once the held
 queries complete. This is a bounded-pool starvation simulation on a single real Postgres instance, not
-a literal multi-replica cluster test — reproducing the benchmark's real GKE fleet numbers requires the
+a literal multi-replica cluster test — reproducing cluster-scale benchmark results requires the
 rig in [`benchmark/`](https://github.com/Mihir-Rabari/inboxfm-connect/tree/main/benchmark).
