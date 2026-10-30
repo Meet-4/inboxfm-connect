@@ -1,4 +1,5 @@
-import {FastifyBaseLogger} from 'fastify'
+import { FastifyBaseLogger } from 'fastify'
+import { AppConnectionScope, AppConnectionType } from '@inboxfm-connect/shared'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Race regression (issue F29): two overlapping upserts of the same
@@ -80,6 +81,7 @@ const mockLog: FastifyBaseLogger = {
 } as unknown as FastifyBaseLogger
 
 type AppConnectionService = ReturnType<typeof import('../../../../src/app/app-connection/app-connection-service/app-connection-service').appConnectionService>
+type UpsertParams = Parameters<AppConnectionService['upsert']>[0]
 
 async function loadService(): Promise<AppConnectionService> {
     const mod = await import('../../../../src/app/app-connection/app-connection-service/app-connection-service')
@@ -91,15 +93,16 @@ async function realRunExclusive<T>({fn}: {fn: () => Promise<T>}): Promise<T> {
     return fn()
 }
 
-const baseUpsert = {
+const baseUpsert: UpsertParams = {
     externalId: 'ext-1',
     pieceName: 'openai',
     displayName: 'Race Conn',
     platformId: 'platform-1',
     projectIds: ['proj-1'],
-    scope: 'PROJECT',
-    type: 'NO_AUTH',
-    value: {type: 'NO_AUTH'},
+    ownerId: null,
+    scope: AppConnectionScope.PROJECT,
+    type: AppConnectionType.NO_AUTH,
+    value: { type: AppConnectionType.NO_AUTH },
 }
 
 describe('appConnectionService.upsert race (issue F29)', () => {
