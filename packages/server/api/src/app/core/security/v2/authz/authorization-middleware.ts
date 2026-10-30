@@ -5,10 +5,14 @@ import { AuthorizationRouteSecurity } from '../../authorization/authorization'
 import { AuthorizationType, ProjectResourceType, RouteKind } from '../../authorization/common'
 import { authorizeOrThrow } from './authorize'
 import { projectIdExtractor } from './projectIdExtractor'
+import { assertProjectScopedServicePrincipalIsNotPlatformWide } from './service-principal-scope'
 
 
 export const authorizationMiddleware = async (request: FastifyRequest): Promise<void> => {
     const security = request.routeOptions.config?.security
+    if (!isNil(security) && security.kind === RouteKind.AUTHENTICATED && security.authorization.type === AuthorizationType.PLATFORM) {
+        assertProjectScopedServicePrincipalIsNotPlatformWide(request.principal, security.authorization)
+    }
     const securityAccessRequest = await convertToSecurityAccessRequest(request)
     await authorizeOrThrow(request.principal, securityAccessRequest, request.log)
 

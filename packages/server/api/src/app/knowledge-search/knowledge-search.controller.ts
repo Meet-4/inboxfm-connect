@@ -51,11 +51,14 @@ const KnowledgeSearchQueryResponseBody = z.object({
 
 const QueryKnowledgeSearchOptions = {
     config: {
-        security: securityAccess.publicPlatform([
-            PrincipalType.USER,
-            PrincipalType.ENGINE,
-            PrincipalType.SERVICE,
-        ]),
+        security: securityAccess.publicPlatform(
+            [PrincipalType.USER, PrincipalType.ENGINE, PrincipalType.SERVICE],
+            undefined,
+            // Read-only catalog search over integration pieces: results are scoped to the
+            // caller's own platform (principal.platform.id) and never expose tenant data,
+            // so a project-scoped Connect API key (`cak-`) legitimately keeps this read.
+            true,
+        ),
         rateLimit: syncExecutionRateLimitOptions,
     },
     schema: {

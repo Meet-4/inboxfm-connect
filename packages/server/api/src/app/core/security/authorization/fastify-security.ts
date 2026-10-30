@@ -78,9 +78,13 @@ export const securityAccess = {
      *
      * @param allowedPrincipals - Array of allowed principal types (USER, ENGINE, or SERVICE)
      * @param projectResource - Optional resource configuration for extracting projectId from the request
+     * @param allowProjectScopedServicePrincipals - Set to true only when the route's answer is
+     * scoped to the caller's own principal instead of platform-wide tenant data (e.g. the
+     * knowledge-search catalog), so a project-scoped Connect API key (`cak-`) may keep
+     * calling it. Every other PLATFORM route refuses project-scoped service principals.
      * @returns Security configuration for public platform routes
      */
-    publicPlatform: (allowedPrincipals: readonly (PrincipalType.USER | PrincipalType.ENGINE | PrincipalType.SERVICE)[], projectResource?: ProjectResource) => {
+    publicPlatform: (allowedPrincipals: readonly (PrincipalType.USER | PrincipalType.ENGINE | PrincipalType.SERVICE)[], projectResource?: ProjectResource, allowProjectScopedServicePrincipals?: boolean) => {
         return {
             kind: RouteKind.AUTHENTICATED,
             authorization: {
@@ -88,6 +92,7 @@ export const securityAccess = {
                 allowedPrincipals,
                 adminOnly: false,
                 projectResource,
+                allowProjectScopedServicePrincipals,
             },
         } as const
     },

@@ -60,6 +60,15 @@ export type PlatformAuthorization = {
     nonEmbedUsersOnly?: boolean
     allowedPrincipals: readonly (PrincipalType.USER | PrincipalType.ENGINE | PrincipalType.SERVICE)[]
     projectResource?: ProjectResource
+    /**
+     * Opt-in for the rare PLATFORM route whose answer is scoped to the caller's own
+     * principal rather than platform-wide tenant data — e.g. the knowledge-search piece
+     * catalog, which filters results by `principal.platform.id`. A project-scoped
+     * SERVICE principal (a Connect API key, `cak-`) may call such a route; every other
+     * PLATFORM route is refused to it by
+     * `assertProjectScopedServicePrincipalIsNotPlatformWide`.
+     */
+    allowProjectScopedServicePrincipals?: boolean
 }
 
 export type ProjectAuthorization = {
