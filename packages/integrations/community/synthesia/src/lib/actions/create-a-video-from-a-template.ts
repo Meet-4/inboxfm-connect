@@ -72,7 +72,7 @@ export const createAVideoFromATemplate = createAction({
 
     const body: any = {
       templateId,
-      test: test ? 'true' : 'false',
+      test: test ? true : false,
       visibility: visibility || 'private',
     };
 

@@ -139,7 +139,7 @@ export const createVideo = createAction({
         background: input_background,
         audio: input_scriptAudioUrl,
       },
-      test: test ? 'true' : 'false',
+      test: test ? true : false,
       visibility: visibility || 'private',
     };
 
