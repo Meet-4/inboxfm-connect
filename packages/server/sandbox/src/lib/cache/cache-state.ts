@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'path'
-import { isNil } from '@inboxfm-connect/core-utils'
+import { isNil, tryCatchSync } from '@inboxfm-connect/core-utils'
 import { fileSystemUtils, memoryLock } from '@inboxfm-connect/server-utils'
 import writeFileAtomic from 'write-file-atomic'
 
@@ -73,7 +73,17 @@ async function readCacheFromFile(folderPath: string): Promise<CacheMap> {
         return {}
     }
     const fileContent = await readFile(filePath, 'utf8')
-    return JSON.parse(fileContent)
+    // A corrupt/truncated cache.json (disk-full write, a crashed writer from
+    // before the atomic writes, manual edits) must degrade to a cache miss —
+    // an escaping SyntaxError here failed EVERY future cache read for the
+    // folder, permanently breaking code-step provisioning until a manual rm.
+    // The next saveCache overwrites the file with a valid map, so the
+    // corruption self-heals on first use.
+    const { data: parsed, error } = tryCatchSync(() => JSON.parse(fileContent) as CacheMap)
+    if (error || typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return {}
+    }
+    return parsed
 }
 
 async function readCacheFromMemory(folderPath: string): Promise<CacheMap> {

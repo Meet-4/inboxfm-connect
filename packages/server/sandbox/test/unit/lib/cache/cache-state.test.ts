@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -125,9 +125,59 @@ describe('cacheState', () => {
             const raw = await readFile(join(folder, 'cache.json'), 'utf8')
             expect(JSON.parse(raw)).toEqual({ staleKey: 'new-version' })
         })
+
+        it('self-heals a corrupt cache.json instead of failing every future cache read', async () => {
+            const folder = uniqueFolder()
+            // A truncated/garbage cache.json (e.g. left by a disk-full write or a
+            // crashed writer predating the atomic writes) used to make
+            // getOrSetCache throw on EVERY call — permanently failing every
+            // code-step provision that shares the folder until manual rm.
+            await mkdir(folder, { recursive: true })
+            await writeFile(join(folder, 'cache.json'), '{"myKey": "trunc', 'utf8')
+
+            let installCalled = false
+            const result = await cacheState(folder).getOrSetCache({
+                key: 'myKey',
+                cacheMiss: () => true,
+                installFn: async () => {
+                    installCalled = true
+                    return 'reinstalled'
+                },
+                skipSave: () => false,
+            })
+
+            expect(result).toEqual({ cacheHit: false, state: 'reinstalled' })
+            expect(installCalled).toBe(true)
+
+            // The corrupt file is replaced with a valid one.
+            const raw = await readFile(join(folder, 'cache.json'), 'utf8')
+            expect(JSON.parse(raw)).toEqual({ myKey: 'reinstalled' })
+
+            // And the next call is a healthy memory hit.
+            const second = await cacheState(folder).getOrSetCache({
+                key: 'myKey',
+                cacheMiss: () => false,
+                installFn: async () => {
+                    throw new Error('should not be called')
+                },
+                skipSave: () => false,
+            })
+            expect(second).toEqual({ cacheHit: true, state: 'reinstalled' })
+        })
     })
 
     describe('saveCache', () => {
+        it('overwrites a corrupt cache.json with a fresh valid map', async () => {
+            const folder = uniqueFolder()
+            await mkdir(folder, { recursive: true })
+            await writeFile(join(folder, 'cache.json'), 'not-json{', 'utf8')
+
+            const result = await cacheState(folder).saveCache('freshKey', 'freshVal')
+
+            expect(result).toEqual({ freshKey: 'freshVal' })
+            const raw = await readFile(join(folder, 'cache.json'), 'utf8')
+            expect(JSON.parse(raw)).toEqual({ freshKey: 'freshVal' })
+        })
         it('creates directory, reads existing cache, merges new key, writes atomically', async () => {
             const folder = uniqueFolder()
 
