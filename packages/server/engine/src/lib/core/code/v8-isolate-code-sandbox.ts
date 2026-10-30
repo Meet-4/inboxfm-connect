@@ -14,6 +14,11 @@ const ONE_HUNDRED_TWENTY_EIGHT_MEGABYTES = 128
 // existing error handling turns it into an empty-string resolution.
 const EXPRESSION_TIMEOUT_MS = 5_000
 
+// Ceiling for one code module's UNINTERRUPTED synchronous execution inside the
+// isolate (see runCodeModule): async continuations are not interrupted by
+// isolated-vm's timeout and remain bounded by the outer per-run kill.
+const CODE_MODULE_TIMEOUT_MS = 120_000
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // Check this https://github.com/laverdet/isolated-vm/issues/258#issuecomment-2134341086
 let ivmCache: any
@@ -22,6 +27,14 @@ const getIvm = () => {
         ivmCache = require('isolated-vm')
     }
     return ivmCache as typeof import('isolated-vm')
+}
+
+// Test seam: isolated-vm is an optional native dependency, and its loader here
+// is a CommonJS `require`, which bypasses the test runner's module-mock
+// registry. Unit tests inject a fake implementation through this hook; no
+// production code path calls it.
+export const __setIvmForTests = (fake: unknown): void => {
+    ivmCache = fake
 }
 
 /**
@@ -46,6 +59,14 @@ export const v8IsolateCodeSandbox: CodeSandbox = {
                 isolate,
                 isolateContext,
                 code: wrapCjsModule(source),
+                // Mirrors EXPRESSION_TIMEOUT_MS below: without a bound, a
+                // synchronous infinite loop in user code never returns from
+                // Isolate#run, the finally never disposes the isolate, a core
+                // stays pegged, and the only recovery is the parent SIGKILLing
+                // the whole engine. isolated-vm's timeout interrupts only
+                // synchronous execution, so this generous ceiling can never cut
+                // off a code step that is legitimately awaiting I/O.
+                timeoutMs: CODE_MODULE_TIMEOUT_MS,
             })
         }
         finally {
