@@ -16,6 +16,17 @@ import { appConnectionsRepo } from './app-connection-service'
 import { oauth2Handler } from './oauth2'
 import { oauth2Util } from './oauth2/oauth2-util'
 
+/**
+ * The single mutex key for all read-modify-write operations on a connection
+ * row: token refresh, the explicit health check, and connection upserts.
+ * Refresh and the health check already shared it; the upsert path now uses it
+ * too — an upsert that commits while a refresh is in flight would otherwise
+ * have its newly-claimed credentials silently overwritten by the refresh's
+ * write (last-write-wins between two different mutexes), reverting the
+ * connection to the previous account's tokens.
+ */
+export const connectionLockKey = (platformId: string, externalId: string): string => `${platformId}_${externalId}`
+
 export const appConnectionHandler = (_log: FastifyBaseLogger) => ({
 
     async refresh(connection: AppConnection, projectId: ProjectId, log: FastifyBaseLogger): Promise<AppConnection> {
@@ -111,7 +122,7 @@ export const appConnectionHandler = (_log: FastifyBaseLogger) => ({
     }) {
 
         return distributedLock(log).runExclusive({
-            key: `${platformId}_${externalId}`,
+            key: connectionLockKey(platformId, externalId),
             timeoutInSeconds: 60,
             fn: async () => {
                 let appConnection: AppConnection | null = null
@@ -182,7 +193,7 @@ export const appConnectionHandler = (_log: FastifyBaseLogger) => ({
         log: FastifyBaseLogger
     }): Promise<TestConnectionOutcome> {
         return distributedLock(log).runExclusive({
-            key: `${platformId}_${externalId}`,
+            key: connectionLockKey(platformId, externalId),
             timeoutInSeconds: 60,
             fn: async (): Promise<TestConnectionOutcome> => {
                 const encryptedAppConnection = await appConnectionsRepo().findOneBy({

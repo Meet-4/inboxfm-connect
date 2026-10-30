@@ -24,7 +24,7 @@ import {
     AppConnectionEntity,
     AppConnectionSchema,
 } from '../app-connection.entity'
-import { appConnectionHandler } from './app-connection.handler'
+import { appConnectionHandler, connectionLockKey } from './app-connection.handler'
 import type { TestConnectionOutcome } from './app-connection.handler'
 import { oauth2Handler } from './oauth2'
 import { oauth2Util } from './oauth2/oauth2-util'
@@ -34,29 +34,28 @@ export const appConnectionsRepo = repoFactory(AppConnectionEntity)
 // (platformId, externalId, scope), so two overlapping upserts of the same
 // connection both read "no existing row" and insert two rows with different
 // ids. Serialize the whole read-modify-write behind the distributed lock
-// (RedLock runExclusive - the same mutex app-connection.handler already
-// uses for token refresh). Unlike a bare SET NX + re-read, runExclusive
-// makes the loser's lookup happen strictly after the winner's commit, and
-// it releases the lock when the winner finishes instead of holding it for
-// the full TTL. Fail-open on lock unavailability so a Redis outage never
-// blocks connection creation.
-function buildUpsertLockKey({ externalId, scope, platformId, projectIds }: { externalId: string, scope: string, platformId: string, projectIds: string[] | null }): string {
-    // ArrayContains semantics are order-insensitive, so the lock key must be
-    // too: ['p1','p2'] and ['p2','p1'] address the same row and must share one
-    // mutex. Sort + dedupe to get one canonical key per connection.
-    const canonicalProjectIds = isNil(projectIds) ? 'no-projects' : [...new Set(projectIds)].sort().join(',')
-    return ['app-connection', 'upsert', platformId, externalId, scope, canonicalProjectIds].join(':')
+// (RedLock runExclusive). The key is connectionLockKey(platformId, externalId)
+// — the SAME mutex token refresh and the health check use — so an upsert also
+// serializes against an in-flight refresh: the refresh used to commit under a
+// different mutex and could overwrite a just-committed reconnect with tokens
+// minted from the pre-reconnect refresh_token, silently reverting the
+// connection to the previous account. The key is deliberately coarser than
+// row identity (it ignores scope/projectIds): correctness only requires that
+// everything touching the same platformId+externalId region serializes, and
+// the refresh path — which reads the row inside the lock — cannot know the
+// row's scope/projectIds before locking. Fail-open on lock unavailability so a
+// Redis outage never blocks connection creation.
+function buildUpsertLockKey({ externalId, platformId }: { externalId: string, platformId: string }): string {
+    return connectionLockKey(platformId, externalId)
 }
 
-async function runUpsertExclusiveOrWithoutLock<T>({ externalId, scope, platformId, projectIds, fn, log }: {
+async function runUpsertExclusiveOrWithoutLock<T>({ externalId, platformId, fn, log }: {
     externalId: string
-    scope: string
     platformId: string
-    projectIds: string[] | null
     fn: () => Promise<T>
     log: FastifyBaseLogger
 }): Promise<T> {
-    const key = buildUpsertLockKey({ externalId, scope, platformId, projectIds })
+    const key = buildUpsertLockKey({ externalId, platformId })
     let fnSettled = false
     try {
         return await distributedLock(log).runExclusive({
@@ -122,15 +121,14 @@ export const appConnectionService = (log: FastifyBaseLogger) => ({
             ...value,
         })
 
-        // Serialize overlapping upserts of the same connection (issue F29).
+        // Serialize overlapping upserts of the same connection (issue F29),
+        // and against concurrent refreshes/health checks (shared mutex key).
         // runExclusive releases the lock when the winner's upsert commits, so
         // the loser's lookup below happens strictly after that commit and
         // finds the winner's row instead of inserting a duplicate.
         return runUpsertExclusiveOrWithoutLock({
             externalId,
-            scope,
             platformId,
-            projectIds,
             log,
             fn: async () => {
                 const existingConnection = await appConnectionsRepo().findOneBy({
