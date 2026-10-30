@@ -130,6 +130,39 @@ describe('evlogDrains.createLokiDrain', () => {
         const expectedMs = Date.parse(ts)
         expect(BigInt(nanos)).toBe(BigInt(expectedMs) * 1000000n)
     })
+
+    it('does not crash or drop the batch when one event has an unparseable timestamp', async () => {
+        // Date.parse of a non-ISO string returns NaN and BigInt(NaN) throws —
+        // the timestamp conversion happens before the try/catch around the
+        // HTTP call, so one malformed event used to reject the whole drain
+        // and evlog's pipeline would drop the entire batch (all 3 retries hit
+        // the same poison event).
+        const postFn = vi.fn().mockResolvedValue({ status: 204 })
+        const client = makeHttpClient(postFn)
+
+        const drain = evlogDrains.createLokiDrain({
+            url: 'http://loki:3100',
+            serviceName: 'svc',
+            httpClient: client,
+        })
+
+        const batch = [
+            makeContext(makeEvent({ timestamp: '2024-06-01T12:00:00.000Z' })),
+            makeContext(makeEvent({ timestamp: 'not-a-real-date' })),
+            makeContext(makeEvent({ timestamp: '2024-06-01T12:00:01.000Z' })),
+        ]
+
+        await expect(drain(batch)).resolves.toBeUndefined()
+        expect(postFn).toHaveBeenCalledOnce()
+
+        const { streams } = postFn.mock.calls[0][1]
+        const allValues = streams.flatMap((s: { values: Array<[string, string]> }) => s.values)
+        expect(allValues).toHaveLength(3)
+        for (const [nanos] of allValues) {
+            expect(() => BigInt(nanos)).not.toThrow()
+            expect(BigInt(nanos)).toBeGreaterThan(0n)
+        }
+    })
 })
 
 describe('evlogDrains.resolve', () => {

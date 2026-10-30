@@ -33,7 +33,15 @@ function createLokiDrain({ url, username, password, serviceName, httpClient }: C
                 streamMap[key] = []
             }
             const ts = event.timestamp ?? new Date().toISOString()
-            const nanos = String(BigInt(Date.parse(ts)) * 1000000n)
+            // Date.parse returns NaN for anything that is not a valid date
+            // (an emitter can stuff a malformed timestamp into the event).
+            // BigInt(NaN) throws, and this loop runs before the try/catch
+            // around the HTTP call — one poison event used to reject the whole
+            // drain so evlog's pipeline dropped (and kept re-dropping) the
+            // entire batch. Fall back to "now", like the missing-timestamp
+            // case above.
+            const epochMs = Date.parse(ts)
+            const nanos = String(BigInt(Number.isNaN(epochMs) ? Date.now() : epochMs) * 1000000n)
             streamMap[key].push([nanos, JSON.stringify(event)])
         }
 
