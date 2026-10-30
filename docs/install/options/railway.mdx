@@ -68,7 +68,7 @@ For more details on SSL configuration, see the [Setup SSL](/install/configure-op
 Before deploying to production, review these important points:
 
 - [ ] Review [Security Practices](/admin-guide/security/practices) documentation
-- [ ] Configure `AP_WORKER_CONCURRENCY` based on your workload and hardware resources
+- [ ] Pick an `AP_EXECUTION_MODE` appropriate for your tenants (`SANDBOX_CODE_ONLY` for multi-tenant; see [Sandboxing](/install/architecture/sandboxing))
 - [ ] Ensure PostgreSQL backups are configured in Railway
 - [ ] Consider database scaling options in Railway
 
