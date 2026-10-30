@@ -62,7 +62,80 @@ const FlowIRSchema = z.object({
 
 export type FlowIR = z.infer<typeof FlowIRSchema>
 
+/**
+ * Maximum container nesting accepted for imported Flow IR.
+ *
+ * `/v1/ir/validate` echoes the parsed flow back to the caller, and both IR
+ * import routes echo derived structures. Node's JSON serializer and the
+ * runtime's value resolver are recursive, so a payload such as 8k nested
+ * arrays (16 KB of body) overflowed the stack: the route answered HTTP 500
+ * `Maximum call stack size exceeded` and `execute-local` reported the same
+ * message as a step failure. Bounding nesting at import time keeps every
+ * downstream recursive walk inside the stack budget.
+ *
+ * 32 levels is well above any realistic flow: a JSON-Schema-ish `inputSchema`
+ * with deeply nested object properties sits around 10 levels.
+ */
+export const MAX_IR_NESTING_DEPTH = 32
+
+type NestingFrame = {
+  value: unknown
+  depth: number
+  parent: NestingFrame | null
+  key: string | number | null
+}
+
+function formatNestingPath(frame: NestingFrame): string {
+  const segments: string[] = []
+  let current: NestingFrame | null = frame
+  while (current?.parent) {
+    segments.push(String(current.key))
+    current = current.parent
+  }
+  return segments.reverse().join('.')
+}
+
+/**
+ * Walks `value` with an explicit stack – never recursively – and returns the
+ * first container deeper than `maxDepth`. Iterative on purpose: the check must
+ * survive the exact payloads that overflow the recursive consumers it guards.
+ */
+export function findIrNestingViolation(
+  value: unknown,
+  maxDepth: number = MAX_IR_NESTING_DEPTH,
+): { path: string; message: string } | null {
+  const root: NestingFrame = { value, depth: 0, parent: null, key: null }
+  const stack: NestingFrame[] = [root]
+  while (stack.length > 0) {
+    const frame = stack.pop()!
+    const current = frame.value
+    if (current === null || typeof current !== 'object') continue
+    const isArray = Array.isArray(current)
+    if (frame.depth > maxDepth) {
+      return {
+        path: formatNestingPath(frame) || '$',
+        message: `Nesting depth ${frame.depth} exceeds the maximum of ${maxDepth}`,
+      }
+    }
+    if (isArray) {
+      const items = current as unknown[]
+      for (let index = items.length - 1; index >= 0; index--) {
+        stack.push({ value: items[index], depth: frame.depth + 1, parent: frame, key: index })
+      }
+    } else {
+      for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+        stack.push({ value: child, depth: frame.depth + 1, parent: frame, key })
+      }
+    }
+  }
+  return null
+}
+
 export function validateFlowIR(value: unknown): { valid: true; flow: FlowIR } | { valid: false; issues: Array<{ path: string; message: string }> } {
+  const nesting = findIrNestingViolation(value)
+  if (nesting) {
+    return { valid: false, issues: [nesting] }
+  }
   const parsed = FlowIRSchema.safeParse(value)
   if (!parsed.success) {
     return {
