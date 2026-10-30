@@ -54,7 +54,7 @@ export const uploadUrl = createAction({
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `${BASE_URL}/upload-url`,
+      url: `${BASE_URL}/v1/upload-url`,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': auth.secret_text,

@@ -53,18 +53,24 @@ export const uploadFile = createAction({
     const { auth, propsValue: { file, fileName, domainName, tags, sourceName, createdTime, isStack } } = context;
 
     // Create form data for file upload
+    // The documented multipart contract is exactly two parts: the binary `file`
+    // and a `message_request` JSON string carrying the upload parameters
+    // (https://docs.personal.ai/api-reference/openapi.json -> /v1/upload-file).
+    const uploadParams: Record<string, string> = {};
+    if (domainName) uploadParams['DomainName'] = domainName;
+    if (tags) uploadParams['Tags'] = tags;
+    if (sourceName) uploadParams['SourceName'] = sourceName;
+    if (createdTime) uploadParams['CreatedTime'] = createdTime;
+    if (isStack !== undefined) uploadParams['is_stack'] = isStack.toString();
+
     const formData = new FormData();
     const blob = new Blob([file.data as any], { type: 'application/octet-stream' });
     formData.append('file', blob, fileName);
-    if (domainName) formData.append('DomainName', domainName);
-    if (tags) formData.append('Tags', tags);
-    if (sourceName) formData.append('SourceName', sourceName);
-    if (createdTime) formData.append('CreatedTime', createdTime);
-    if (isStack !== undefined) formData.append('is_stack', isStack.toString());
+    formData.append('message_request', JSON.stringify(uploadParams));
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
-      url: `${BASE_URL}/upload-file`,
+      url: `${BASE_URL}/v1/upload-file`,
       headers: {
         'x-api-key': auth.secret_text as string,
       },

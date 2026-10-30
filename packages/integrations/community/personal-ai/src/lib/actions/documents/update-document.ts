@@ -59,14 +59,17 @@ export const updateDocument = createAction({
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.PUT,
-      url: `${BASE_URL}/update-document`,
+      url: `${BASE_URL}/v1/update-document`,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': auth.secret_text,
       },
+      queryParams: {
+        feed_id: documentId,
+      },
       body: {
-        DocumentId: documentId,
         Text: text,
+        ...(documentId && { DocumentId: documentId }),
         ...(title && { Title: title }),
         ...(domainName && { DomainName: domainName }),
         ...(tags && { Tags: tags }),
