@@ -42,6 +42,10 @@ export const famulorAuth =  PieceAuth.SecretText({
         const response = await httpClient.sendRequest({
           method: HttpMethod.GET,
           url: baseApiUrl + 'api/user/me',
+          // Unauthenticated requests 302-redirect to the login page;
+          // following it would land on a 200 and accept any token. With
+          // redirects unfollowed, the 302 fails the status check below.
+          followRedirects: false,
           headers: {
             'Authorization': `Bearer ${auth}`,
             'Content-Type': 'application/json',
