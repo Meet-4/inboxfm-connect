@@ -10,25 +10,28 @@ export const chartlyAuth = PieceAuth.SecretText({
     4. API keys look like: trial_abc123...xyz789`,
     validate: async ({ auth }) => {
         try {
-            const response = await fetch('https://api.chartly.dev/v1/status', {
+            // /v1/status is a public health endpoint — it answers 200 with no API
+            // key at all, so validating against it accepted every key. /v1/chart is
+            // key-gated: it returns 401 for a missing or invalid key (the API's
+            // OpenAPI spec documents a 401 response for GET /v1/chart).
+            const response = await fetch('https://api.chartly.dev/v1/chart', {
                 method: 'GET',
                 headers: {
                     'X-Api-Key': auth,
                 },
             });
 
-            if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
                 return {
                     valid: false,
                     error: `Invalid API key: ${response.status} ${response.statusText}`,
                 };
             }
 
-            const data = await response.json();
-            if (data.status !== 'ok') {
+            if (!response.ok) {
                 return {
                     valid: false,
-                    error: 'Chartly service is currently unhealthy',
+                    error: `Chartly API error: ${response.status} ${response.statusText}`,
                 };
             }
 
