@@ -204,4 +204,51 @@ describe('apLogger', () => {
             apLogger.setCurrentLevel('info') // restore
         })
     })
+
+    describe('field sanitization (prototype-pollution guard)', () => {
+        // Fields and bindings are merged into evlog's wide-event context,
+        // which resolves a `__proto__` key against Object.prototype. A
+        // JSON.parse'd payload can carry an own enumerable `__proto__` data
+        // property, so the fields funnels must strip dangerous keys first.
+        afterEach(() => {
+            delete (Object.prototype as unknown as Record<string, unknown>)['polluted']
+        })
+
+        it('info(obj, msg) strips __proto__ from the merged wide-path fields but keeps clean keys', () => {
+            ambientState.active = true
+            const logger = apLogger.create({})
+            logger.info(JSON.parse('{"__proto__": {"polluted": "yes"}, "userId": "u1"}'), 'user found')
+            expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+            const ctx = spies.wideInfoSpy.mock.calls[0][1] as Record<string, unknown>
+            expect(Object.keys(ctx).sort()).toEqual(['userId'])
+            expect(ctx).toMatchObject({ userId: 'u1' })
+        })
+
+        it('create() sanitizes bindings', () => {
+            ambientState.active = true
+            const logger = apLogger.create({ bindings: JSON.parse('{"__proto__": {"polluted": "yes"}, "service": "api"}') })
+            logger.info('msg')
+            expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+            const ctx = spies.wideInfoSpy.mock.calls[0][1] as Record<string, unknown>
+            expect(Object.keys(ctx).sort()).toEqual(['service'])
+        })
+
+        it('non-wide path also strips dangerous keys before log.info', () => {
+            ambientState.active = false
+            const logger = apLogger.create({})
+            logger.info(JSON.parse('{"__proto__": {"polluted": "yes"}, "event": "login"}'))
+            const arg = spies.logInfoSpy.mock.calls[0][0] as Record<string, unknown>
+            expect(Object.keys(arg).sort()).toEqual(['event', 'msg'])
+            expect(arg).toMatchObject({ event: 'login' })
+        })
+
+        it('child() strips dangerous keys from child bindings before wideEvent.set', () => {
+            ambientState.active = true
+            const logger = apLogger.create({ bindings: { parent: true } })
+            logger.child(JSON.parse('{"__proto__": {"polluted": "yes"}, "requestId": "r99"}') as Record<string, unknown>)
+            expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+            const setArg = spies.wideSetSpy.mock.calls[0][0] as Record<string, unknown>
+            expect(Object.keys(setArg).sort()).toEqual(['requestId'])
+        })
+    })
 })

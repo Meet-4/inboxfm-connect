@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { audit as standaloneAudit, AuditInput, RequestLogger, withAuditMethods } from 'evlog'
+import { sanitizeLogFields } from './sanitize-log-fields'
 
 const als = new AsyncLocalStorage<RequestLogger>()
 
@@ -8,7 +9,7 @@ function run<T>({ logger, fn }: { logger: RequestLogger, fn: () => T }): T {
 }
 
 function set(fields: Record<string, unknown>): void {
-    als.getStore()?.set(fields)
+    als.getStore()?.set(sanitizeLogFields(fields))
 }
 
 function error(err: unknown): void {
@@ -34,12 +35,17 @@ async function timed<T>({ name, fn }: { name: string, fn: () => Promise<T> }): P
 }
 
 function audit(input: AuditInput): void {
+    // Audit payloads are deep-merged into the event's audit record on every
+    // call after the first, so they get the same prototype-pollution guard as
+    // set() fields (a `__proto__` key inside target/actor reaches the same
+    // unsafe evlog merge).
+    const sanitized = sanitizeLogFields(input)
     const store = als.getStore()
     if (store) {
-        withAuditMethods(store).audit(input)
+        withAuditMethods(store).audit(sanitized)
         return
     }
-    standaloneAudit(input)
+    standaloneAudit(sanitized)
 }
 
 function current(): RequestLogger | undefined {

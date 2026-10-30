@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { wideEvent } from '../src/wide-event'
+import { apLogger } from '../src/ap-logger'
 import { createLogger, initLogger, mockAudit } from 'evlog'
 import type { RequestLogger } from 'evlog'
 
@@ -191,5 +192,92 @@ describe('wideEvent', () => {
             outcome: 'success',
         })).toBe(true)
         captured.restore()
+    })
+})
+
+describe('wideEvent prototype-pollution guard (real evlog merge)', () => {
+    // evlog's RequestLogger.set()/info()/warn()/error() merge field records
+    // into the wide-event context with a recursive assign that resolves a
+    // `__proto__` key against Object.prototype. A JSON.parse'd payload can
+    // carry an own enumerable `__proto__` data property, so one set() call can
+    // pollute Object.prototype for the whole process. These tests run against
+    // the REAL evlog logger (not a mock) to prove the merge path is safe.
+    afterEach(() => {
+        // scrub any pollution a regression would leave behind
+        delete (Object.prototype as unknown as Record<string, unknown>)['polluted']
+    })
+
+    function makeRealLogger(event: string) {
+        initLogger({ env: { service: 'wide-event-test' }, silent: true })
+        return createLogger({ event })
+    }
+
+    it('set() with a __proto__ payload does not pollute Object.prototype and keeps clean fields', () => {
+        const logger = makeRealLogger('request')
+        const payload = JSON.parse('{"__proto__": {"polluted": "yes"}, "requestId": "abc-1"}')
+        wideEvent.run({
+            logger,
+            fn: () => {
+                wideEvent.set(payload)
+            },
+        })
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+        expect(logger.emit()).toMatchObject({ requestId: 'abc-1' })
+    })
+
+    it('set() strips nested __proto__/constructor/prototype keys but keeps sibling data', () => {
+        const logger = makeRealLogger('request')
+        const payload = JSON.parse('{"outer": {"__proto__": {"polluted": "yes"}, "keep": 1}, "constructor": {"polluted": "also"}, "top": true}')
+        wideEvent.run({
+            logger,
+            fn: () => {
+                wideEvent.set(payload)
+            },
+        })
+        const emitted = logger.emit() as unknown as Record<string, unknown>
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+        expect(emitted).toMatchObject({ top: true, outer: { keep: 1 } })
+        // no dangerous key survived at the top level or inside the nested object
+        const topLevelKeys = Object.keys(emitted)
+        expect(topLevelKeys).toContain('outer')
+        expect(topLevelKeys).toContain('top')
+        expect(topLevelKeys).not.toContain('__proto__')
+        expect(topLevelKeys).not.toContain('constructor')
+        expect(topLevelKeys).not.toContain('prototype')
+        expect(Object.keys(emitted['outer'] as object).sort()).toEqual(['keep'])
+        // the caller's nested object is not mutated by the sanitizer (it is
+        // cloned with the dangerous key dropped, not edited in place)
+        expect(Object.prototype.hasOwnProperty.call((payload as Record<string, unknown>)['outer'], '__proto__')).toBe(true)
+    })
+
+    it('apLogger field merge on the wide path cannot pollute Object.prototype', () => {
+        const logger = makeRealLogger('request')
+        wideEvent.run({
+            logger,
+            fn: () => {
+                apLogger.create({}).info(JSON.parse('{"__proto__": {"polluted": "yes"}, "userId": "u1"}'), 'user found')
+            },
+        })
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+        expect(logger.emit()).toMatchObject({ userId: 'u1' })
+    })
+
+    it('audit() target payloads cannot pollute Object.prototype on the second audit merge', () => {
+        const logger = makeRealLogger('request')
+        wideEvent.run({
+            logger,
+            fn: () => {
+                wideEvent.audit({
+                    action: 'first',
+                    actor: { type: 'user', id: 'usr_1' },
+                    target: { type: 'project', id: 'p1' },
+                })
+                wideEvent.audit({
+                    action: 'second',
+                    target: JSON.parse('{"__proto__": {"polluted": "yes"}, "id": "p2"}'),
+                } as never)
+            },
+        })
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
     })
 })

@@ -1,4 +1,5 @@
 import { log } from 'evlog'
+import { sanitizeLogFields } from './sanitize-log-fields'
 import { wideEvent } from './wide-event'
 
 // Module-level log level — updated by evlog-setup when init is called.
@@ -13,7 +14,7 @@ function getCurrentLevel(): string {
 }
 
 function create({ bindings }: { bindings?: Record<string, unknown> } = {}): ApLogger {
-    return buildLogger(bindings ?? {})
+    return buildLogger(sanitizeLogFields(bindings ?? {}))
 }
 
 function buildLogger(bindings: Record<string, unknown>): ApLogger {
@@ -118,8 +119,9 @@ function buildLogger(bindings: Record<string, unknown>): ApLogger {
             }
         },
         child(childBindings: Record<string, unknown>): ApLogger {
-            wideEvent.set(childBindings)
-            return create({ bindings: { ...bindings, ...childBindings } })
+            const sanitizedChildBindings = sanitizeLogFields(childBindings)
+            wideEvent.set(sanitizedChildBindings)
+            return create({ bindings: { ...bindings, ...sanitizedChildBindings } })
         },
     }
 }
@@ -136,7 +138,7 @@ function normalizePinoArgs(args: unknown[]): { message: string | undefined, fiel
     if (isRecord(first)) {
         const second = args[1]
         const message = typeof second === 'string' ? second : undefined
-        return { message, fields: first }
+        return { message, fields: sanitizeLogFields(first) }
     }
     return { message: String(first ?? ''), fields: {} }
 }
@@ -161,9 +163,9 @@ function normalizePinoArgsWithError(args: unknown[]): { message: string | undefi
             const { err: _err, error: _error, ...rest } = first
             void _err
             void _error
-            return { message, fields: rest, err: errField }
+            return { message, fields: sanitizeLogFields(rest), err: errField }
         }
-        return { message, fields: first, err: undefined }
+        return { message, fields: sanitizeLogFields(first), err: undefined }
     }
     if (typeof first === 'string') {
         return { message: first, fields: {}, err: undefined }
