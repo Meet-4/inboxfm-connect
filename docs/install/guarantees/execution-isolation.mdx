@@ -1,25 +1,27 @@
 ---
 title: "Execution Isolation"
-description: "User code in one flow can't read another flow's code, memory, environment, or files"
+description: "Code from one execution can't read another's code, memory, environment, or files — enforced per sandbox, not per container"
 icon: "lock"
 ---
 
-User code in one flow **cannot** read another flow's code, memory, environment, or files. Each flow executes in its own isolated environment.
+User code from one execution **cannot** read another execution's code, memory, environment, or files. Each operation runs inside its own sandboxed engine process, one operation at a time per sandbox.
 
 <Note>
-This is one of the Inboxfm Connect execution guarantees for the [recommended production setup](/install/configure-operate/production-setup). For the full scope and Cloud parity, see [Crash Recovery](./crash-recovery).
+This is one of the Inboxfm Connect execution guarantees for self-hosted deployments. For the full scope of what does and does not survive a crash, see [Crash Recovery](./crash-recovery).
 </Note>
 
 ## How it's enforced
 
-Two layers stack:
+Three layers stack:
 
-- **Sandbox.** Each flow's code runs inside a sandbox chosen by `AP_EXECUTION_MODE`: V8/code isolation for multi-tenant, or kernel-namespace isolation. See [Sandboxing](/install/architecture/sandboxing) for how each mode works and its trade-offs.
-- **One flow per worker.** At `AP_WORKER_CONCURRENCY=1` there is only ever one flow in a container, so even the container's filesystem and memory belong to a single flow.
+- **Sandbox.** Each execution's code runs inside a sandbox chosen by `AP_EXECUTION_MODE`: V8/code isolation for multi-tenant, or kernel-namespace isolation. See [Sandboxing](../architecture/sandboxing) for how each mode works and its trade-offs.
+- **One operation per sandbox at a time.** The runtime serializes executions per sandbox box: one operation holds a box from acquire to release, and a box that finished a failed operation is torn down and rebuilt rather than reused. Concurrent executions land on different boxes.
+- **Admission control.** Per-project execution concurrency caps bound how much of one project's untrusted code runs at once; over-capacity requests are rejected with `429`, not queued.
 
 ## Where it stops
 
-This is **execution** isolation between flows: code, memory, and filesystem. It is distinct from **tenant data isolation** at the query layer (every database query scoped to `projectId` / `platformId`), which is an application-level guarantee enforced in the API, not by the sandbox. For that, see the security documentation.
+- **The container is shared.** All sandboxes live in the app container: there is no per-execution container, filesystem, or memory slice at the orchestrator level. A single execution is bounded by the sandbox's own limits — see [Reserved Resources](./reserved-resources) — not by a container of its own.
+- This is **execution** isolation between operations: code, memory, and files. It is distinct from **tenant data isolation** at the query layer (every database query scoped to `projectId` / `platformId`), which is an application-level guarantee enforced in the API, not by the sandbox. For that, see the security documentation.
 
 Choosing the right sandbox is the most important security decision for multi-tenant deployments; a weaker `AP_EXECUTION_MODE` narrows this guarantee.
 
@@ -27,7 +29,6 @@ Choosing the right sandbox is the most important security decision for multi-ten
 
 | Variable | Recommended | Effect |
 |---|---|---|
-| `AP_EXECUTION_MODE` | V8 / code sandboxing for multi-tenant | How user code is isolated from the host and other flows |
-| `AP_WORKER_CONCURRENCY` | `1` | One flow per container, no shared filesystem or memory |
+| `AP_EXECUTION_MODE` | V8 / code sandboxing (`SANDBOX_CODE_ONLY`) for multi-tenant | How user code is isolated from the host and other executions |
 
 See [Sandboxing Mode](/install/configure-operate/sandboxing) to set the value.

@@ -1,40 +1,38 @@
 ---
 title: "Reserved Resources"
-description: "Every flow gets its own guaranteed CPU and memory slice. No flow can starve or crash another."
+description: "The hard bounds each execution runs under: a sandbox memory cap, a per-operation timeout, and a per-box process lifetime"
 icon: "memory"
 ---
 
-Every flow runs alone in its own worker, with a guaranteed slice of CPU and memory that nothing else can take. There is no noisy neighbour: one flow can't starve another by pegging the CPU, and one flow's memory blow-up can't take down anyone else's run.
-
-We chose this: **isolation over density**. You pay for one worker per concurrent flow rather than packing many flows into one box, and in return every flow's resources are predictable and its blast radius is itself.
+Every execution runs in its own sandboxed engine child process, and those processes are bounded by the sandbox's own resource limits rather than by a dedicated container. One execution's memory blow-up takes down its own operation, not its neighbours: a box that hits a limit is torn down and rebuilt, and the next execution starts on a clean process.
 
 <Note>
-This is one of the Inboxfm Connect execution guarantees for the [recommended production setup](/install/configure-operate/production-setup). For the full scope and Cloud parity, see [Crash Recovery](./crash-recovery).
+This is one of the Inboxfm Connect execution guarantees for self-hosted deployments. For the full scope of what does and does not survive a crash, see [Crash Recovery](./crash-recovery).
 </Note>
 
 Two promises follow from one mechanism:
 
-## A flow can't be starved
+## An OOM kills one execution, not its neighbours
 
-A flow that pegs the CPU or hangs cannot degrade any other flow's latency. Each flow has its own reserved CPU and memory, enforced by the orchestrator, so contention between flows simply doesn't exist.
+The engine child process is forked with a Node heap cap (`--max-old-space-size`) derived from `AP_SANDBOX_MEMORY_LIMIT`. A piece that exhausts the limit fails its own operation with a sandbox memory error; that sandbox is invalidated and rebuilt, and no other in-flight execution is touched. In `SANDBOX_CODE_ONLY`, Code steps are additionally bounded inside their own 128 MB V8 isolate (see [Sandboxing](../architecture/sandboxing)).
 
-## An OOM kills one job, not its neighbours
+## A hang is bounded in time
 
-A flow that exhausts memory takes down only its own run. The worker is OOM-killed with `MEMORY_LIMIT_EXCEEDED`, the run is requeued and retried elsewhere (see [Crash Recovery](./crash-recovery)), and no other in-flight work is touched.
+Each operation is capped at 60 seconds (a code constant on both execution paths — not a configurable knob), and the engine child process itself is bounded by `AP_FLOW_TIMEOUT_SECONDS`. An execution that exceeds either fails with a sandbox timeout error rather than wedging a box forever. Combined with the per-box one-operation-at-a-time rule, this is what keeps a slow piece from starving the pool.
 
-## How it's enforced
+## What this is not
 
-At `AP_WORKER_CONCURRENCY=1`, each worker container runs exactly **one flow at a time**, hard-capped at its own CPU and memory by the orchestrator (e.g. 0.5 vCPU / 1 GB). One flow's CPU spin is bounded by *its* container's CPU limit; one flow's memory growth is bounded by *its* container's memory cap, and the kernel OOM-killer's blast radius is that single job. Nothing reaches into another worker. See [Workers](/install/architecture/workers).
+These are **process-level limits inside the app container**, not orchestrator-enforced per-execution containers. All sandboxes share the app pod's CPU and memory budget, so:
 
-About 300 MB of a 1 GB budget is overhead for a warm process with pieces loaded; the rest is the flow's. To handle larger work, split it into multiple flows (one flow calls another via webhook, or each processes a smaller batch).
-
-## Where it stops
-
-The guarantee holds at concurrency 1. Running `AP_WORKER_CONCURRENCY` higher packs multiple flows into one container and **reintroduces** the shared fate it removes: they contend for the same CPU and memory cap, and a single OOM takes down *all* in-flight jobs in that container. The shipped default is `5`; concurrency 1 is what keeps this promise, and is becoming the default. The cost of concurrency 1 is density: one worker per concurrent flow (size the fleet from peak concurrent flows, see [Production Setup](/install/configure-operate/production-setup)).
+- The app container's own resource requests/limits are the real capacity planning unit — a pod starved of CPU slows every execution it hosts. Size it for your peak concurrent executions, and scale by adding replicas ([Autoscaling](../architecture/autoscaling)).
+- Noisy-neighbour protection between projects is admission control (per-project concurrency caps), not a reserved CPU slice.
 
 ## Governing configuration
 
-| Variable | Recommended | Effect |
+| Variable | Default | Effect |
 |---|---|---|
-| `AP_WORKER_CONCURRENCY` | `1` | One flow per container, the isolation boundary and OOM blast radius |
-| Container CPU / memory cap | 0.5 vCPU / 1 GB | The per-flow reserved slice, enforced by the orchestrator |
+| `AP_SANDBOX_MEMORY_LIMIT` | `1048576` (KB = 1 GB) | The engine child process's Node heap cap |
+| `AP_FLOW_TIMEOUT_SECONDS` | `600` | The engine child process's lifetime cap |
+| `AP_PROJECT_EXECUTION_CONCURRENCY_LIMIT` | `5` (when the limiter is enabled) | Per-project concurrent-execution cap; over-limit requests get `429` |
+
+The per-operation 60-second timeout is fixed in code. See [Latency](../architecture/latency) for how the budgets compose.
