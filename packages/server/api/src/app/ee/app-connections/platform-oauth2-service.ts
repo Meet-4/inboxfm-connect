@@ -1,4 +1,4 @@
-import { ActivepiecesError, ErrorCode, isNil } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, deleteProps, ErrorCode, isNil } from '@inboxfm-connect/core-utils'
 import { PropertyType } from '@inboxfm-connect/pieces-framework'
 import { AppConnectionType, PlatformOAuth2ConnectionValue } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
@@ -55,8 +55,18 @@ export const platformOAuth2Service = (log: FastifyBaseLogger) => ({
             platformId,
             pieceName,
         })
+        // The platform app's client secret must not be persisted into the
+        // project-scoped connection row. The claim response otherwise carries
+        // it into appConnectionService.upsert's stored value (the request DTO
+        // for platform connections has no client_secret field, so nothing
+        // overrides it), copying the platform-wide secret into every project
+        // row claimed with it. Refresh never reads the stored secret — it
+        // re-fetches it from oauth-apps on every refresh — so strip it at the
+        // boundary here. deleteProps returns a NEW object (it does not
+        // mutate), so its result must be used.
+        const claimedValueWithoutSecret = deleteProps(claimedValue, ['client_secret'])
         return {
-            ...claimedValue,
+            ...claimedValueWithoutSecret,
             type: AppConnectionType.PLATFORM_OAUTH2,
         }
     },
