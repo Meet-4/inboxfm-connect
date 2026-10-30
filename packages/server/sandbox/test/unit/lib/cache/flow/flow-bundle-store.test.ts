@@ -209,4 +209,16 @@ describe('flowBundleStore', () => {
         expect(second).toBeNull()
         expect(getFlowBundle).toHaveBeenCalledTimes(2)
     })
+
+    it('tryFetch rejects a flowVersionId that escapes the bundles cache (path traversal)', async () => {
+        const basePath = uniqueBasePath()
+        const { apiClient } = inMemoryApiClient()
+
+        // The flowVersionId is joined into the bundles cache folder path; without
+        // a segment guard a crafted id moves the cache.json (read AND the atomic
+        // save) outside the sandbox cache directory.
+        await expect(
+            flowBundleStore(fakeLog, apiClient, basePath).tryFetch({ flowVersionId: '../../escape', projectId: 'p1' }),
+        ).rejects.toThrow(/flowVersionId/)
+    })
 })

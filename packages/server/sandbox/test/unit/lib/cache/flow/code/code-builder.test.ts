@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { ApLogger } from '@inboxfm-connect/server-utils'
 import { ExecutionMode, FlowVersionState, NetworkMode } from '@inboxfm-connect/shared'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -146,5 +146,36 @@ describe('codeBuilder.processCodeStep', () => {
 
         expect(installMock).toHaveBeenCalledTimes(1)
         expect(buildMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects a step name that escapes the codes folder instead of compiling outside it', async () => {
+        const codesFolderPath = uniqueFolder()
+        const escapeTarget = join(tmpdir(), `code-builder-escape-${randomUUID()}`)
+        const artifact = {
+            ...buildArtifact('{"dependencies":{}}'),
+            name: `../../${basename(escapeTarget)}`,
+        }
+
+        // RED before the guard: the step name is joined straight into the step
+        // directory, so the builder mkdir'd the escaped folder, wrote
+        // package.json/index.ts there, and ran bun install with it as cwd.
+        await expect(
+            codeBuilder(noopLog, getSettings).processCodeStep({ artifact, codesFolderPath }),
+        ).rejects.toThrow(/step name|stepName/i)
+
+        expect(await readFile(join(escapeTarget, 'index.ts'), 'utf8').then(() => true, () => false)).toBe(false)
+        expect(await readFile(escapeTarget, 'utf8').then(() => true, () => false)).toBe(false)
+    })
+
+    it('rejects a flowVersionId that escapes the codes folder', async () => {
+        const codesFolderPath = uniqueFolder()
+        const artifact = {
+            ...buildArtifact('{"dependencies":{}}'),
+            flowVersionId: `../../${basename(join(tmpdir(), `code-builder-escape-${randomUUID()}`))}`,
+        }
+
+        await expect(
+            codeBuilder(noopLog, getSettings).processCodeStep({ artifact, codesFolderPath }),
+        ).rejects.toThrow(/flowVersionId/i)
     })
 })

@@ -1,15 +1,19 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileSystemUtils } from '@inboxfm-connect/server-utils'
+import { assertSafePathSegment } from '../../../utils/safe-path-segment'
 
 const COMPILED_CODE_FILENAME = 'index.js'
 
 export const codeCache = (codesFolderPath: string) => ({
     flowVersionDir(flowVersionId: string): string {
+        assertSafePathSegment(flowVersionId, 'flowVersionId')
         return path.join(codesFolderPath, flowVersionId)
     },
 
     stepDir({ flowVersionId, stepName }: StepRef): string {
+        assertSafePathSegment(flowVersionId, 'flowVersionId')
+        assertSafePathSegment(stepName, 'stepName')
         return path.join(codesFolderPath, flowVersionId, stepName)
     },
 

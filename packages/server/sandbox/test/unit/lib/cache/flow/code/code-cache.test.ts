@@ -27,6 +27,32 @@ describe('codeCache', () => {
         expect(codeCache(folder).compiledStepPath(ref)).toBe(join(folder, 'fv1', 'step_1', 'index.js'))
     })
 
+    it('rejects a flowVersionId that escapes the codes folder (path traversal)', async () => {
+        const folder = uniqueFolder()
+        const cache = codeCache(folder)
+
+        expect(() => cache.flowVersionDir('../escape')).toThrow(/flowVersionId/)
+        expect(() => cache.flowVersionDir('..')).toThrow(/flowVersionId/)
+        expect(() => cache.flowVersionDir('a/../../escape')).toThrow(/flowVersionId/)
+        expect(() => cache.stepDir({ flowVersionId: '../escape', stepName: 'step_1' })).toThrow(/flowVersionId/)
+    })
+
+    it('rejects a stepName that escapes the codes folder (path traversal)', async () => {
+        const folder = uniqueFolder()
+        const cache = codeCache(folder)
+
+        expect(() => cache.stepDir({ flowVersionId: 'fv1', stepName: '../../escape' })).toThrow(/stepName/)
+        expect(() => cache.stepDir({ flowVersionId: 'fv1', stepName: '..' })).toThrow(/stepName/)
+        expect(() => cache.stepDir({ flowVersionId: 'fv1', stepName: 'sub/step' })).toThrow(/stepName/)
+        expect(() => cache.stepDir({ flowVersionId: 'fv1', stepName: '..\\escape' })).toThrow(/stepName/)
+
+        await expect(cache.writeCompiledStep({ flowVersionId: 'fv1', stepName: '../escape', compiledJs: 'x' }))
+            .rejects.toThrow(/stepName/)
+
+        // Nothing may have been created outside the codes folder.
+        expect(await readFile(join(folder, '..', 'escape'), 'utf8').then(() => true, () => false)).toBe(false)
+    })
+
     it('writeCompiledStep then readCompiledStep round-trips the compiled JS', async () => {
         const folder = uniqueFolder()
         const cache = codeCache(folder)

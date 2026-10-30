@@ -3,6 +3,7 @@ import { isNil, tryCatch, tryCatchSync } from '@inboxfm-connect/core-utils'
 import { type ApLogger } from '@inboxfm-connect/server-utils'
 import { FlowVersion, GetFlowBundleResponse, LATEST_FLOW_SCHEMA_VERSION, PiecePackage, WorkerToApiContract } from '@inboxfm-connect/shared'
 import { bundleHttp } from '../../utils/bundle-http'
+import { assertSafePathSegment } from '../../utils/safe-path-segment'
 import { cacheUtils } from '../cache-paths'
 import { cacheState } from '../cache-state'
 import { codeCache } from './code/code-cache'
@@ -12,6 +13,9 @@ const MISS = ''
 
 export const flowBundleStore = (log: ApLogger, apiClient: WorkerToApiContract, basePath: string) => ({
     async tryFetch({ flowVersionId, projectId }: TryFetchParams): Promise<MaterializedFlowBundle | null> {
+        // The flowVersionId becomes a directory name inside the bundles cache —
+        // a traversal segment would move the cache state file outside it.
+        assertSafePathSegment(flowVersionId, 'flowVersionId')
         const cache = cacheState(path.join(cacheUtils(basePath).getGlobalCacheBundlesPath(), flowVersionId))
         const { state } = await cache.getOrSetCache({
             key: flowVersionId,
