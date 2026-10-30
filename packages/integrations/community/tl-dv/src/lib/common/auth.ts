@@ -10,7 +10,11 @@ export const tldvAuth = PieceAuth.SecretText({
     try {
       await tldvCommon.apiCall({
         method: HttpMethod.GET,
-        url: '/v1alpha1/health',
+        // /v1alpha1/health is a public health endpoint — it answers 200 with
+        // no API key at all, so validating against it accepted every key.
+        // /v1alpha1/meetings is key-gated: it returns 401 for a missing or
+        // invalid API key.
+        url: '/v1alpha1/meetings?limit=1',
         auth: { apiKey: auth as string },
       });
       
