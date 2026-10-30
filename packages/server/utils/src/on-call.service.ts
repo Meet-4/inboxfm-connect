@@ -4,7 +4,7 @@ import { safeHttp } from './safe-http'
 export const onCallService = (log: OnCallLogger, webhookUrl: string | undefined) => ({
     async page(error: OnCallPagePayload): Promise<void> {
         if (!webhookUrl) return
-        const { error: fetchError } = await tryCatch(() =>
+        const { data: response, error: fetchError } = await tryCatch(() =>
             safeHttp.axios.request({
                 url: webhookUrl,
                 method: 'POST',
@@ -15,6 +15,14 @@ export const onCallService = (log: OnCallLogger, webhookUrl: string | undefined)
         )
         if (fetchError) {
             log.error({ fetchError }, 'Failed to send on-call page')
+            return
+        }
+        // validateStatus: () => true above means non-2xx responses resolve
+        // instead of throwing — a page the endpoint rejected (wrong webhook
+        // URL, pager outage) must not be treated as delivered, or the alert
+        // this whole path exists for is silently lost.
+        if (response && (response.status < 200 || response.status >= 300)) {
+            log.error({ status: response.status, body: response.data }, 'Failed to send on-call page')
         }
     },
 })

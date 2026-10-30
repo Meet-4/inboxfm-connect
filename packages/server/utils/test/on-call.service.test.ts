@@ -81,6 +81,52 @@ describe('onCallService', () => {
             'Failed to send on-call page',
         )
     })
+
+    it('should log an error when the webhook endpoint rejects the page with HTTP 500', async () => {
+        // validateStatus: () => true means non-2xx responses resolve instead of
+        // throwing — silently treating a rejected page as delivered defeats the
+        // entire purpose of on-call paging.
+        const webhookUrl = 'https://alerts.example.com/oncall-webhook'
+        vi.spyOn(safeHttp.axios, 'request').mockResolvedValue({
+            status: 500,
+            data: 'Internal Server Error',
+        } as never)
+
+        const service = onCallService(mockLogger, webhookUrl)
+        await expect(service.page(testPayload)).resolves.toBeUndefined()
+
+        expect(mockLogger.error).toHaveBeenCalledTimes(1)
+        const [errorObj, message] = mockLogger.error.mock.calls[0]
+        expect((errorObj as Record<string, unknown>)['status']).toBe(500)
+        expect(message).toContain('Failed to send on-call page')
+    })
+
+    it('should log an error when the webhook endpoint returns 404 (misconfigured URL)', async () => {
+        const webhookUrl = 'https://alerts.example.com/oncall-webhook'
+        vi.spyOn(safeHttp.axios, 'request').mockResolvedValue({
+            status: 404,
+            data: 'Not Found',
+        } as never)
+
+        const service = onCallService(mockLogger, webhookUrl)
+        await expect(service.page(testPayload)).resolves.toBeUndefined()
+
+        expect(mockLogger.error).toHaveBeenCalledTimes(1)
+        expect((mockLogger.error.mock.calls[0][0] as Record<string, unknown>)['status']).toBe(404)
+    })
+
+    it('should not log an error on a 204 No Content response', async () => {
+        const webhookUrl = 'https://alerts.example.com/oncall-webhook'
+        vi.spyOn(safeHttp.axios, 'request').mockResolvedValue({
+            status: 204,
+            data: '',
+        } as never)
+
+        const service = onCallService(mockLogger, webhookUrl)
+        await expect(service.page(testPayload)).resolves.toBeUndefined()
+
+        expect(mockLogger.error).not.toHaveBeenCalled()
+    })
 })
 
 describe('DatabaseType and RedisType driver enums', () => {
