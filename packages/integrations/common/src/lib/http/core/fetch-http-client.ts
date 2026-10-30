@@ -204,6 +204,11 @@ async function sendWithRetries(fn: () => Promise<FetchAttempt>, retries: number)
         if (result.timeoutId !== undefined) {
           clearTimeout(result.timeoutId);
         }
+        // Release the abandoned attempt: an undrained 5xx body keeps its socket
+        // pinned in the connection pool until GC, and its abort timer must not
+        // fire for an attempt nobody is reading anymore.
+        await result.response.body?.cancel()?.catch(() => undefined);
+        result.controller.abort();
         await backoff(attempt);
         continue;
       }
