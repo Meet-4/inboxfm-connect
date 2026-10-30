@@ -34,6 +34,14 @@ export class FetchHttpClient extends BaseHttpClient {
       if (value === undefined) {
         continue;
       }
+      // A list value means repeated keys (URLSearchParams semantics), not a
+      // comma-joined single value.
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          urlQueryParams.append(key, item);
+        }
+        continue;
+      }
       urlQueryParams.append(key, value);
     }
     const queryString = urlQueryParams.toString();
@@ -128,7 +136,23 @@ function serializeBody(
   }
   const contentType = headers['Content-Type'] ?? headers['content-type'] ?? '';
   if (contentType.includes('application/x-www-form-urlencoded')) {
-    return { body: new URLSearchParams(body as Record<string, string>).toString(), extraHeaders: {}, isStream: false };
+    // URLSearchParams(value) coerces array values to "1,2"; urlencoded form
+    // semantics want repeated keys for lists. Undefined entries are skipped,
+    // matching the query-param and header conventions.
+    const formParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(body as Record<string, string | string[]>)) {
+      if (value === undefined) {
+        continue;
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          formParams.append(key, item);
+        }
+        continue;
+      }
+      formParams.append(key, value);
+    }
+    return { body: formParams.toString(), extraHeaders: {}, isStream: false };
   }
   return { body: JSON.stringify(body), extraHeaders: {}, isStream: false };
 }
