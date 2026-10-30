@@ -3,13 +3,54 @@
 // same trust level as the AWS SDK S3 client the app already uses unfiltered. Routing
 // them through the SSRF filter would needlessly break self-hosted S3/MinIO on private
 // networks. Using the runtime's built-in fetch keeps sandbox-pool dependency-free here.
+
+// Hard ceiling on a downloaded flow bundle. The upload side is capped by the API's
+// file-size gate, but the download side buffered the entire response body in memory
+// with no bound — a compromised/misconfigured storage object (or a redirect to one)
+// OOM-killed the worker hosting every sandbox box. This ceiling is far above any
+// bundle the upload gate accepts; its only job is turning an unbounded read into a
+// bounded, cleanly-failing one.
+export const MAX_FLOW_BUNDLE_DOWNLOAD_BYTES = 512 * 1024 * 1024
+
 export const bundleHttp = {
-    async getBuffer(url: string): Promise<Buffer> {
+    async getBuffer(url: string, maxBytes: number = MAX_FLOW_BUNDLE_DOWNLOAD_BYTES): Promise<Buffer> {
         const response = await fetch(url)
         if (!response.ok) {
             throw new Error(`Flow bundle download failed: ${response.status} ${response.statusText}`)
         }
-        return Buffer.from(await response.arrayBuffer())
+
+        // Fast-fail on a lying server without reading a single body byte:
+        // Content-Length alone already exceeds the cap.
+        const contentLengthHeader = response.headers.get('content-length')
+        if (contentLengthHeader !== null) {
+            const contentLength = Number(contentLengthHeader)
+            if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+                throw new Error(`Flow bundle download aborted: Content-Length ${contentLength} exceeds the maximum of ${maxBytes} bytes`)
+            }
+        }
+
+        if (!response.body) {
+            return Buffer.from(await response.arrayBuffer())
+        }
+
+        // Stream with a byte counter — Content-Length can be absent (chunked) or
+        // understated, so the cap is enforced on the bytes actually received.
+        const reader = response.body.getReader()
+        const chunks: Buffer[] = []
+        let received = 0
+        for (;;) {
+            const { done, value } = await reader.read()
+            if (done) {
+                break
+            }
+            received += value.byteLength
+            if (received > maxBytes) {
+                await reader.cancel().catch(() => undefined)
+                throw new Error(`Flow bundle download aborted: received more than ${maxBytes} bytes`)
+            }
+            chunks.push(Buffer.from(value))
+        }
+        return Buffer.concat(chunks)
     },
 
     async put(url: string, data: Buffer): Promise<void> {
