@@ -335,7 +335,13 @@ function computeNextTick({ cronExpression, timezone = 'UTC', fromDate = new Date
 
         // 3. Hour check
         if (!parsed.hours.values.has(p.hour)) {
-            const msToNextHour = Math.max(60000, ((60 - p.minute) * 60 - p.second) * 1000)
+            // Advance to the top of the next local hour, second-precise. The step is
+            // (60 - minute) minutes minus seconds, floored at 1s so it always
+            // progresses; a 60s floor here would overshoot the boundary for 6-field
+            // schedules whose candidate sits at hh:59:01–hh:59:59, landing inside
+            // hh+1:00:ss and losing the whole first minute of the hour (the next
+            // every-day fire then computed a full day late).
+            const msToNextHour = Math.max(1000, ((60 - p.minute) * 60 - p.second) * 1000)
             current = new Date(current.getTime() + msToNextHour)
             continue
         }

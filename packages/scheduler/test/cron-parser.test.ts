@@ -155,6 +155,59 @@ describe('Cron Parser & Validator', () => {
             })
         })
 
+        describe('next-hour landing precision for 6-field (seconds) expressions', () => {
+            // The hour-advance step is ms-to-the-next-hour-boundary, floored at 1s.
+            // A 60s minimum floor overshoots the boundary when the candidate sits at
+            // hh:59:01–hh:59:59: it lands inside hh+1:00:ss (ss > 0) and the loop can
+            // never return to second 0 of that hour — the whole first minute is lost
+            // and the search skips to the NEXT day for an every-day schedule.
+            it('does not overshoot the next hour boundary from hh:59:58.500', () => {
+                const next = cronParser.computeNextTick({
+                    cronExpression: '0 0 13 * * *',
+                    fromDate: new Date('2026-06-10T12:59:58.500Z'),
+                    timezone: 'UTC',
+                })
+                expect(next.toISOString()).toBe('2026-06-10T13:00:00.000Z')
+            })
+
+            it('does not overshoot the next hour boundary from hh:59:01', () => {
+                const next = cronParser.computeNextTick({
+                    cronExpression: '0 0 13 * * *',
+                    fromDate: new Date('2026-06-10T12:59:01.000Z'),
+                    timezone: 'UTC',
+                })
+                expect(next.toISOString()).toBe('2026-06-10T13:00:00.000Z')
+            })
+
+            it('lands exactly on the boundary from hh:59:59', () => {
+                const next = cronParser.computeNextTick({
+                    cronExpression: '0 30 13 * * *',
+                    fromDate: new Date('2026-06-10T12:59:59.000Z'),
+                    timezone: 'UTC',
+                })
+                expect(next.toISOString()).toBe('2026-06-10T13:30:00.000Z')
+            })
+
+            it('keeps 5-field minute-granularity behavior unchanged at hh:59', () => {
+                const next = cronParser.computeNextTick({
+                    cronExpression: '0 13 * * *',
+                    fromDate: new Date('2026-06-10T12:59:00.000Z'),
+                    timezone: 'UTC',
+                })
+                expect(next.toISOString()).toBe('2026-06-10T13:00:00.000Z')
+            })
+
+            it('does not overshoot in a DST timezone (America/New_York summer)', () => {
+                // 12:59:31 EDT is 16:59:31 UTC; the 13:00:00 EDT fire is 17:00:00 UTC same day.
+                const next = cronParser.computeNextTick({
+                    cronExpression: '0 0 13 * * *',
+                    fromDate: new Date('2026-06-10T16:59:31.000Z'),
+                    timezone: 'America/New_York',
+                })
+                expect(next.toISOString()).toBe('2026-06-10T17:00:00.000Z')
+            })
+        })
+
         describe('Calendar edge cases (month-end, leap years)', () => {
             it('advances past shorter months to 31st of matching month', () => {
                 // Starting on April 1, 2026: April has 30 days, so 31st occurs on May 31.
