@@ -28,6 +28,12 @@ export class FetchHttpClient extends BaseHttpClient {
     const headers = this.getHeaders(request);
     const queryParams = request.queryParams ?? {};
     for (const [key, value] of Object.entries(queryParams)) {
+      // An undefined entry means "no value" — the same convention the client
+      // already applies to headers. Appending it would send a literal
+      // "undefined" parameter (and duplicate keys present in the URL string).
+      if (value === undefined) {
+        continue;
+      }
       urlQueryParams.append(key, value);
     }
     const queryString = urlQueryParams.toString();
