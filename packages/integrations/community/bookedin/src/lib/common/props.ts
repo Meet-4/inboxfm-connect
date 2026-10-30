@@ -2,7 +2,9 @@ import { Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { bookedinAuth } from '../auth';
 
-export const BASE_URL = 'https://api.bookedin.ai/api/v1';
+// BookedIn rebranded to Converti; bookedin.ai (and api.bookedin.ai) no longer resolve.
+// The same `/api/v1` surface is served from api.converti.ai with the same X-API-Key auth.
+export const BASE_URL = 'https://api.converti.ai/api/v1';
 
 export const getBookedinHeaders = (apiKey: string) => {
   return {
