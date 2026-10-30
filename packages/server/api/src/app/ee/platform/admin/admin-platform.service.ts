@@ -4,8 +4,7 @@ import { userIdentityService } from '../../../authentication/user-identity/user-
 import { platformRepo } from '../../../platform/platform.service'
 import { userRepo } from '../../../user/user-service'
 import { licenseKeysService } from '../../license-keys/license-keys-service'
-import { openRouterApi } from '../platform-plan/openrouter/openrouter-api'
-import { platformAiCreditsService } from '../platform-plan/platform-ai-credits.service'
+import { addOpenRouterKeyLimit, platformAiCreditsService } from '../platform-plan/platform-ai-credits.service'
 
 export const adminPlatformService = (log: FastifyBaseLogger) => ({
 
@@ -33,14 +32,14 @@ export const adminPlatformService = (log: FastifyBaseLogger) => ({
         }
         await licenseKeysService(log).applyLimits(platform.id, key)
     },
+    // Routed through addOpenRouterKeyLimit so the grant serializes against the
+    // Stripe webhooks and the renewal job on the per-platform lock and drops
+    // the cached usage. The inline getKey → limit+N → updateKey it replaced
+    // silently erased a concurrent increment and left the 3-minute usage
+    // cache reporting the pre-grant balance.
     async increaseAiCredits({ amountInUsd, platformId }: IncreaseAICreditsForPlatformRequestBody): Promise<void> {
         const { apiKeyHash } = await platformAiCreditsService(log).getOrCreateActivePiecesProviderAuthConfig({ platformId })
-        const { data: key } = await openRouterApi.getKey({ hash: apiKeyHash })
-
-        await openRouterApi.updateKey({
-            hash: apiKeyHash,
-            limit: key.limit! + amountInUsd,
-        })
+        await addOpenRouterKeyLimit({ platformId, apiKeyHash, amountUsd: amountInUsd, log })
     },
 
 })

@@ -157,12 +157,7 @@ export const platformAiCreditsService = (log: FastifyBaseLogger) => ({
 
     async aiCreditsPaymentSucceeded(platformId: string, amount: number, _paymentType: StripeCheckoutType): Promise<void> {
         const { apiKeyHash } = await this.getOrCreateActivePiecesProviderAuthConfig({ platformId })
-        const { data: key } = await openRouterApi.getKey({ hash: apiKeyHash })
-
-        await openRouterApi.updateKey({
-            hash: apiKeyHash,
-            limit: key.limit! + amount,
-        })
+        await addOpenRouterKeyLimit({ platformId, apiKeyHash, amountUsd: amount, log })
     },
 
     // Tops up the platform's managed AI key by a fixed USD amount (used for the one-time
@@ -170,16 +165,7 @@ export const platformAiCreditsService = (log: FastifyBaseLogger) => ({
     // so the worker later reuses the same key instead of minting a second one.
     async grantFreeChatCredits({ platformId, amountUsd }: { platformId: string, amountUsd: number }): Promise<void> {
         const { apiKeyHash } = await this.getOrCreateActivePiecesProviderAuthConfig({ platformId })
-        const { data: key } = await openRouterApi.getKey({ hash: apiKeyHash })
-
-        await openRouterApi.updateKey({
-            hash: apiKeyHash,
-            limit: (key.limit ?? 0) + amountUsd,
-        })
-
-        // Invalidate the cached usage so the credit check that runs immediately after this grant
-        // (in the same request) sees the topped-up balance instead of a stale within-TTL zero.
-        await distributedStore.delete(openRouterUsageCacheKey(apiKeyHash))
+        await addOpenRouterKeyLimit({ platformId, apiKeyHash, amountUsd, log })
     },
 
     // Ensures the platform's managed ACTIVEPIECES provider exists, mints an OpenRouter
@@ -284,14 +270,9 @@ async function tryResetPlanIncludedCredits(plan: PlatformPlan, apiKeyHash: strin
         return
     }
 
-    const { data: key } = await openRouterApi.getKey({ hash: apiKeyHash })
-
     const amount = plan.includedAiCredits / CREDIT_PER_DOLLAR
 
-    await openRouterApi.updateKey({
-        hash: apiKeyHash,
-        limit: key.limit! + amount,
-    })
+    await addOpenRouterKeyLimit({ platformId: plan.platformId, apiKeyHash, amountUsd: amount, log })
 
     await platformPlanService(log).update({
         platformId: plan.platformId,
@@ -354,4 +335,82 @@ type APIKeyUsage = {
     usage: number
     usageMonthly: number
     usageRemaining: number
+}
+
+// ---------------------------------------------------------------------------
+// Managed-AI credit limit mutations.
+//
+// OpenRouter's updateKey takes the FULL absolute limit, so every top-up has to
+// read the key first and write back an incremented value. All four mutation
+// paths used to do that read-modify-write unlocked: the Stripe
+// checkout.session.completed webhook, the Stripe invoice.paid auto-top-up
+// webhook, the admin one-time grant, and the monthly included-credits renewal
+// job. Two of them running concurrently (a payment webhook racing the admin
+// grant, or the renewal job racing a webhook) both read the same limit and
+// each PATCH their own incremented value — the later write silently erases the
+// earlier increment, so paid credits vanish from the platform's key.
+//
+// Every limit mutation now goes through one helper that serializes the
+// read-modify-write on a per-platform distributed lock (the same RedLock
+// infrastructure as the ai-provider provision mutex, with the same fail-open
+// semantics when the lock infrastructure itself is unavailable) and drops the
+// cached usage afterwards — getUsage serves from the `openrouter_usage_*`
+// cache for USAGE_CACHE_TTL_SECONDS and would otherwise keep reporting the
+// pre-top-up balance (grantFreeChatCredits already had to invalidate by hand;
+// the webhook and renewal paths never did).
+export async function addOpenRouterKeyLimit({ platformId, apiKeyHash, amountUsd, log }: {
+    platformId: string
+    apiKeyHash: string
+    amountUsd: number
+    log: FastifyBaseLogger
+}): Promise<void> {
+    await runLimitUpdateExclusiveOrWithoutLock({
+        platformId,
+        log,
+        fn: async () => {
+            const { data: key } = await openRouterApi.getKey({ hash: apiKeyHash })
+            await openRouterApi.updateKey({
+                hash: apiKeyHash,
+                limit: (key.limit ?? 0) + amountUsd,
+            })
+            // Invalidate the cached usage so the balance check that runs right
+            // after a top-up sees the new limit instead of a stale within-TTL
+            // pre-top-up value.
+            await distributedStore.delete(openRouterUsageCacheKey(apiKeyHash))
+        },
+    })
+}
+
+// Same shape as the CE ai-provider provision lock: when the lock infrastructure
+// itself errors, run the mutation anyway (fail open — a rare lost update is
+// better than a failed payment webhook), but never run it twice: a fn that
+// already settled rethrows the lock error instead of running again.
+async function runLimitUpdateExclusiveOrWithoutLock({ platformId, fn, log }: {
+    platformId: string
+    fn: () => Promise<void>
+    log: FastifyBaseLogger
+}): Promise<void> {
+    const key = ['ai-credits', 'limit-update', platformId].join(':')
+    let fnSettled = false
+    try {
+        await distributedLock(log).runExclusive({
+            key,
+            timeoutInSeconds: 60,
+            fn: async () => {
+                try {
+                    await fn()
+                }
+                finally {
+                    fnSettled = true
+                }
+            },
+        })
+    }
+    catch (error) {
+        if (fnSettled) {
+            throw error
+        }
+        log.warn({ error, lockKey: key }, 'AI credit limit update lock unavailable - failing open')
+        await fn()
+    }
 }
