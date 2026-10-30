@@ -16,13 +16,23 @@ To create an API token:
   required: true,
   validate: async ({ auth }) => {
     try {
-      await httpClient.sendRequest({
+      const response = await httpClient.sendRequest({
         method: HttpMethod.GET,
         url: `${FATHOM_API_BASE}/account`,
+        // Unauthenticated requests 302-redirect to the app login page;
+        // following it would land on a 200 and accept any token. With
+        // redirects unfollowed the 302 must be rejected explicitly.
+        followRedirects: false,
         headers: {
           Authorization: `Bearer ${auth}`,
         },
       });
+      if (response.status !== 200) {
+        return {
+          valid: false,
+          error: 'Invalid API token. Please check your Fathom API credentials.',
+        };
+      }
       return { valid: true };
     } catch (e) {
       return {
