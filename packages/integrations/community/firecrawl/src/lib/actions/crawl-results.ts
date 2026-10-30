@@ -1,6 +1,7 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { firecrawlAuth } from '../auth';
+import { FIRECRAWL_API_BASE_URL } from '../common/common';
 
 export const crawlResults = createAction({
   auth: firecrawlAuth,
@@ -19,7 +20,7 @@ export const crawlResults = createAction({
   async run({ auth, propsValue }) {
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
-      url: `https://api.firecrawl.dev/v1/crawl/${propsValue.crawlId}`,
+      url: `${FIRECRAWL_API_BASE_URL}/crawl/${propsValue.crawlId}`,
       headers: {
         'Authorization': `Bearer ${auth.secret_text}`,
       },
