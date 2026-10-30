@@ -343,7 +343,16 @@ export function createSandbox(
             if (!isNil(childProcess)) {
                 killedByShutdown = true
                 log.debug({ sandbox: { id: sandboxId } }, 'Shutting down sandbox')
-                await killProcess(childProcess, log)
+                // The kill must never abandon the rest of the teardown: a
+                // pid-less child (spawn failure) makes killProcess throw
+                // synchronously, and an escaping error here skips io.close() —
+                // the bound ws server (the box's FIXED port in isolate mode)
+                // leaks for the life of the worker, and every later sandbox on
+                // that box EADDRINUSE-loops until restart. Log and continue.
+                const { error: killError } = await tryCatch(() => killProcess(childProcess!, log))
+                if (!isNil(killError)) {
+                    log.error({ sandbox: { id: sandboxId }, error: String(killError) }, 'Failed to kill sandbox process during shutdown')
+                }
                 childProcess = null
             }
             connectedSocket?.disconnect()
