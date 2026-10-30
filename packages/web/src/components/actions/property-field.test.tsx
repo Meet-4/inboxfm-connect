@@ -90,3 +90,28 @@ describe('PropertyField LONG_TEXT rendering', () => {
     expect(container.querySelector('textarea')?.value).toBe('')
   })
 })
+
+describe('PropertyField DATE_TIME rendering', () => {
+  function inputValue(value: unknown): string {
+    const input = renderField(value, dateTimeProp).querySelector('input') as HTMLInputElement
+    return input.value
+  }
+
+  it('shows a stored UTC timestamp instead of rendering the control blank', () => {
+    expect(inputValue('2025-03-04T05:06:07.000Z')).toBe('2025-03-04T05:06')
+    expect(inputValue('2025-03-04T05:06:07Z')).toBe('2025-03-04T05:06')
+    expect(inputValue('2025-03-04T05:06:07+05:30')).toBe('2025-03-04T05:06')
+  })
+
+  it('keeps values that are already control-compatible', () => {
+    expect(inputValue('2025-03-04T05:06')).toBe('2025-03-04T05:06')
+    expect(inputValue('2025-03-04T05:06:07')).toBe('2025-03-04T05:06')
+  })
+
+  it('renders unparseable values as empty', () => {
+    expect(inputValue('')).toBe('')
+    expect(inputValue('tomorrow')).toBe('')
+    expect(inputValue(undefined)).toBe('')
+    expect(inputValue(1730000000000)).toBe('')
+  })
+})

@@ -63,6 +63,30 @@ function jsonText(value: unknown): string {
   }
 }
 
+/**
+ * `<input type="datetime-local">` only accepts `YYYY-MM-DDTHH:mm[:ss[.SSS]]`
+ * with no timezone suffix; any other string is sanitized to `''` by the browser.
+ * DATE_TIME props are typed as plain strings on the wire (`DateTimeProperty` is
+ * `z.string()`), so a value stored by an API caller or copied from a previous
+ * step's timestamp output (`...T05:06:07.000Z`) made the control render blank —
+ * a configured field that looks unset. Normalize the clock face for display and
+ * leave the value untouched in form state, so an untouched field is still
+ * submitted exactly as it was loaded.
+ */
+const DATE_TIME_TEXT_PATTERN =
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/
+
+function dateTimeText(value: unknown): string {
+  if (typeof value !== 'string') {
+    return ''
+  }
+  const match = DATE_TIME_TEXT_PATTERN.exec(value.trim())
+  if (!match) {
+    return ''
+  }
+  return `${match[1]}T${match[2]}`
+}
+
 const DYNAMIC_TYPES = new Set(['DROPDOWN', 'MULTI_SELECT_DROPDOWN'])
 
 const CONTROL_TEXTAREA_TYPES = new Set(['LONG_TEXT', 'JSON', 'OBJECT'])
@@ -176,7 +200,7 @@ export function PropertyField({
         <Input
           {...commonProps}
           type="datetime-local"
-          value={typeof value === 'string' ? value : ''}
+          value={dateTimeText(value)}
           onChange={(event) => onChange(event.target.value)}
           className={inputClassName}
         />
