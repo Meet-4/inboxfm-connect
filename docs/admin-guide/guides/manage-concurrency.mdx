@@ -1,42 +1,34 @@
 ---
 title: "Manage Concurrency"
-description: "Control how many flows can run at the same time per project"
+description: "Control how many executions can run at the same time per project"
 icon: 'gauge'
 ---
 
 ## Overview
 
-Concurrency limits control how many flow runs can execute simultaneously within a project. When a project reaches its limit, new runs are queued and retried automatically with exponential backoff until a slot becomes available.
+Concurrency limits control how many executions can be in flight simultaneously within a project. When a project reaches its limit, further requests are **rejected** with `HTTP 429` and a `Retry-After` header — the platform does not queue them or retry them automatically. Backing off and retrying is the caller's job.
 
 This is useful to:
 
-- Prevent a single project from consuming all available workers.
+- Prevent a single project from consuming all of a replica's sandbox boxes.
 - Protect downstream APIs from being overwhelmed by too many parallel requests.
 - Ensure fair resource distribution across projects on your platform.
 
 ## Setting a Per-Project Limit
 
-1. Navigate to **Project Settings > General**.
-2. Find the **Max Concurrent Jobs** field.
-3. Enter the desired limit, or leave it empty to use the platform default.
-4. Click **Save**.
+There is no console field for this — set the limit through the platform API or through embedding (both are enterprise-edition features):
 
-![Project Settings — Max Concurrent Jobs](/resources/screenshots/manage-concurrency.png)
+- **Platform API**: update the project (`POST /v1/projects/:id`) with a `maxConcurrentJobs` value. The value is enforced through the project's assigned concurrency pool: a project with an assigned pool is capped by that pool even when the platform-wide limiter is off.
+- **Embedding**: pass the `concurrencyPoolKey` and `concurrencyPoolLimit` JWT claims when provisioning users to group multiple projects into a shared **concurrency pool**. See [Provision Users](/embedding/provision-users).
 
-When the field is empty, the project uses the default concurrency limit from your platform plan.
+A project with no pool assignment falls back to the platform-wide default (`AP_PROJECT_EXECUTION_CONCURRENCY_LIMIT`, default 5) — but only if the limiter is enabled (`AP_PROJECT_EXECUTION_CONCURRENCY_LIMITER_ENABLED`, disabled by default). With the limiter off and no pool assignment, executions are unbounded.
 
 ## What Happens When the Limit Is Reached
 
 When a project hits its concurrency limit:
 
-1. New flow runs are **not dropped** — they are queued.
-2. The system retries queued runs with **exponential backoff**.
-3. Once an active run finishes and a slot opens, the next queued run starts.
+1. The over-limit request is rejected immediately with `HTTP 429` (error code `PROJECT_EXECUTION_CONCURRENCY_LIMIT_EXCEEDED`) and a `Retry-After` header.
+2. The caller — your integration, the Connect SDK, or an MCP client — waits for `Retry-After` (or its own policy) and retries.
+3. Slots free as in-flight executions finish; a slot lease also expires on its own (`AP_PROJECT_EXECUTION_CONCURRENCY_SLOT_TTL_SECONDS`, default 900 s) if a process dies mid-execution without releasing it.
 
-This means flows will always eventually execute, but they may experience delays when the project is at capacity.
-
-## Programmatic Management via Embedding
-
-If you are embedding Inboxfm Connect, you can manage concurrency limits programmatically through the JWT token used to provision users. This allows you to group multiple projects into a shared **concurrency pool** so they share the same limit.
-
-See [Provision Users](/embedding/provision-users) for the `concurrencyPoolKey` and `concurrencyPoolLimit` JWT claims.
+The request was never queued, so "it will eventually execute" is not guaranteed by the platform: build the retry into the caller. A well-behaved client treats the 429 like any other transient failure.

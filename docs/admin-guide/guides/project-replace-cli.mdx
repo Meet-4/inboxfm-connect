@@ -163,7 +163,7 @@ Re-running the CLI after a partial failure converges to the source state. Items 
 The apply phase is **not wrapped in a single database transaction**, and that's deliberate:
 
 - Partial-success semantics (`207` + `failed[]`) require successfully-applied items to persist across a sibling failure. A single transaction would roll back every successful folder/table/connection just because one flow's republish failed.
-- Flow republish dispatches BullMQ jobs and trigger-source registrations that can't sit inside a SQL transaction.
+- Trigger-source registration performs side effects beyond SQL — in-process schedule registration, and engine operations routed through the sandbox pool — so it can't sit inside a SQL transaction.
 - Recovery is by re-run, not rollback. Every operation matches by `externalId`, so a process crash mid-apply leaves the destination in some intermediate state that the next run's diff phase detects and finishes. CI/CD's natural retry handles process-level failures (OOM, SIGKILL, deploy timeout).
 
 If your CI does want a clean "all-or-nothing" property at the workflow level, drive replace from a job step that retries on non-zero exit and treat success only as exit `0`.
