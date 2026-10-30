@@ -36,7 +36,7 @@ export const addUser = createAction({
     const response = await makeRequest(
       context.auth.secret_text,
       HttpMethod.POST,
-      `/users/add`,
+      `/account/users`,
       {
         name,
         email,
