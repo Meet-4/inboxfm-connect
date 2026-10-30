@@ -23,7 +23,7 @@ Runs pure flows synchronously for development. Integration steps return HTTP 501
 
 ## Publish and deploy
 
-Project-scoped routes require verified project identity. Callers must provide either an HMAC-SHA256 signature (`x-project-signature: <sig>` matching `x-project-id`) or a signed Bearer token (`Authorization: Bearer <projectId>.<signature>`) authenticated against `FLOWSCRIPT_GATEWAY_SECRET` / `FLOWSCRIPT_AUTH_SECRET`. Unsigned or forged requests are rejected with HTTP 401.
+Project-scoped routes require verified project identity. Callers must provide either an HMAC-SHA256 signature (`x-project-signature: <sig>` matching `x-project-id`) or a signed Bearer token (`Authorization: Bearer <projectId>.<hmac-signature>`, as minted by `generateProjectToken`) authenticated against `FLOWSCRIPT_GATEWAY_SECRET` / `FLOWSCRIPT_AUTH_SECRET`. Unsigned or forged requests are rejected with HTTP 401.
 
 ### POST /v1/flows/publish
 
@@ -35,7 +35,7 @@ Request: versionId UUID and optional environment (defaults to production). Activ
 
 ### POST /v1/flows/:name/run
 
-Request: input object and optional environment. Resolves active deployment, persists a queued run and returns HTTP 202 with run ID. Integration-bearing flows are refused until the trusted adapter is wired.
+Request: input object and optional environment (defaults to `production`). Resolves active deployment, persists a queued run and returns HTTP 202 with run ID. The request also accepts an optional `idempotencyKey` (up to 128 chars; also read from the `x-idempotency-key` / `idempotency-key` headers) and `maxAttempts` (1–10) — a repeat call with the same key returns HTTP 200 with `x-idempotent-replay: true` instead of creating a second run. Integration-bearing flows are refused with HTTP 501 until the trusted adapter is wired.
 
 ## Triggers
 
@@ -47,7 +47,7 @@ Project-scoped trigger management routes require verified project identity (HMAC
   - Cron syntax and IANA timezone identifiers are strictly validated; invalid syntax returns HTTP 400 with `path: "cron"` or `path: "timezone"`.
   - `missedTickPolicy` defaults to `"run-once"`, preventing runaway tick cascades following worker downtime.
 - **Webhook trigger**: `{ kind: "webhook", environment?: string }`.
-  - Returns a high-entropy secret token once (`{ id, kind, flowName, token, webhookUrl }`); store securely and never log it. The raw token is hashed with SHA-256 and only the hash is persisted.
+  - Returns a high-entropy secret token once (`{ id, kind, flowName, environment, token, webhookUrl, enabled }`); store securely and never log it. The raw token is hashed with SHA-256 and only the hash is persisted.
 
 ### GET /v1/flows/:name/triggers
 
@@ -71,7 +71,7 @@ Ingress endpoint for registered webhook triggers.
 - Accepts JSON object payloads up to 1 MB. Malformed or non-object bodies return HTTP 400.
 - URL tokens are sanitized in server logs (`/v1/hooks/[REDACTED]`).
 - Unknown, disabled, or undeployed webhook tokens return a generic HTTP 404 (`{ error: 'Webhook endpoint not found' }`) without disclosing whether the trigger exists.
-- Supports durable idempotency via `x-idempotency-key` or `idempotency-key` header, or body fields `idempotency_key`, `event_id`, or `id`. Duplicate deliveries return HTTP 200 with `x-idempotent-replay: true` header without creating duplicate runs.
+- Supports durable idempotency via `x-idempotency-key` or `idempotency-key` header, or body fields `idempotency_key`, `idempotencyKey`, `event_id`, `eventId`, or `id`. Duplicate deliveries return HTTP 200 with `x-idempotent-replay: true` header without creating duplicate runs.
 - Returns HTTP 202 (`{ accepted: true, runId: <uuid>, status: 'queued' }`) on initial enqueue. Public exposure requires gateway rate limits and provider verification.
 
 ## Run inspection
@@ -109,6 +109,7 @@ All error responses return a standardized JSON error envelope:
 - `400 BAD_REQUEST`: Malformed request syntax or invalid Zod parameters.
 - `400 FLOW_NAME_MISMATCH`: Deploying a version where the version's internal flow name does not match the URL `:name`.
 - `401 UNAUTHORIZED`: Missing or invalid gateway signature / bearer token.
+- `401 MISSING_PROJECT_IDENTITY`: No `x-project-id` and no Bearer token provided.
 - `401 UNVERIFIED_PROJECT_IDENTITY`: `x-project-id` present without HMAC signature.
 - `401 INVALID_PROJECT_SIGNATURE`: HMAC signature does not match project ID.
 - `401 FORGED_PROJECT_HEADER`: Bearer token project does not match `x-project-id` header.
@@ -120,6 +121,8 @@ All error responses return a standardized JSON error envelope:
 - `404 TRIGGER_NOT_FOUND`: Flow trigger does not exist in the caller's project.
 - `404 RUN_NOT_FOUND`: Run does not exist in the caller's project.
 - `413 PAYLOAD_TOO_LARGE`: Request body exceeded 1 MB limit.
-- `422 UNPROCESSABLE_ENTITY`: Semantic or execution error (e.g., compile errors, trigger creation failure, deployment failure).
+- `422 UNPROCESSABLE_ENTITY`: Semantic error in compile/validate requests (e.g., compile errors, invalid Flow IR).
+- `422 DEPLOYMENT_FAILED`: Deployment could not be completed for the requested version.
+- `422 TRIGGER_CREATION_FAILED`: Trigger could not be created (e.g., flow not deployed).
 - `501 NOT_IMPLEMENTED`: Operation is not implemented for the target trigger kind or configuration.
 - `500 INTERNAL_SERVER_ERROR`: Unhandled internal exception.
