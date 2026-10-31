@@ -7,6 +7,7 @@ import {
   heartbeatRun,
   initializeStore,
   markRunNonIdempotentStep,
+  pruneExpiredFlowscriptData,
   recordStepAttemptFinish,
   recordStepAttemptStart,
   recoverStaleRuns,
@@ -96,6 +97,7 @@ async function main() {
   console.log(JSON.stringify({ service: 'flowscript-worker', workerId, status: 'ready', maxConcurrency: MAX_CONCURRENT_RUNS }))
 
   let lastRecoveryCheck = 0
+  let lastRetentionSweep = 0
 
   while (!stopping) {
     try {
@@ -104,6 +106,20 @@ async function main() {
       if (now - lastRecoveryCheck > 15_000) {
         lastRecoveryCheck = now
         await recoverStaleRuns()
+      }
+
+      // Periodically prune data past its retention horizon. Every statement in the
+      // sweep is batch-bounded (LIMIT), so this never holds locks across a full table.
+      // Retention is configured via FLOWSCRIPT_RETENTION_DAYS (default 30) and
+      // FLOWSCRIPT_DEAD_LETTER_RETENTION_DAYS (default 90); 0 disables a class.
+      if (now - lastRetentionSweep > 5 * 60_000) {
+        lastRetentionSweep = now
+        const pruned = await pruneExpiredFlowscriptData()
+        const totalPruned = pruned.runsDeleted + pruned.deadLetterRunsDeleted
+          + pruned.webhookIdempotencyDeleted + pruned.scheduleOccurrencesDeleted
+        if (totalPruned > 0) {
+          console.log(JSON.stringify({ event: 'retention_swept', workerId, ...pruned, totalPruned }))
+        }
       }
 
       await enqueueDueSchedule()

@@ -134,6 +134,9 @@ export async function initializeStore(): Promise<void> {
       UNIQUE(trigger_id, scheduled_instant)
     );
     CREATE INDEX IF NOT EXISTS flowscript_sched_occurrences_idx ON flowscript_schedule_occurrences(scheduled_instant);
+    CREATE INDEX IF NOT EXISTS flowscript_webhook_idempotency_run_id_idx ON flowscript_webhook_idempotency(run_id);
+    CREATE INDEX IF NOT EXISTS flowscript_schedule_occurrences_run_id_idx ON flowscript_schedule_occurrences(run_id);
+    CREATE INDEX IF NOT EXISTS flowscript_runs_prunable_idx ON flowscript_runs(created_at) WHERE status IN ('succeeded','failed','cancelled','dead_letter','uncertain');
   `)
 }
 
@@ -1097,4 +1100,117 @@ export async function rotateWebhookTriggerToken(
   )
   const row = result.rows[0]
   return row ? { id: row.id, flowName: row.flow_name, token: newToken } : null
+}
+
+export type RetentionPruneResult = {
+  retentionDays: number
+  deadLetterRetentionDays: number
+  batchSize: number
+  runsDeleted: number
+  deadLetterRunsDeleted: number
+  webhookIdempotencyDeleted: number
+  scheduleOccurrencesDeleted: number
+  disabled: boolean
+}
+
+function resolveNonNegativeIntEnv(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback
+}
+
+/**
+ * Bounded retention sweep for the flowscript tables that would otherwise grow forever:
+ * `flowscript_runs` (with its `steps`/`output` jsonb blobs), `flowscript_step_attempts`
+ * (via ON DELETE CASCADE), `flowscript_webhook_idempotency` and
+ * `flowscript_schedule_occurrences` (a schedule trigger inserting one occurrence row per
+ * tick accumulates ~525k rows/year at a 1-minute cron with no other writer deleting any).
+ *
+ * Each class is pruned with a single `DELETE ... WHERE id IN (SELECT ... LIMIT $n)`
+ * statement so a sweep never locks or buffers an unbounded number of rows; the worker
+ * re-runs the sweep on its next cadence tick, so large backlogs drain gradually.
+ *
+ * `succeeded`/`failed`/`cancelled` runs are pruned after `retentionDays`
+ * (FLOWSCRIPT_RETENTION_DAYS, default 30). `dead_letter`/`uncertain` runs are held for
+ * operator triage and are only pruned after `deadLetterRetentionDays`
+ * (FLOWSCRIPT_DEAD_LETTER_RETENTION_DAYS, default 90). A retention of 0 for a class
+ * disables pruning it. Setting both to 0 disables the sweep entirely.
+ */
+export async function pruneExpiredFlowscriptData(options?: {
+  retentionDays?: number
+  deadLetterRetentionDays?: number
+  batchSize?: number
+}): Promise<RetentionPruneResult> {
+  const retentionDays = options?.retentionDays ?? resolveNonNegativeIntEnv(process.env.FLOWSCRIPT_RETENTION_DAYS, 30)
+  const deadLetterRetentionDays = options?.deadLetterRetentionDays
+    ?? resolveNonNegativeIntEnv(process.env.FLOWSCRIPT_DEAD_LETTER_RETENTION_DAYS, 90)
+  const requestedBatchSize = options?.batchSize ?? resolveNonNegativeIntEnv(process.env.FLOWSCRIPT_RETENTION_BATCH_SIZE, 1000)
+  const batchSize = Number.isFinite(requestedBatchSize) && requestedBatchSize >= 1
+    ? Math.min(Math.floor(requestedBatchSize), 10_000)
+    : 1000
+
+  const result: RetentionPruneResult = {
+    retentionDays,
+    deadLetterRetentionDays,
+    batchSize,
+    runsDeleted: 0,
+    deadLetterRunsDeleted: 0,
+    webhookIdempotencyDeleted: 0,
+    scheduleOccurrencesDeleted: 0,
+    disabled: retentionDays <= 0 && deadLetterRetentionDays <= 0,
+  }
+
+  if (!result.disabled) {
+    if (retentionDays > 0) {
+      const runsRes = await pool.query(
+        `DELETE FROM flowscript_runs WHERE id IN (
+           SELECT id FROM flowscript_runs
+           WHERE status IN ('succeeded','failed','cancelled')
+             AND created_at < now() - make_interval(days => $1::int)
+           LIMIT $2
+         )`,
+        [retentionDays, batchSize],
+      )
+      result.runsDeleted = runsRes.rowCount ?? 0
+
+      const idempotencyRes = await pool.query(
+        `DELETE FROM flowscript_webhook_idempotency WHERE id IN (
+           SELECT id FROM flowscript_webhook_idempotency
+           WHERE created_at < now() - make_interval(days => $1::int)
+           LIMIT $2
+         )`,
+        [retentionDays, batchSize],
+      )
+      result.webhookIdempotencyDeleted = idempotencyRes.rowCount ?? 0
+
+      const occurrencesRes = await pool.query(
+        `DELETE FROM flowscript_schedule_occurrences WHERE id IN (
+           SELECT id FROM flowscript_schedule_occurrences
+           WHERE scheduled_instant < now() - make_interval(days => $1::int)
+           LIMIT $2
+         )`,
+        [retentionDays, batchSize],
+      )
+      result.scheduleOccurrencesDeleted = occurrencesRes.rowCount ?? 0
+    }
+
+    if (deadLetterRetentionDays > 0) {
+      const deadLetterRes = await pool.query(
+        `DELETE FROM flowscript_runs WHERE id IN (
+           SELECT id FROM flowscript_runs
+           WHERE status IN ('dead_letter','uncertain')
+             AND created_at < now() - make_interval(days => $1::int)
+           LIMIT $2
+         )`,
+        [deadLetterRetentionDays, batchSize],
+      )
+      result.deadLetterRunsDeleted = deadLetterRes.rowCount ?? 0
+    }
+  }
+
+  const totalDeleted = result.runsDeleted + result.deadLetterRunsDeleted
+    + result.webhookIdempotencyDeleted + result.scheduleOccurrencesDeleted
+  if (totalDeleted > 0 || !result.disabled) {
+    console.log(JSON.stringify({ event: 'retention_sweep', ...result, totalDeleted }))
+  }
+  return result
 }

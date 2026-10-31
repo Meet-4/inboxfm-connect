@@ -58,6 +58,26 @@ Token may be wrong, trigger disabled or deployment missing. Tokens are bearer se
 
 The trusted existing-runtime adapter is not implemented. The service intentionally refuses integration execution. Do not bypass this guard or execute arbitrary code to make a demo appear functional.
 
+## Data retention
+
+Nothing in the service deleted historical run data before the retention sweep existed:
+`flowscript_runs` (including its `input`/`output`/`steps` jsonb blobs), `flowscript_step_attempts`,
+`flowscript_webhook_idempotency` and `flowscript_schedule_occurrences` grew without bound — a single
+1-minute cron trigger alone accumulates ~525k occurrence rows per year.
+
+Workers now run a bounded retention sweep every 5 minutes. Each sweep issues batch-limited
+`DELETE ... LIMIT` statements (default 1000 rows per table class per sweep, so a sweep never holds
+locks across a full table) and logs a `retention_sweep` telemetry line with the deleted counts.
+
+- `succeeded`, `failed` and `cancelled` runs (and their step attempts, idempotency and occurrence
+  rows via cascade) are pruned after `FLOWSCRIPT_RETENTION_DAYS` days (default 30).
+- `dead_letter` and `uncertain` runs are held longer for operator triage and are pruned after
+  `FLOWSCRIPT_DEAD_LETTER_RETENTION_DAYS` days (default 90).
+- `FLOWSCRIPT_RETENTION_BATCH_SIZE` bounds the per-sweep batch (default 1000, max 10000).
+- Set a class horizon to `0` to disable pruning it; both horizons at `0` disable the sweep.
+- `flowscript_versions` and deployments are never pruned automatically: deployments reference
+  versions, and version history is the audit trail for what a run executed.
+
 ## Incident response
 
 1. Disable affected deployment/trigger once controls exist; otherwise block ingress at gateway.
