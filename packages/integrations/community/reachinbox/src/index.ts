@@ -1,6 +1,6 @@
 import { createPiece, PieceAuth } from '@inboxfm-connect/pieces-framework';
 import { addLeads } from './lib/actions/add-leads';
-import { createCustomApiCallAction } from '@inboxfm-connect/pieces-common';
+import { createCustomApiCallAction, httpClient, HttpMethod, AuthenticationType } from '@inboxfm-connect/pieces-common';
 import { campaignCompleted } from './lib/triggers/campaign-completed';
 import { emailBounced } from './lib/triggers/email-bounced';
 import { emailOpened } from './lib/triggers/email-opened';
@@ -30,17 +30,35 @@ export const ReachinboxAuth = PieceAuth.SecretText({
   description: 'Enter your ReachInbox API key',
   required: true,
   validate: async ({ auth }) => {
-    // Validate the API key format (UUID pattern: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)
+    // Cheap local shape check: ReachInbox keys are UUIDs.
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(auth)) {
-      return { valid: true };
+    if (!uuidRegex.test(auth)) {
+      return {
+        valid: false,
+        error:
+          'Invalid API Key. It should follow the UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).',
+      };
     }
-    return {
-      valid: false,
-      error:
-        'Invalid API Key. It should follow the UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).',
-    };
+
+    try {
+      // The campaigns endpoint answers 401 "Access denied." for unknown keys.
+      await httpClient.sendRequest({
+        method: HttpMethod.GET,
+        url: 'https://api.reachinbox.ai/api/v1/campaigns/all?sort=newest&offset=0&limit=1',
+        authentication: {
+          type: AuthenticationType.BEARER_TOKEN,
+          token: auth,
+        },
+      });
+      return { valid: true };
+    } catch {
+      return {
+        valid: false,
+        error:
+          'Invalid API Key. Please check your ReachInbox API key and try again.',
+      };
+    }
   },
 });
 
