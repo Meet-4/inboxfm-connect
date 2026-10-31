@@ -5,7 +5,12 @@ import {
   HttpMethod,
   HttpRequest,
 } from '@inboxfm-connect/pieces-common';
-import { calendlyCommon, CalendlyWebhookInformation } from '../common';
+import {
+  calendlyCommon,
+  CalendlyWebhookInformation,
+  generateWebhookSigningKey,
+  verifyCalendlyWebhookSignature,
+} from '../common';
 import { calendlyAuth } from '../auth';
 
 const triggerNameInStore = 'calendly_invitee_canceled_trigger';
@@ -66,6 +71,7 @@ export const calendlyInviteeCanceled = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const calendlyUser = await calendlyCommon.getUser(context.auth.secret_text);
+    const webhookSecret = generateWebhookSigningKey();
     const request: HttpRequest = {
       method: HttpMethod.POST,
       url: `${calendlyCommon.baseUrl}/webhook_subscriptions`,
@@ -75,6 +81,7 @@ export const calendlyInviteeCanceled = createTrigger({
         user: calendlyUser.uri,
         scope: context.propsValue.scope,
         events: ['invitee.canceled'],
+        signing_key: webhookSecret,
       },
       authentication: {
         token: context.auth.secret_text,
@@ -87,6 +94,7 @@ export const calendlyInviteeCanceled = createTrigger({
     }>(request);
     await context.store?.put<CalendlyWebhookInformation>(triggerNameInStore, {
       webhookId: calendlyCommon.UuidFromUri(body.resource.uri)!,
+      webhookSecret,
     });
   },
   async onDisable(context) {
@@ -106,6 +114,20 @@ export const calendlyInviteeCanceled = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<CalendlyWebhookInformation>(
+      triggerNameInStore
+    );
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyCalendlyWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['calendly-webhook-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Calendly.');
+    }
+
     return [context.payload.body];
   },
 });

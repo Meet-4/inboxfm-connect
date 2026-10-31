@@ -5,7 +5,12 @@ import {
   AuthenticationType,
   httpClient,
 } from '@inboxfm-connect/pieces-common';
-import { calendlyCommon, CalendlyWebhookInformation } from '../common';
+import {
+  calendlyCommon,
+  CalendlyWebhookInformation,
+  generateWebhookSigningKey,
+  verifyCalendlyWebhookSignature,
+} from '../common';
 import { calendlyAuth } from '../auth';
 
 const triggerNameInStore = 'calendly_invitee_created_trigger';
@@ -52,6 +57,7 @@ export const calendlyInviteeCreated = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const calendlyUser = await calendlyCommon.getUser(context.auth.secret_text);
+    const webhookSecret = generateWebhookSigningKey();
     const request: HttpRequest = {
       method: HttpMethod.POST,
       url: `${calendlyCommon.baseUrl}/webhook_subscriptions`,
@@ -61,6 +67,7 @@ export const calendlyInviteeCreated = createTrigger({
         user: calendlyUser.uri,
         scope: context.propsValue['scope'],
         events: ['invitee.created'],
+        signing_key: webhookSecret,
       },
       authentication: {
         token: context.auth.secret_text,
@@ -73,6 +80,7 @@ export const calendlyInviteeCreated = createTrigger({
     }>(request);
     await context.store?.put<CalendlyWebhookInformation>(triggerNameInStore, {
       webhookId: calendlyCommon.UuidFromUri(body.resource.uri)!,
+      webhookSecret,
     });
   },
   async onDisable(context) {
@@ -95,6 +103,20 @@ export const calendlyInviteeCreated = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<CalendlyWebhookInformation>(
+      triggerNameInStore
+    );
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyCalendlyWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['calendly-webhook-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Calendly.');
+    }
+
     return [context.payload.body];
   },
 });
