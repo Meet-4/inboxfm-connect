@@ -65,6 +65,65 @@ describe('connectErrorFactory.fromResponse', () => {
     })
 })
 
+describe('server error body shapes (the reason must not be dropped)', () => {
+    it('extracts the real reason from ActivepiecesError bodies ({ code, params } with no top-level message)', async () => {
+        // This is the exact shape the server's error handler serializes
+        // (`app/helper/error-handler.ts`): `{ code, params }` — there is no
+        // top-level `message` field. The reason lives at `params.message`.
+        const error = await connectErrorFactory.fromResponse({
+            response: jsonResponse({
+                status: 400,
+                body: { code: 'ENGINE_OPERATION_FAILURE', params: { message: 'Piece slack failed: channel not found' } },
+            }),
+        })
+
+        expect(error.code).toBe('ENGINE_OPERATION_FAILURE')
+        expect(error.params).toEqual({ message: 'Piece slack failed: channel not found' })
+        expect(error.message).toBe('Piece slack failed: channel not found')
+    })
+
+    it('extracts params.error for INVALID_APP_CONNECTION bodies', async () => {
+        const error = await connectErrorFactory.fromResponse({
+            response: jsonResponse({
+                status: 400,
+                body: { code: 'INVALID_APP_CONNECTION', params: { error: 'Connection type "OAUTH2" is not supported through a connect session' } },
+            }),
+        })
+
+        expect(error.message).toBe('Connection type "OAUTH2" is not supported through a connect session')
+    })
+
+    it('keeps a top-level message winning over the nested params reason', async () => {
+        // Fastify-generated errors (zod validation) put the reason at the top level;
+        // when both shapes appear, that message is the authoritative one.
+        const error = await connectErrorFactory.fromResponse({
+            response: jsonResponse({
+                status: 422,
+                body: { message: 'body must match the schema', code: 'VALIDATION', params: {} },
+            }),
+        })
+
+        expect(error.message).toBe('body must match the schema')
+    })
+
+    it('falls back to the generic status string when the body carries no readable reason', async () => {
+        // INVALID_CREDENTIALS sends `params: null` — nothing readable anywhere.
+        const error = await connectErrorFactory.fromResponse({
+            response: jsonResponse({ status: 401, body: { code: 'INVALID_CREDENTIALS', params: null } }),
+        })
+
+        expect(error.message).toBe('Inboxfm Connect API error (401)')
+    })
+
+    it('ignores non-string params.message values instead of leaking objects into the message', async () => {
+        const error = await connectErrorFactory.fromResponse({
+            response: jsonResponse({ status: 400, body: { code: 'ENTITY_NOT_FOUND', params: { message: { entityId: 'abc' } } } }),
+        })
+
+        expect(error.message).toBe('Inboxfm Connect API error (400)')
+    })
+})
+
 describe('connectErrorFactory network/timeout/abort', () => {
     it('marks network errors as retryable', () => {
         const error = connectErrorFactory.fromNetworkError({ cause: new Error('ECONNRESET') })

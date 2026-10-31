@@ -118,6 +118,20 @@ function parseRetryAfterMs({ header }: { header: string | null }): number | unde
     return Math.max(0, dateMs - Date.now())
 }
 
+/**
+ * Reads the human-readable reason out of the two error-body shapes this backend
+ * sends, mirroring the priority the web client uses:
+ *
+ * - Fastify-generated errors and any handler that sets a top-level `message`
+ *   keep that message.
+ * - The server's error handler (`app/helper/error-handler.ts`) serializes
+ *   ActivepiecesError bodies as `{ code, params }` with NO top-level `message` —
+ *   the reason lives at `params.message` (VALIDATION, AUTHORIZATION,
+ *   ENGINE_OPERATION_FAILURE, SESSION_EXPIRED, …) or `params.error`
+ *   (INVALID_APP_CONNECTION). Without this fallback, every such failure surfaced
+ *   as the generic "Inboxfm Connect API error (NNN)" while `error.params` held
+ *   the actual text the server produced.
+ */
 function parseErrorBody(rawBody: string): { code?: string, params?: Record<string, unknown>, message?: string } {
     if (!rawBody) {
         return {}
@@ -132,12 +146,28 @@ function parseErrorBody(rawBody: string): { code?: string, params?: Record<strin
         const params = typeof record['params'] === 'object' && record['params'] !== null
             ? record['params'] as Record<string, unknown>
             : undefined
-        const message = typeof record['message'] === 'string' ? record['message'] : undefined
+        const message = readErrorMessage({ record, params })
         return { code, params, message }
     }
     catch {
         return { message: rawBody }
     }
+}
+
+function readErrorMessage({ record, params }: { record: Record<string, unknown>, params?: Record<string, unknown> }): string | undefined {
+    if (typeof record['message'] === 'string') {
+        return record['message']
+    }
+    if (params === undefined) {
+        return undefined
+    }
+    if (typeof params['message'] === 'string') {
+        return params['message']
+    }
+    if (typeof params['error'] === 'string') {
+        return params['error']
+    }
+    return undefined
 }
 
 export const connectErrorFactory = {
