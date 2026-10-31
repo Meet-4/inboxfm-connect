@@ -94,22 +94,6 @@ services:
     build:
       context: ./services/flowscript
       dockerfile: Dockerfile
-  worker:
-    image: inboxfm-connect:local
-    # container_name is incompatible with deploy.replicas (a fixed name cannot
-    # be shared by >1 replica); CI's compose validator rejects the combo (issue #398)
-    restart: unless-stopped
-    depends_on:
-      - app
-    env_file: .env
-    environment:
-      - AP_CONTAINER_TYPE=WORKER
-    deploy:
-      replicas: 5
-    volumes:
-      - ./cache:/usr/src/app/cache
-    networks:
-      - inboxfm-connect
   postgres:
     image: 'pgvector/pgvector:0.8.0-pg14'
     container_name: postgres
