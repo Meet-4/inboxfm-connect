@@ -1,5 +1,6 @@
-# Worker-is-the-sandbox stack on GKE (ADR 0003). No poolserver: each worker IS the sandbox, capped at
-# 0.5 CPU / 1 GB, concurrency 1, running the engine in-process. Scale = worker replicas. Object store is
+# Headless /v1/execute benchmark stack on GKE. No worker tier: the app runs the
+# engine in-process (AP_EXECUTION_MODE=SANDBOX_CODE_ONLY), so capacity scales with
+# app replicas. Object store is
 # a real same-region GCS bucket (europe-west1) over the S3-interop endpoint with signed URLs on, so the
 # engine pulls the flow bundle + piece archives via presigned links. Webhook traffic enters via the app
 # LoadBalancer.
@@ -14,7 +15,7 @@ data:
   AP_POSTGRES_PORT: "5432"
   AP_REDIS_HOST: redis
   AP_REDIS_PORT: "6379"
-  # Substituted by run-gke.sh (defaults to a random per-run secret); kept in sync with the signed worker token.
+  # Substituted by run-gke.sh (defaults to a random per-run secret).
   AP_JWT_SECRET: __AP_JWT_SECRET__
   AP_ENCRYPTION_KEY: 11020ebf480a9b1648ceec6400beaf26
   AP_ENVIRONMENT: prod
@@ -30,7 +31,7 @@ data:
   # the engine fetches flow bundle + piece archives directly from GCS via those links.
   AP_S3_BUCKET: ap-bench-eu-b3803
   # HMAC access key + secret are NOT here — they live in the `ap-s3-secret` Kubernetes Secret,
-  # created out-of-band (kubectl create secret) and injected via secretRef on app + worker, so the
+  # created out-of-band (kubectl create secret) and injected via secretRef on the app, so the
   # live credential never sits in this plaintext manifest.
   AP_S3_ENDPOINT: https://storage.googleapis.com
   AP_S3_REGION: europe-west1
@@ -105,8 +106,8 @@ spec:
       containers:
         - name: redis
           image: redis:7.0.7
-          # The other shared singleton: BullMQ queue + per-app sync-response pub/sub + run-metadata
-          # coalescing all land here, and 160 blocking-pop workers keep it busy even at idle. Redis
+          # The other shared singleton: distributed locks, tick-lock leader election for the
+          # in-process schedulers, and cache coordination all land here. Redis
           # executes commands on one thread, so extra cores only help network I/O — io-threads spreads
           # socket read/write across 4 threads (matters at this connection count). appendonly stays off
           # (durability is pointless for an ephemeral bench) so no fork/rewrite stalls under load.
@@ -133,7 +134,7 @@ spec:
       containers:
         - name: app
           # App image lives in the EU AR repo (built by the team); GKE pulls it cross-region once at
-          # provisioning. The runtime data path (webhook -> app -> redis -> worker -> MinIO) stays in US.
+          # provisioning. The runtime data path (request -> app -> redis/postgres -> GCS) stays in US.
           image: __APP_IMAGE__
           envFrom: [{ configMapRef: { name: ap-config } }, { secretRef: { name: ap-s3-secret } }]
           env:
@@ -153,34 +154,3 @@ spec:
   type: LoadBalancer
   selector: { app: app }
   ports: [{ port: 80, targetPort: 80 }]
----
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: worker }
-spec:
-  # Scale knob: each replica is one sandbox at concurrency 1. __WORKER_REPLICAS__ substituted by run-gke.sh.
-  replicas: __WORKER_REPLICAS__
-  # maxSurge:0 so a rolling restart never needs spare capacity beyond `replicas` (the fleet runs near
-  # full node capacity at high worker counts); old pods drain before new ones are created. maxUnavailable
-  # is a high % so the restart is near-parallel — there is no live traffic during a benchmark rollout, and
-  # 4-at-a-time can't finish 120+ workers inside the rollout timeout.
-  strategy: { rollingUpdate: { maxSurge: 0, maxUnavailable: "75%" } }
-  selector: { matchLabels: { app: worker } }
-  template:
-    metadata: { labels: { app: worker } }
-    spec:
-      containers:
-        - name: worker
-          image: us-central1-docker.pkg.dev/activepieces-b3803/sandbox-bench/ap-worker:sandbox-bench
-          imagePullPolicy: Always
-          envFrom: [{ configMapRef: { name: ap-config } }, { secretRef: { name: ap-s3-secret } }]
-          env:
-            - { name: AP_CONTAINER_TYPE, value: WORKER }
-            - { name: AP_WORKER_CONCURRENCY, value: "1" }
-            - { name: AP_REUSE_SANDBOX, value: "__REUSE_SANDBOX__" }
-            - { name: AP_CACHE_BASE_PATH, value: /tmp/cache }
-          # The hard CPU / 1 GB cap per the model — requests == limits for a guaranteed slice.
-          # __WORKER_CPU__ is substituted by run-gke.sh (e.g. 500m or "1").
-          resources:
-            requests: { cpu: "__WORKER_CPU__", memory: 1Gi }
-            limits: { cpu: "__WORKER_CPU__", memory: 1Gi }
