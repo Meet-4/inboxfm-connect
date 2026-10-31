@@ -1,4 +1,4 @@
-import { createCustomApiCallAction } from '@inboxfm-connect/pieces-common';
+import { createCustomApiCallAction, httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { createPiece, PieceAuth } from '@inboxfm-connect/pieces-framework';
 import { PieceCategory } from '@inboxfm-connect/pieces-framework';
 import { retableCreateProjectAction } from './lib/actions/create-project';
@@ -20,15 +20,26 @@ export const retableAuth = PieceAuth.SecretText({
   required: true,
   description: markdown,
   validate: async ({ auth }) => {
-    if (auth.startsWith('RTBLv1-')) {
+    try {
+      // The public workspaces endpoint answers 404 for an unknown key and
+      // 200 with the workspace list for a valid one (the same route the
+      // piece's workspace dropdown already uses).
+      await httpClient.sendRequest({
+        method: HttpMethod.GET,
+        url: 'https://api.retable.io/v1/public/workspace',
+        headers: {
+          ApiKey: auth,
+        },
+      });
       return {
         valid: true,
       };
+    } catch {
+      return {
+        valid: false,
+        error: 'Invalid API Key',
+      };
     }
-    return {
-      valid: false,
-      error: 'Invalid API Key',
-    };
   },
 });
 export const retable = createPiece({
