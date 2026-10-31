@@ -1,5 +1,5 @@
 import { ActivepiecesError, apId, ErrorCode, PlatformId, ProjectId } from '@inboxfm-connect/core-utils'
-import { ALL_PRINCIPAL_TYPES, EnginePrincipal, Principal, PrincipalType, UserStatus, WorkerPrincipal } from '@inboxfm-connect/shared'
+import { ALL_PRINCIPAL_TYPES, EnginePrincipal, Principal, PrincipalType, UserStatus } from '@inboxfm-connect/shared'
 import dayjs from 'dayjs'
 import { FastifyBaseLogger } from 'fastify'
 import { jwtUtils } from '../../helper/jwt-utils'
@@ -35,21 +35,6 @@ export const accessTokenManager = (log: FastifyBaseLogger) => ({
             payload: enginePrincipal,
             key: secret,
             expiresInSeconds: dayjs.duration(retentionDays, 'day').asSeconds(),
-        })
-    },
-
-    async generateWorkerToken(): Promise<string> {
-        const workerPrincipal: WorkerPrincipal = {
-            id: apId(),
-            type: PrincipalType.WORKER,
-        }
-
-        const secret = await jwtUtils.getJwtSecret()
-
-        return jwtUtils.sign({
-            payload: workerPrincipal,
-            key: secret,
-            expiresInSeconds: dayjs.duration(100, 'year').asSeconds(),
         })
     },
 
