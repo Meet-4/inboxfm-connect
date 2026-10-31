@@ -116,20 +116,6 @@ export const createMockProject = (project?: Partial<Project>): Project => {
     }
 }
 
-export const createMockGitRepo = (gitRepo?: Partial<GitRepo>): GitRepo => {
-    return {
-        id: gitRepo?.id ?? apId(),
-        branchType: faker.helpers.enumValue(GitBranchType),
-        created: gitRepo?.created ?? faker.date.recent().toISOString(),
-        updated: gitRepo?.updated ?? faker.date.recent().toISOString(),
-        projectId: gitRepo?.projectId ?? apId(),
-        remoteUrl: gitRepo?.remoteUrl ?? `git@${faker.internet.url()}`,
-        sshPrivateKey: gitRepo?.sshPrivateKey ?? faker.internet.password(),
-        branch: gitRepo?.branch ?? faker.lorem.word(),
-        slug: gitRepo?.slug ?? faker.lorem.word(),
-    }
-}
-
 export const createMockPlatformPlan = (platformPlan?: Partial<PlatformPlan>): PlatformPlan => {
     return {
         id: platformPlan?.id ?? apId(),
@@ -482,6 +468,10 @@ export const createMockCell = ({ recordId, fieldId, projectId }: { recordId: str
 // deleted with the Flow Runtime, so the helpers referenced undefined identifiers and
 // threw whenever called. The project-deletion tests that used them are migrated to the
 // surviving entities.
+// REMOVED (same class): `createMockGitRepo` — the git-sync feature's API surface is
+// gone, its `GitRepo`/`GitBranchType` imports were dropped from this file (so the
+// helper referenced undefined identifiers), and its default `git@${faker.internet.url()}`
+// remote was an impossible URL (`git@https://...`). It had no callers left.
 
 export const mockBasicUser = async ({ userIdentity, user }: { userIdentity?: Partial<UserIdentity>, user?: Partial<User> }) => {
     const mockUserIdentity = createMockUserIdentity({
