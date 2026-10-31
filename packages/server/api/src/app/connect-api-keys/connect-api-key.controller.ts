@@ -1,4 +1,4 @@
-import { ApId, Permission } from '@inboxfm-connect/core-utils'
+import { ApId, Permission, SeekPage } from '@inboxfm-connect/core-utils'
 import { wideEvent } from '@inboxfm-connect/server-utils'
 import {
     ConnectApiKeyResponseWithoutValue,
@@ -34,7 +34,11 @@ export const connectApiKeyController: FastifyPluginAsyncZod = async (app) => {
     })
 
     app.get('/', ListRequest, async (req) => {
-        return connectApiKeyService.list({ projectId: req.query.projectId })
+        return connectApiKeyService.list({
+            projectId: req.query.projectId,
+            cursorRequest: req.query.cursor ?? null,
+            limit: req.query.limit,
+        })
     })
 
     app.post('/:id/rotate', RotateRequest, async (req, res) => {
@@ -98,13 +102,14 @@ const ListRequest = {
         tags: ['connect-api-keys'],
         querystring: z.object({
             projectId: ApId,
+            cursor: z.string().optional(),
+            limit: z.string().optional(),
         }),
         response: {
-            [StatusCodes.OK]: z.object({
-                data: z.array(ConnectApiKeyResponseWithoutValue),
-                next: z.null(),
-                previous: z.null(),
-            }),
+            // `next`/`previous` were declared `z.null()` when the list was an
+            // unbounded dump; real cursor pagination emits opaque cursor
+            // strings when more rows exist (still null on the last page).
+            [StatusCodes.OK]: SeekPage(ConnectApiKeyResponseWithoutValue),
         },
     },
 }

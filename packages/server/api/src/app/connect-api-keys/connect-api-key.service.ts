@@ -1,8 +1,10 @@
-import { ActivepiecesError, apId, ErrorCode, isNil, secureApId } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, apId, ErrorCode, isNil, secureApId, SeekPage } from '@inboxfm-connect/core-utils'
 import { cryptoUtils } from '@inboxfm-connect/server-utils'
 import { ConnectApiKey, ConnectApiKeyResponseWithValue } from '@inboxfm-connect/shared'
 import { repoFactory } from '../core/db/repo-factory'
 import { transaction } from '../core/db/transaction'
+import { buildPaginator } from '../helper/pagination/build-paginator'
+import { paginationHelper } from '../helper/pagination/pagination-utils'
 import { system } from '../helper/system/system'
 import { AppSystemProp } from '../helper/system/system-props'
 import { ConnectApiKeyEntity } from './connect-api-key.entity'
@@ -11,6 +13,20 @@ export const CONNECT_API_KEY_PREFIX = 'cak-'
 const CONNECT_API_KEY_TOKEN_LENGTH = 64
 const DEFAULT_ROTATION_GRACE_PERIOD_SECONDS = 86400
 const connectApiKeyRepo = repoFactory<ConnectApiKey>(ConnectApiKeyEntity)
+
+/**
+ * `GET /v1/connect-api-keys` used to return every key row for the project in
+ * a fake SeekPage (hard-coded null cursors). Real cursor pagination now
+ * bounds each response. Default 100 because the project API-keys page renders
+ * one page with no "load more" UI, so the default must exceed realistic key
+ * counts; hard max follows the record-list convention (issue #400).
+ */
+const DEFAULT_LIST_LIMIT = 100
+const MAX_LIST_LIMIT = 500
+
+function clampListLimit(rawLimit: string | number | undefined): number {
+    return Math.max(1, Math.min(Math.floor(Number(rawLimit ?? DEFAULT_LIST_LIMIT)) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT))
+}
 
 export const connectApiKeyService = {
     async add({ platformId, projectId, displayName, expiresAt }: AddParams): Promise<ConnectApiKeyResponseWithValue> {
@@ -46,9 +62,25 @@ export const connectApiKeyService = {
         return key
     },
 
-    async list({ projectId }: ListParams): Promise<{ data: ConnectApiKey[], next: null, previous: null }> {
-        const data = await connectApiKeyRepo().findBy({ projectId })
-        return { data, next: null, previous: null }
+    async list({ projectId, cursorRequest, limit }: ListParams): Promise<SeekPage<ConnectApiKey>> {
+        const decodedCursor = paginationHelper.decodeCursor(cursorRequest ?? null)
+        const paginator = buildPaginator({
+            entity: ConnectApiKeyEntity,
+            query: {
+                limit: clampListLimit(limit),
+                // Oldest first matches the pre-pagination display order.
+                order: 'ASC',
+                afterCursor: decodedCursor.nextCursor,
+                beforeCursor: decodedCursor.previousCursor,
+            },
+        })
+
+        const query = connectApiKeyRepo()
+            .createQueryBuilder('connect_api_key')
+            .where('connect_api_key.projectId = :projectId', { projectId })
+
+        const { data, cursor } = await paginator.paginate(query)
+        return paginationHelper.createPage<ConnectApiKey>(data, cursor)
     },
 
     async delete({ projectId, id }: KeyIdentityParams): Promise<void> {
@@ -143,6 +175,8 @@ type AddParams = {
 
 type ListParams = {
     projectId: string
+    cursorRequest?: string | null
+    limit?: string | number
 }
 
 type KeyIdentityParams = {
