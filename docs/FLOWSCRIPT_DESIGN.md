@@ -1,6 +1,6 @@
 # FlowScript: developer-first flows for Inboxfm Connect
 
-> Status: implementation blueprint, not an implemented runtime. Target branch: `feat/flowscript-runtime-blueprint`.
+> Status: implemented in this repository as the FlowScript preview service — `services/flowscript`, a standalone API server (port 8081) plus its own Postgres-backed run queue and a lease-claiming worker container (see `docs/flowscript/`). Integration actions are deliberately not executed yet: the trusted Connect runtime adapter is not wired in, and the service answers integration execution with `501 Not Implemented`. This document is the original blueprint; where the implementation diverges (a separate service rather than additions inside the existing API app), the code and `docs/flowscript/` are the source of truth.
 >
 > Grounded in the current repository architecture on `dev`: headless integration infrastructure, the inherited flow/run model vocabulary, trigger strategies (`POLLING`, `WEBHOOK`, `APP_WEBHOOK`, `MANUAL`), a process-local scheduler, and API-side scheduled-task/trigger-binding areas.
 
@@ -8,7 +8,7 @@
 
 FlowScript is the source-first way to define, validate, test, publish, and operate flows in Inboxfm Connect. It should feel like writing a small declarative program, not rebuilding a visual automation builder in text form.
 
-A developer keeps a `.flow` file in Git, lints and tests it in CI, publishes an immutable version to Connect, and runs it manually or through a durable trigger. The CLI is the developer experience; the existing engine, integration catalog, connection/auth infrastructure, queue, and API remain the execution foundation.
+A developer keeps a `.flow` file in Git, lints and tests it in CI, publishes an immutable version to Connect, and runs it manually or through a durable trigger. The CLI is the developer experience; the existing engine, integration catalog, connection/auth infrastructure, and API remain the execution foundation.
 
 **Core principle:** FlowScript compiles into a versioned, typed flow definition that the current engine can execute. It does not introduce a parallel integration runtime or expose credentials to user scripts.
 
@@ -460,9 +460,9 @@ The control plane manages definitions, deployments, trigger registrations, permi
 
 ### Existing platform reuse
 
-The current codebase already has `ScheduledTaskEntity`/service, `TriggerBindingEntity`/service, execution APIs, a queue/worker model, integration connections, and runtime/engine/sandbox packages. Flow Hosting should reuse these contracts when they fit. The existing scheduled-task and trigger-binding records currently represent prompt/trigger-binding execution semantics; they are not automatically a storage model for arbitrary FlowScript graphs. Add the thinnest missing deployment/version/run linkage rather than assuming the old records already model hosted flows.
+The current codebase already has `ScheduledTaskEntity`/service, `TriggerBindingEntity`/service, execution APIs, integration connections, and runtime/engine/sandbox packages — and no platform job queue: Connect flows execute in-process in the app. Flow Hosting should reuse these contracts when they fit. The existing scheduled-task and trigger-binding records currently represent prompt/trigger-binding execution semantics; they are not automatically a storage model for arbitrary FlowScript graphs. Add the thinnest missing deployment/version/run linkage rather than assuming the old records already model hosted flows.
 
-First implementation should investigate whether the current worker queue can carry a typed Flow IR execution job and whether the existing sandbox can execute a bounded sequence of integration actions. If not, define a small adapter and prove it with one flow before designing a new worker fleet.
+There is no current worker queue to investigate — Connect flows execute in-process in the app — so the first implementation defined a small adapter instead: `services/flowscript` runs its own Postgres-backed run queue (FOR UPDATE SKIP LOCKED claims, leases, heartbeats, bounded retries with backoff, dead-lettering) behind a separate worker container. Wiring integration actions through the existing sandbox remains open: the service refuses to execute integration steps until the trusted adapter is built.
 
 ### Suggested persisted concepts
 

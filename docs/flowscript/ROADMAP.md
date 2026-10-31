@@ -35,7 +35,7 @@ Acceptance: test flow invokes a real test integration through existing runtime w
 ## Phase 3: durable orchestration
 
 - Move CREATE TABLE IF NOT EXISTS into versioned migrations.
-- Evaluate existing Connect queue abstractions against the current Postgres polling queue.
+- Benchmark the Postgres polling queue. Connect has no queue abstractions to evaluate (its flows execute in-process in the app), so a dedicated durable-queue technology would be a new adoption, not a comparison.
 - Add leases/visibility timeout, stale-running recovery, bounded retries, dead-lettering and cancellation.
 - Add dedupe keys for manual requests, webhook event IDs and scheduled instants.
 - Add worker concurrency and backpressure.

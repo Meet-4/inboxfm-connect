@@ -4,7 +4,7 @@
 
 - Keep FlowScript in the existing InboxFM Connect monorepo.
 - Give the API service and worker independent process/container boundaries.
-- Reuse Connect's integration catalog, connection/auth systems, execution runtime and queue/database infrastructure.
+- Reuse Connect's integration catalog, connection/auth systems, execution runtime and database infrastructure.
 - Make published artifacts immutable and pin every run to a version.
 - Keep flow definitions declarative. Never execute arbitrary JavaScript, Python, shell commands or dynamic imports from flow source.
 
@@ -43,7 +43,7 @@
               InboxFM Connect runtime
               connections / pieces / sandbox
 
-The current worker uses Postgres rows as a queue and FOR UPDATE SKIP LOCKED for claims. Treat this as an MVP mechanism, not a substitute for an explicit durable queue if throughput, visibility timeout, backpressure and redrive requirements demand one. Evaluate the existing Connect queue/worker abstractions before adding another queue technology.
+The current worker uses Postgres rows as a queue and FOR UPDATE SKIP LOCKED for claims. Treat this as an MVP mechanism, not a substitute for an explicit durable queue if throughput, visibility timeout, backpressure and redrive requirements demand one. Connect has no queue/worker abstractions to evaluate — its flows execute in-process in the app — so adopting an explicit durable queue means deliberately introducing a new technology, not choosing between existing ones.
 
 ## Service boundaries
 
