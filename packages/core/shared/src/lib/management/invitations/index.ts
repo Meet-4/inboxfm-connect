@@ -1,6 +1,6 @@
 import { BaseModelSchema, Nullable, NullableEnum, ProjectRole } from '@inboxfm-connect/core-utils'
 import { z } from 'zod'
-import { PlatformRole } from '../../core/user/index'
+import { EmailType, PlatformRole } from '../../core/user/index'
 
 export enum InvitationType {
     PLATFORM = 'PLATFORM',
@@ -32,16 +32,21 @@ export const UserInvitationWithLink = UserInvitation.extend({
 
 export type UserInvitationWithLink = z.infer<typeof UserInvitationWithLink>
 
+// The invitation email becomes the SMTP envelope recipient of a mail that
+// carries a one-time invitation link. It must be a real address, not an
+// arbitrary string: a CR/LF pair or a space inside it corrupts the SMTP
+// envelope (see the smtp email senders). EmailType is the same check sign-up
+// applies.
 export const SendUserInvitationRequest = z.union([
     z.object({
         type: z.literal(InvitationType.PROJECT),
-        email: z.string(),
+        email: EmailType,
         projectId: z.string(),
         projectRole: z.string(),
     }),
     z.object({
         type: z.literal(InvitationType.PLATFORM),
-        email: z.string(),
+        email: EmailType,
         platformRole: z.nativeEnum(PlatformRole),
     }),
 ])

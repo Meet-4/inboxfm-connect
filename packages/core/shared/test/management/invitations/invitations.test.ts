@@ -110,6 +110,68 @@ describe('SendUserInvitationRequest union schema', () => {
     })
 })
 
+describe('SendUserInvitationRequest email validation', () => {
+    it('rejects a CRLF header-injection recipient (would mis-deliver the invitation mail)', () => {
+        // 'victim@x.com\r\nBcc: attacker@evil.com' reaches nodemailer's To: header
+        // today: the address parser turns it into a group and the SMTP envelope
+        // ends up delivering ONLY to the attacker address (empirically verified
+        // against nodemailer 8.0.5's stream transport).
+        const injected = 'victim@x.com\r\nBcc: attacker@evil.com'
+        expect(() => SendUserInvitationRequest.parse({
+            type: InvitationType.PROJECT,
+            email: injected,
+            projectId: 'proj-123',
+            projectRole: 'Editor',
+        })).toThrow()
+        expect(() => SendUserInvitationRequest.parse({
+            type: InvitationType.PLATFORM,
+            email: injected,
+            platformRole: PlatformRole.MEMBER,
+        })).toThrow()
+    })
+
+    it('rejects LF-only and CR-only variants', () => {
+        for (const email of ['victim@x.com\nBcc: attacker@evil.com', 'victim@x.com\rBcc: attacker@evil.com']) {
+            expect(() => SendUserInvitationRequest.parse({
+                type: InvitationType.PLATFORM,
+                email,
+                platformRole: PlatformRole.MEMBER,
+            })).toThrow()
+        }
+    })
+
+    it('rejects display-name / whitespace / multi-address forms', () => {
+        // A space inside an unquoted address makes nodemailer split it into a
+        // display-name part plus the REAL recipient, so the mail still goes to
+        // the wrong mailbox.
+        for (const email of [
+            'Weird Name <victim@x.com>',
+            'attacker@evil.com victim@x.com',
+            'not-an-email',
+            'a@b@c',
+            'victim@',
+            '',
+        ]) {
+            expect(() => SendUserInvitationRequest.parse({
+                type: InvitationType.PLATFORM,
+                email,
+                platformRole: PlatformRole.MEMBER,
+            })).toThrow()
+        }
+    })
+
+    it('accepts ordinary and tagged email addresses unchanged', () => {
+        for (const email of ['dev@company.com', 'racer@example.com', 'first.last+tag@example.co.uk']) {
+            const parsed = SendUserInvitationRequest.parse({
+                type: InvitationType.PLATFORM,
+                email,
+                platformRole: PlatformRole.MEMBER,
+            })
+            expect(parsed.email).toBe(email)
+        }
+    })
+})
+
 describe('AcceptUserInvitationRequest and ListUserInvitationsRequest schemas', () => {
     it('parses AcceptUserInvitationRequest with token', () => {
         const parsed = AcceptUserInvitationRequest.parse({ invitationToken: 'token_abc123' })
