@@ -66,6 +66,7 @@ export async function initializeStore(): Promise<void> {
     ALTER TABLE flowscript_triggers ADD COLUMN IF NOT EXISTS dispatch_lag_ms bigint;
     ALTER TABLE flowscript_triggers ADD COLUMN IF NOT EXISTS last_error text;
     CREATE INDEX IF NOT EXISTS flowscript_triggers_due_idx ON flowscript_triggers(kind, next_fire_at) WHERE enabled=true;
+    CREATE INDEX IF NOT EXISTS flowscript_triggers_secret_idx ON flowscript_triggers(secret_hash) WHERE kind='webhook';
     CREATE TABLE IF NOT EXISTS flowscript_runs (
       id uuid PRIMARY KEY,
       project_id text NOT NULL,

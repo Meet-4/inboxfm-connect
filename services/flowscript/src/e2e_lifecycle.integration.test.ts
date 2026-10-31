@@ -670,4 +670,30 @@ steps:
       expect(runRows.rowCount).toBe(1)
     })
   })
+
+  describe('5. Store DDL: hot-path and retention indexes exist after initializeStore', () => {
+    testIfPg()('creates the webhook secret_hash index backing every /v1/hooks delivery', async (ctx) => {
+      if (!pgAvailable) return ctx.skip()
+      const idx = await testPool!.query(
+        "SELECT indexdef FROM pg_indexes WHERE indexname='flowscript_triggers_secret_idx'",
+      )
+      expect(idx.rows[0]?.indexdef).toContain('ON public.flowscript_triggers')
+      expect(idx.rows[0]?.indexdef).toContain('secret_hash')
+      expect(idx.rows[0]?.indexdef).toContain("kind = 'webhook'::text")
+    })
+
+    testIfPg()('creates run_id cascade-support and prunable-status indexes for retention deletes', async (ctx) => {
+      if (!pgAvailable) return ctx.skip()
+      const expected = [
+        'flowscript_webhook_idempotency_run_id_idx',
+        'flowscript_schedule_occurrences_run_id_idx',
+        'flowscript_runs_prunable_idx',
+      ]
+      const idx = await testPool!.query(
+        'SELECT indexname FROM pg_indexes WHERE indexname = ANY($1)',
+        [expected],
+      )
+      expect(idx.rows.map(r => r.indexname).sort()).toEqual([...expected].sort())
+    })
+  })
 })
