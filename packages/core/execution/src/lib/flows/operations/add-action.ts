@@ -136,6 +136,20 @@ function handleContinueOnFailureBranches(parentStep: Step, request: AddActionReq
 }
 
 function _addAction(flowVersion: FlowVersion, request: AddActionRequest): FlowVersion {
+    // Adding a step under a parent that does not exist in the flow used to be a
+    // silent no-op (transferFlow simply matched nothing), which made composed
+    // operations — MOVE_ACTION batches, pastes with stale parent names, imports —
+    // lose steps without any error while the version stayed valid. Fail loudly.
+    if (!flowStructureUtil.getAllSteps(flowVersion.trigger).some((step) => step.name === request.parentStep)) {
+        throw new ActivepiecesError({
+            code: ErrorCode.ENTITY_NOT_FOUND,
+            params: {
+                entityType: 'step',
+                entityId: request.parentStep,
+                message: `Parent step "${request.parentStep}" not found`,
+            },
+        })
+    }
     return flowStructureUtil.transferFlow(flowVersion, (parentStep: Step) => {
         if (parentStep.name !== request.parentStep) {
             return parentStep
