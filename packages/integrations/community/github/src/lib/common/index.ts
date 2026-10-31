@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import {
   httpClient,
   HttpMessageBody,
@@ -388,3 +389,37 @@ type RepoSummary = {
   owner: { login: string };
 };
 
+
+// GitHub signs every delivery of a hook created with a `config.secret`:
+// `X-Hub-Signature-256: sha256=<hex HMAC-SHA256 of the raw request body>`.
+// https://docs.github.com/webhooks/using-webhooks/validating-webhook-deliveries/
+export function generateWebhookSecret(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function verifyGithubWebhookSignature(
+  secret: string,
+  signatureHeader: string | undefined,
+  rawBody: unknown
+): boolean {
+  if (!signatureHeader) {
+    return false;
+  }
+  const bodyString =
+    typeof rawBody === 'string'
+      ? rawBody
+      : Buffer.isBuffer(rawBody)
+        ? rawBody.toString('utf8')
+        : JSON.stringify(rawBody);
+  const expected =
+    'sha256=' + crypto.createHmac('sha256', secret).update(bodyString).digest('hex');
+  try {
+    // Normalise casing before constant-time comparison to guard against case mismatches.
+    return crypto.timingSafeEqual(
+      Buffer.from(expected),
+      Buffer.from(signatureHeader.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}

@@ -1,10 +1,16 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { githubAuth } from '../auth';
-import { githubApiCall, githubCommon } from '../common';
+import {
+  generateWebhookSecret,
+  githubApiCall,
+  githubCommon,
+  verifyGithubWebhookSignature,
+} from '../common';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
 
 interface WebhookInformation {
   webhookId: number;
+  webhookSecret?: string;
   repo: string;
   owner: string;
 }
@@ -42,6 +48,7 @@ export const newLabelTrigger = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const { repo, owner } = context.propsValue.repository!;
+    const webhookSecret = generateWebhookSecret();
 
     const response = await githubApiCall<{ id: number }>({
       auth: context.auth,
@@ -55,12 +62,14 @@ export const newLabelTrigger = createTrigger({
           url: context.webhookUrl,
           content_type: 'json',
           insecure_ssl: '0',
+          secret: webhookSecret,
         },
       },
     });
 
     await context.store.put<WebhookInformation>('github_new_label_trigger', {
       webhookId: response.body.id,
+      webhookSecret,
       repo: repo,
       owner: owner,
     });
@@ -78,6 +87,18 @@ export const newLabelTrigger = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<WebhookInformation>('github_new_label_trigger');
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyGithubWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['x-hub-signature-256'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from GitHub.');
+    }
+
     const payload = context.payload.body as { action?: string };
 
     if (payload.action === 'created') {

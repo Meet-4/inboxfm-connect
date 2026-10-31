@@ -1,11 +1,17 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { githubAuth } from '../auth';
-import { githubApiCall, githubCommon } from '../common';
+import {
+  generateWebhookSecret,
+  githubApiCall,
+  githubCommon,
+  verifyGithubWebhookSignature,
+} from '../common';
 import { getAuthenticatedLogin, GithubAuthValue } from '../common/auth-helpers';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
 
 interface WebhookInformation {
   webhookId: number;
+  webhookSecret?: string;
   repo: string;
   owner: string;
   username: string;
@@ -61,6 +67,7 @@ export const newMentionTrigger = createTrigger({
 
   async onEnable(context) {
     const { repo, owner } = context.propsValue.repository!;
+    const webhookSecret = generateWebhookSecret();
     const username = await getAuthenticatedLogin(
       context.auth as GithubAuthValue
     );
@@ -76,12 +83,14 @@ export const newMentionTrigger = createTrigger({
         config: {
           url: context.webhookUrl,
           content_type: 'json',
+          secret: webhookSecret,
         },
       },
     });
 
     await context.store.put<WebhookInformation>(STORE_KEY, {
       webhookId: response.body.id,
+      webhookSecret,
       repo,
       owner,
       username,
@@ -101,6 +110,18 @@ export const newMentionTrigger = createTrigger({
   },
 
   async run(context) {
+    const storedWebhook = await context.store.get<WebhookInformation>(STORE_KEY);
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyGithubWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['x-hub-signature-256'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from GitHub.');
+    }
+
     const body = context.payload.body as MentionPayload;
     if (body.action !== 'created' && body.action !== 'edited') {
       return [];
