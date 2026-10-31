@@ -3,6 +3,7 @@ import { ApplicationEventName, ClaimTokenRequest, ThirdPartyAuthnProviderEnum } 
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { securityAccess } from '../../../core/security/authorization/fastify-security'
+import { authAbuseRateLimitOptions } from '../../../core/security/rate-limit'
 import { applicationEvents } from '../../../helper/application-events'
 import { networkUtils } from '../../../helper/network-utils'
 import { system } from '../../../helper/system/system'
@@ -50,6 +51,7 @@ const federatedAuthnController: FastifyPluginAsyncZod = async (app) => {
 const LoginRequestSchema = {
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         querystring: z.object({
@@ -61,6 +63,10 @@ const LoginRequestSchema = {
 const ClaimTokenRequestSchema = {
     config: {
         security: securityAccess.public(),
+        // Unauthenticated token minting: a claim code is exchanged for a full
+        // platform session, with an outbound provider token exchange per
+        // request — same abuse tier as sign-in, not unlimited attempts.
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         body: ClaimTokenRequest,
