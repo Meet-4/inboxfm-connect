@@ -75,4 +75,5 @@ export interface FlowIntegrationExecutor {
   $$\text{delay} = \min(\text{maxDelay}, \lfloor \text{baseDelay} \times 2^{\text{attempt} - 1} \times (0.8 + 0.4 \times \text{random}()) \rfloor)$$
 - **Non-idempotent side effects & crash recovery**: If a step lacks an idempotency key and worker crash or lease expiry occurs, the run transitions to `uncertain` with an operator diagnostic: `worker lease expired after non-idempotent step execution`. Blind replay is strictly prohibited.
 - **Dead-letter quarantine**: Runs that fail due to retry exhaustion transition to `dead_letter`, alerting on-call operators without infinite polling.
+- **Crashed-step audit repair**: When stale-lease recovery requeues, dead-letters or marks a run `uncertain`, any step attempt row the crashed worker left at `running` is finalized as `failed` with error code `WORKER_LEASE_EXPIRED` and a `finished_at` timestamp, so `GET /v1/runs/:id/attempts` never shows in-flight work on a recovered run.
 - **Safe replay & deduplication**: Calls with `x-idempotent-replay: true` and a matching `Idempotency-Key` return the existing run with HTTP 200 without enqueuing duplicate execution.

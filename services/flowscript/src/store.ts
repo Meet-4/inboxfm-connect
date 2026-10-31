@@ -516,6 +516,23 @@ export async function recoverStaleRuns(options?: {
       result.recoveredCount++
       const maxAttempts = run.max_attempts ?? defaultMaxAttempts
 
+      // The worker that held this lease died mid-step: whatever attempt rows it opened are
+      // stuck at status='running' with finished_at NULL, and nothing else would ever close
+      // them. Finalize them now so the per-run audit trail reflects the recovery instead of
+      // leaking permanently-'running' rows on requeued, uncertain and dead-lettered runs.
+      // (A late recordStepAttemptFinish from a stalled-but-alive worker still overwrites
+      // this placeholder with the real outcome.)
+      await client.query(
+        `UPDATE flowscript_step_attempts
+         SET status='failed',
+             error_code='WORKER_LEASE_EXPIRED',
+             error_message='Step attempt abandoned: worker lease expired before the step reported an outcome',
+             retryable=false,
+             finished_at=now()
+         WHERE run_id=$1 AND status='running'`,
+        [run.id],
+      )
+
       if (run.had_non_idempotent_step) {
         await client.query(
           `UPDATE flowscript_runs
