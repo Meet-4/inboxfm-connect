@@ -44,7 +44,6 @@ docker build -t activepieces-benchmark:local "$ROOT"
 echo "=== Starting stack (mode=$EXECUTION_MODE, apps=$APP_REPLICAS) ==="
 AP_EXECUTION_MODE=$EXECUTION_MODE \
 APP_REPLICAS=$APP_REPLICAS \
-WORKER_REPLICAS=1 \
   $COMPOSE up -d
 
 echo "Waiting for containers to settle..."
@@ -76,7 +75,6 @@ node "$GATE" run \
   --rounds "$ROUNDS" \
   --warmup "$WARMUP" \
   --apps "$APP_REPLICAS" \
-  --workers 0 \
   --out "$RESULTS"
 kill "$SAMPLER" 2>/dev/null || true
 
