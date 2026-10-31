@@ -1,5 +1,7 @@
 import { PieceAuth, Property } from '@inboxfm-connect/pieces-framework';
 
+import { getAuthToken } from './common';
+
 const markdown = `
 ## Tableau Authentication Setup
 
@@ -88,8 +90,18 @@ export const tableauAuth = PieceAuth.CustomAuth({
       };
     }
 
-    return {
-      valid: true,
-    };
+    try {
+      // Perform the same REST sign-in every action uses. Tableau answers
+      // HTTP 401 (code 401001 Signin Error) for bad credentials.
+      await getAuthToken(auth);
+      return {
+        valid: true,
+      };
+    } catch {
+      return {
+        valid: false,
+        error: 'Authentication failed. Please check your Tableau credentials.',
+      };
+    }
   },
 });
