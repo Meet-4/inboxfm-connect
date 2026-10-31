@@ -563,9 +563,13 @@ export function buildServer(): FastifyInstance {
       return sendError(reply, 401, auth.code ?? 'UNAUTHORIZED', auth.error ?? 'Verified x-project-id header is required from the trusted API gateway')
     }
     const projectId = auth.projectId
-    const query = z.object({ flow: z.string().optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }).safeParse(request.query)
+    const query = z.object({
+      flow: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(50),
+      status: z.enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'dead_letter', 'uncertain']).optional(),
+    }).safeParse(request.query)
     if (!query.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid query parameters')
-    return { runs: await listRuns(projectId, query.data.flow, query.data.limit) }
+    return { runs: await listRuns(projectId, query.data.flow, query.data.limit, query.data.status) }
   })
 
   app.get('/v1/runs/:id', async (request, reply) => {

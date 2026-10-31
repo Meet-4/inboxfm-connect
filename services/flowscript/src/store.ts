@@ -356,7 +356,7 @@ export async function getRun(projectId: string, runId: string) {
   }
 }
 
-export async function listRuns(projectId: string, flowName?: string, limit = 50) {
+export async function listRuns(projectId: string, flowName?: string, limit = 50, status?: string) {
   const result = await pool.query<{
     id: string
     flow_name: string
@@ -374,9 +374,9 @@ export async function listRuns(projectId: string, flowName?: string, limit = 50)
     created_at: Date
   }>(
     `SELECT id, flow_name, environment, version_id, trigger_kind, status, error, worker_id, attempt_count, retry_at, cancellation_reason, started_at, finished_at, created_at
-     FROM flowscript_runs WHERE project_id=$1 AND ($2::text IS NULL OR flow_name=$2)
-     ORDER BY created_at DESC LIMIT $3`,
-    [projectId, flowName ?? null, Math.min(Math.max(limit, 1), 100)],
+     FROM flowscript_runs WHERE project_id=$1 AND ($2::text IS NULL OR flow_name=$2) AND ($3::text IS NULL OR status=$3)
+     ORDER BY created_at DESC LIMIT $4`,
+    [projectId, flowName ?? null, status ?? null, Math.min(Math.max(limit, 1), 100)],
   )
   return result.rows.map(row => ({
     id: row.id,

@@ -76,7 +76,7 @@ Ingress endpoint for registered webhook triggers.
 
 ## Run inspection
 
-- GET /v1/runs?flow=<name>&limit=50
+- GET /v1/runs?flow=<name>&limit=50&status=<status> (optional `status` filters to one persisted status — `queued`, `running`, `succeeded`, `failed`, `cancelled`, `dead_letter` or `uncertain`; the primary way for operators to surface dead-lettered and uncertain runs for triage)
 - GET /v1/runs/:id
 
 Project ID is used in queries. Add cursor pagination before run history grows significantly.
