@@ -10,7 +10,7 @@ import type {
     ToolInput,
     ToolInputContract,
 } from './api-types'
-import { ConnectError } from './errors'
+import { ConnectError, connectErrorFactory } from './errors'
 import { transport } from './transport'
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -149,19 +149,33 @@ export class InboxFM {
     }
 
     private async request<T>(path: string, { method, body, ...requestOptions }: { method: string, body?: unknown } & ConnectRequestOptions): Promise<T> {
-        return transport.request<T>({
-            url: `${this.baseUrl}${path}`,
-            method,
-            body,
-            apiKey: this.apiKey,
-            timeoutMs: requestOptions.timeoutMs ?? this.defaultTimeoutMs,
-            maxAttempts: this.maxAttempts,
-            baseDelayMs: this.baseDelayMs,
-            maxDelayMs: this.maxDelayMs,
-            signal: requestOptions.signal,
-            retryable: requestOptions.retryable,
-            idempotencyKey: requestOptions.idempotencyKey,
-        })
+        try {
+            return await transport.request<T>({
+                url: `${this.baseUrl}${path}`,
+                method,
+                body,
+                apiKey: this.apiKey,
+                timeoutMs: requestOptions.timeoutMs ?? this.defaultTimeoutMs,
+                maxAttempts: this.maxAttempts,
+                baseDelayMs: this.baseDelayMs,
+                maxDelayMs: this.maxDelayMs,
+                signal: requestOptions.signal,
+                retryable: requestOptions.retryable,
+                idempotencyKey: requestOptions.idempotencyKey,
+            })
+        }
+        catch (error) {
+            // The README promises every failed request rejects with a ConnectError,
+            // never a bare Error. A 2xx whose body is not the promised JSON (an HTML
+            // error page from a captive portal or misrouted gateway, an empty body)
+            // makes the body parse throw a bare SyntaxError; surface it typed instead.
+            // It is marked retryable (like a 502: transient in principle), but the
+            // decision to retry lives in the transport, which has already returned.
+            if (error instanceof SyntaxError) {
+                throw connectErrorFactory.fromMalformedBody({ cause: error })
+            }
+            throw error
+        }
     }
 }
 

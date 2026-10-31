@@ -103,6 +103,22 @@ function fromAbort(): ConnectError {
     })
 }
 
+/**
+ * A 2xx response whose body is not the JSON the API promises (an HTML error page
+ * from a captive portal or misrouted gateway, an empty body, …). The JSON parse
+ * throws a bare `SyntaxError`, which would escape the SDK's documented
+ * "every failed request rejects with a ConnectError, never a bare Error" contract
+ * and defeat callers' `instanceof ConnectError` handling.
+ */
+function fromMalformedBody({ cause }: { cause: unknown }): ConnectError {
+    return new ConnectError({
+        category: 'server',
+        retryable: true,
+        message: 'Response body was not valid JSON',
+        cause,
+    })
+}
+
 function parseRetryAfterMs({ header }: { header: string | null }): number | undefined {
     if (!header) {
         return undefined
@@ -175,6 +191,7 @@ export const connectErrorFactory = {
     fromNetworkError,
     fromTimeout,
     fromAbort,
+    fromMalformedBody,
 }
 
 export type ConnectErrorCategory =

@@ -161,7 +161,7 @@ catch (error) {
 | `not_found` | 404. |
 | `conflict` | 409 with any code except `VALIDATION`. |
 | `rate_limit` | 429. |
-| `server` | 5xx. |
+| `server` | 5xx, or a success response whose body was not the promised JSON (typed as `server` and retryable in principle). |
 | `network` | The request never got a response. |
 | `timeout` | No response within `timeoutMs`. |
 | `aborted` | Your `signal` fired. |
