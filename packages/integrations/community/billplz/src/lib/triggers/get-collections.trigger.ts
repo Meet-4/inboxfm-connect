@@ -17,10 +17,13 @@ const polling: Polling<BillplzAuth, StaticPropsValue<Record<string, never>>> = {
     try {
       const response = await billplzApi.getCollections(auth.secret_text);
       const collections = response.body.collections || [];
-      
+
+      // DedupeStrategy.LAST_ITEM compares item ids against the stored cursor;
+      // without an id the cursor was never stored and every collection was
+      // re-emitted on every poll.
       return collections.map((collection: any) => ({
-        epochMilliSeconds: Date.now(),
-        data: collection
+        id: collection.id,
+        data: collection,
       }));
     } catch (error) {
       console.error('Failed to fetch collections:', error);

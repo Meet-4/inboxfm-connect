@@ -15,12 +15,10 @@ import {
 } from '@inboxfm-connect/pieces-common';
 import { props } from '../common/props';
 
-const polling: Polling<
-AppConnectionValueForAuthProperty<typeof xeroAuth>,
-  Record<string, unknown>
-> = {
-  strategy: DedupeStrategy.TIMEBASED,
-  async items({ auth, propsValue }) {
+async function listXeroProjects(
+  auth: AppConnectionValueForAuthProperty<typeof xeroAuth>,
+  propsValue: Record<string, unknown>
+): Promise<any[]> {
     const { access_token } = auth as any;
     const tenantId = propsValue?.['tenant_id'] as string;
     const pageSize = (propsValue?.['page_size'] as number) || 50;
@@ -54,13 +52,23 @@ AppConnectionValueForAuthProperty<typeof xeroAuth>,
 
       const items: any[] = resp.body?.items ?? [];
       for (const it of items) {
-        results.push({ epochMilliSeconds: Date.now(), data: it });
+        results.push(it);
       }
 
       if (items.length < pageSize) break;
     }
 
-    return results;
+  return results;
+}
+
+const polling: Polling<
+AppConnectionValueForAuthProperty<typeof xeroAuth>,
+  Record<string, unknown>
+> = {
+  strategy: DedupeStrategy.TIMEBASED,
+  async items({ auth, propsValue }) {
+    const projects = await listXeroProjects(auth, propsValue);
+    return projects.map((project) => ({ epochMilliSeconds: Date.now(), data: project }));
   },
 };
 
@@ -89,6 +97,18 @@ export const xeroNewProject = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   async onEnable(context: any) {
+    // Baseline existing projects as seen so the first poll after enabling only
+    // emits projects created after the trigger is enabled (no first-poll flood).
+    const existingProjects = await listXeroProjects(context.auth, context.propsValue);
+    if (existingProjects.length > 0) {
+      const seenKey = `xero_project_seen_ids_${context.propsValue['tenant_id']}`;
+      const existingIds = existingProjects
+        .map((project: any) => project?.projectId ?? project?.ProjectID)
+        .filter((id: any) => Boolean(id));
+      if (existingIds.length > 0) {
+        await context.store.put(seenKey, existingIds);
+      }
+    }
     await pollingHelper.onEnable(polling, {
       auth: context.auth,
       store: context.store,

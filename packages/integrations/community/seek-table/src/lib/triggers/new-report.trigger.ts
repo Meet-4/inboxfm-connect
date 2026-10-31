@@ -20,18 +20,36 @@ interface Report {
   CreateDate?: string;
 }
 
+const SEEN_REPORT_IDS_KEY = 'seen_report_ids';
+
 const polling: Polling<AppConnectionValueForAuthProperty<typeof seekTableAuth>, Record<string, never>> = {
   strategy: DedupeStrategy.TIMEBASED,
-  items: async ({ auth }) => {
+  items: async ({ auth, store, lastFetchEpochMS }) => {
     const response = await seekTableApiCall({
       auth: auth.secret_text,
       method: HttpMethod.GET,
       resourceUri: 'api/report',
     }) as Report[];
 
-    // Map all reports to polling format
-    // Note: If CreateDate is not available, we'll use current time for new reports
-    return response.map((report) => ({
+    // Reports without a CreateDate used to be re-emitted on every poll
+    // because their epoch always landed after the cursor. Dedupe by id so
+    // each report is emitted at most once; reports WITH a CreateDate keep
+    // the cursor-based filtering from pollingHelper on top of this check.
+    const isTest = lastFetchEpochMS === 0;
+    const seenIds = new Set<string>(
+      (await store.get<string[]>(SEEN_REPORT_IDS_KEY)) ?? []
+    );
+    const newReports = isTest
+      ? response
+      : response.filter((report) => !seenIds.has(report.Id));
+    if (!isTest && response.length > 0) {
+      await store.put(
+        SEEN_REPORT_IDS_KEY,
+        response.map((report) => report.Id)
+      );
+    }
+
+    return newReports.map((report) => ({
       epochMilliSeconds: report.CreateDate ? Date.parse(report.CreateDate) : Date.now(),
       data: report,
     }));
@@ -58,6 +76,19 @@ export const newReportTrigger = createTrigger({
     return await pollingHelper.test(polling, context);
   },
   async onEnable(context) {
+    // Baseline existing reports as seen so the first poll only emits reports
+    // created after the trigger is enabled (no first-poll flood).
+    const existingReports = await seekTableApiCall({
+      auth: context.auth.secret_text,
+      method: HttpMethod.GET,
+      resourceUri: 'api/report',
+    }) as Report[];
+    if (Array.isArray(existingReports) && existingReports.length > 0) {
+      await context.store.put(
+        SEEN_REPORT_IDS_KEY,
+        existingReports.map((report) => report.Id)
+      );
+    }
     await pollingHelper.onEnable(polling, context);
   },
   async onDisable(context) {

@@ -4,15 +4,30 @@ import { microsoftToDoAuth } from '../auth';
 import { TodoTaskList } from '@microsoft/microsoft-graph-types';
 import { createTodoClient } from '../common';
 
+const SEEN_LIST_IDS_KEY = 'seen_list_ids';
+
 const polling: Polling<AppConnectionValueForAuthProperty<typeof microsoftToDoAuth>, Record<string, never>> = {
     strategy: DedupeStrategy.LAST_ITEM,
-    items: async ({ auth }) => {
+    items: async ({ auth, store }) => {
         const client = createTodoClient(auth);
 
         const response = await client.api('/me/todo/lists').get();
         const lists = response.value as TodoTaskList[];
 
-        return lists.map((list) => ({
+        // Microsoft Graph returns task lists in an unspecified order and the
+        // entity has no created timestamp, so the LAST_ITEM 'newest first'
+        // contract cannot hold. Dedupe by id instead: emit only lists that
+        // were not seen in a previous poll and record every listed id.
+        const seenIds = new Set<string>(
+            (await store.get<string[]>(SEEN_LIST_IDS_KEY)) ?? []
+        );
+        const newLists = lists.filter((list) => !seenIds.has(list.id!));
+        const currentIds = lists.map((list) => list.id!);
+        if (currentIds.length > 0) {
+            await store.put(SEEN_LIST_IDS_KEY, currentIds);
+        }
+
+        return newLists.map((list) => ({
             id: list.id!,
             data: list,
         }));
@@ -39,7 +54,10 @@ export const newListCreatedTrigger = createTrigger({
     },
 
     async onEnable(context) {
-        await pollingHelper.poll(polling, context as any);
+        // pollingHelper.onEnable (LAST_ITEM) calls items() once, which stores
+        // all current list ids as seen, baselining the trigger so the first
+        // poll only emits lists created after enabling.
+        await pollingHelper.onEnable(polling, context as any);
     },
 
     async onDisable(context) {
