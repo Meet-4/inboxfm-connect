@@ -19,8 +19,8 @@ This enables it to focus on learning fewer tooling options and perfect them acro
 
 - Framework: [Fastify](https://www.fastify.io/)
 - Database: [PostgreSQL](https://www.postgresql.org/)
-- Task Queuing: [Redis](https://redis.io/)
-- Task Worker: [BullMQ](https://github.com/taskforcesh/bullmq)
+- Task Queuing: [Redis](https://redis.io/) (distributed locks, leader election for scheduled jobs, cache coordination)
+- Task Execution: In-process scheduler ([`packages/scheduler`](../../packages/scheduler)) — flows run in the app process, not a separate worker
 
 ## Testing
 

@@ -22,7 +22,7 @@ This page describes the main components, with a focus on how flows run.
 
 **Third Party**:
 - **Postgres**: The main database for Inboxfm Connect.
-- **Redis**: Powers the queue using [BullMQ](https://docs.bullmq.io/).
+- **Redis**: Distributed locks, leader election for scheduled jobs, cache coordination, and pub/sub.
 
 ## Reliability & Scalability
 

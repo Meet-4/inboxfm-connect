@@ -165,7 +165,6 @@
     "axios-retry": "4.4.1",
     "bcrypt": "6.0.0",
     "boring-avatars": "1.11.2",
-    "bullmq": "5.61.0",
     "canvas-confetti": "^1.9.4",
     "checkly": "6.9.10",
     "class-variance-authority": "0.7.0",

@@ -91,7 +91,7 @@ TypeORM entities are registered explicitly in `packages/server/api/src/app/datab
 
 Development can use PGlite; production-oriented configuration uses PostgreSQL and Redis. PGlite testing mode synchronizes an in-memory schema, while migration checks exercise the migration path separately. The dedicated PostgreSQL CI suite catches driver behavior that an embedded test database can miss. Tool search's vector-backed path requires pgvector; ordinary development tests load PGlite's vector extension.
 
-Redis supports queues, scheduled jobs, locks, and cache coordination. Concurrent work across servers must use distributed locks, BullMQ deduplication, or transactional database claiming such as `FOR UPDATE SKIP LOCKED`.
+Redis supports scheduled jobs, locks, and cache coordination. Concurrent work across servers must use distributed locks or transactional database claiming such as `FOR UPDATE SKIP LOCKED`.
 
 ## Modules to read first
 
