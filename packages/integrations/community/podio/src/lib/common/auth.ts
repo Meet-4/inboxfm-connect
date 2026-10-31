@@ -4,10 +4,6 @@ export function getAccessToken(auth: OAuth2PropertyValue): string {
   return auth.access_token;
 }
 
-export function getRefreshToken(auth: OAuth2PropertyValue): string | undefined {
-  return auth.data?.['refresh_token'];
-}
-
 export function isTokenExpired(auth: OAuth2PropertyValue): boolean {
   if (!auth.data?.['expires_in'] || !auth.data?.['claimed_at']) {
     return false;
