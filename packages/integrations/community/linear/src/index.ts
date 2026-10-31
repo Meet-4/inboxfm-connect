@@ -1,5 +1,6 @@
 import { createPiece, PieceAuth } from '@inboxfm-connect/pieces-framework';
 import { PieceCategory } from '@inboxfm-connect/pieces-framework';
+import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { linearCreateComment } from './lib/actions/comments/create-comment';
 import { linearCreateIssue } from './lib/actions/issues/create-issue';
 import { linearUpdateIssue } from './lib/actions/issues/update-issue';
@@ -26,15 +27,28 @@ export const linearAuth = PieceAuth.SecretText({
   required: true,
   description: markdown,
   validate: async ({ auth }) => {
-    if (auth.startsWith('lin_api_')) {
+    try {
+      // The GraphQL API answers 401 (AUTHENTICATION_ERROR) for an invalid
+      // key. Linear expects the raw key in the Authorization header, and
+      // the host is api.linear.app — api.linear.com no longer resolves.
+      await httpClient.sendRequest({
+        method: HttpMethod.POST,
+        url: 'https://api.linear.app/graphql',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: auth,
+        },
+        body: { query: '{ viewer { id } }' },
+      });
       return {
         valid: true,
       };
+    } catch {
+      return {
+        valid: false,
+        error: 'Invalid API Key',
+      };
     }
-    return {
-      valid: false,
-      error: 'Invalid API Key',
-    };
   },
 });
 export const linear = createPiece({
