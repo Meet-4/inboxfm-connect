@@ -4,9 +4,16 @@ import { FastifyPluginAsyncZod, FastifyPluginCallbackZod } from 'fastify-type-pr
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
+import { platformMustHaveFeatureEnabled } from '../authentication/ee-authorization'
 import { pieceInstallService } from '../../pieces/piece-install-service'
 
 export const platformPieceModule: FastifyPluginAsyncZod = async (app) => {
+    // Platform-scope piece installation is the `managePiecesEnabled` plan
+    // entitlement (set from license keys via applyLimits). Without this
+    // preHandler a cloud-standard or unlicensed EE platform can install
+    // platform pieces for free. The CE edition is unaffected: it registers
+    // communityPiecesModule instead, which is intentionally ungated.
+    app.addHook('preHandler', platformMustHaveFeatureEnabled((platform) => platform.plan.managePiecesEnabled))
     await app.register(platformPieceController, { prefix: '/v1/integrations' })
 }
 
