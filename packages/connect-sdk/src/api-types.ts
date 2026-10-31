@@ -42,6 +42,12 @@ export type ConnectProxyRequest = {
     headers?: Record<string, string>
     query?: Record<string, string | number | boolean | Array<string | number | boolean>>
     body?: unknown
+    /**
+     * Upstream request budget the server enforces. The server's schema accepts
+     * only integers in [500, 60000] ms and defaults to 30000 when omitted, so the
+     * client normalizes the value it forwards (see `toUpstreamTimeoutMs` in
+     * `index.ts`); the caller's own transport timeout is unaffected.
+     */
     timeoutMs?: number
     idempotencyKey?: string
 }
