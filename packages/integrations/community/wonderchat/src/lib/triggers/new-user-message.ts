@@ -76,7 +76,7 @@ export const newUserMessage = createTrigger({
   type: TriggerStrategy.POLLING,
 
   async test(context) {
-    return await pollingHelper.poll(polling, context);
+    return await pollingHelper.test(polling, context);
   },
 
   async onEnable(context) {
@@ -86,7 +86,7 @@ export const newUserMessage = createTrigger({
 
   async onDisable(context) {
     const { store, auth, propsValue } = context;
-    await pollingHelper.onEnable(polling, { store, auth, propsValue });
+    await pollingHelper.onDisable(polling, { store, auth, propsValue });
   },
 
   async run(context) {
