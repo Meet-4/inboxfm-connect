@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import {
   Property,
   OAuth2PropertyValue,
@@ -85,7 +86,8 @@ export const typeformCommon = {
     formId: string,
     tag: string,
     webhookUrl: string,
-    accessToken: string
+    accessToken: string,
+    secret?: string
   ) => {
     const request: HttpRequest = {
       method: HttpMethod.PUT,
@@ -96,6 +98,10 @@ export const typeformCommon = {
       body: {
         enabled: true,
         url: webhookUrl,
+        // Typeform only signs deliveries once the webhook's `secret` setting
+        // is configured via the Webhooks API.
+        // https://www.typeform.com/developers/webhooks/secure-your-webhooks
+        ...(secret ? { secret } : {}),
       },
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
@@ -125,3 +131,39 @@ export const typeformCommon = {
     return await httpClient.sendRequest(request);
   },
 };
+
+// Typeform signs each delivery once the webhook has a `secret` configured
+// (set through the Webhooks API): the `Typeform-Signature` header carries
+// `sha256=` + the base64-encoded HMAC-SHA256 of the raw request body.
+// https://www.typeform.com/developers/webhooks/secure-your-webhooks
+export function generateWebhookSecret(): string {
+  // The docs suggest a random hex string (SecureRandom.hex(20)).
+  return randomBytes(20).toString('hex');
+}
+
+export function verifyTypeformWebhookSignature(
+  secret: string,
+  signatureHeader: string | undefined,
+  rawBody: unknown
+): boolean {
+  if (!signatureHeader) {
+    return false;
+  }
+  const bodyString =
+    typeof rawBody === 'string'
+      ? rawBody
+      : Buffer.isBuffer(rawBody)
+        ? rawBody.toString('utf8')
+        : JSON.stringify(rawBody);
+  const expected = `sha256=${createHmac('sha256', secret).update(bodyString).digest('base64')}`;
+  try {
+    const expectedBuffer = Buffer.from(expected, 'utf8');
+    const receivedBuffer = Buffer.from(signatureHeader, 'utf8');
+    return (
+      expectedBuffer.length === receivedBuffer.length &&
+      timingSafeEqual(expectedBuffer, receivedBuffer)
+    );
+  } catch {
+    return false;
+  }
+}

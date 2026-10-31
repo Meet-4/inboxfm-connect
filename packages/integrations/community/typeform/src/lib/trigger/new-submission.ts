@@ -1,4 +1,9 @@
-import { typeformCommon, formsDropdown } from '../common';
+import {
+  generateWebhookSecret,
+  typeformCommon,
+  verifyTypeformWebhookSignature,
+} from '../common';
+import { formsDropdown } from '../common';
 import { nanoid } from 'nanoid';
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { getAccessTokenOrThrow } from '@inboxfm-connect/pieces-common';
@@ -62,14 +67,20 @@ export const typeformNewSubmission = createTrigger({
   },
   async onEnable(context) {
     const randomTag = `ap_new_submission_${nanoid()}`;
+    // Typeform only signs deliveries once the webhook's `secret` setting is
+    // configured, so generate one per webhook and send it with the create
+    // call. https://www.typeform.com/developers/webhooks/secure-your-webhooks
+    const webhookSecret = generateWebhookSecret();
     await typeformCommon.subscribeWebhook(
       context.propsValue['form_id']!,
       randomTag,
       context.webhookUrl,
-      getAccessTokenOrThrow(context.auth)
+      getAccessTokenOrThrow(context.auth),
+      webhookSecret
     );
     await context.store?.put<WebhookInformation>('_new_submission_trigger', {
       tag: randomTag,
+      secret: webhookSecret,
     });
   },
   async onDisable(context) {
@@ -85,6 +96,25 @@ export const typeformNewSubmission = createTrigger({
     }
   },
   async run(context) {
+    // Typeform signs each delivery with the per-webhook secret generated at
+    // onEnable, so fail closed when it is present in the store. Webhooks
+    // registered before this change have no stored secret and keep working.
+    // https://www.typeform.com/developers/webhooks/secure-your-webhooks
+    const storedWebhook = await context.store?.get<WebhookInformation>(
+      '_new_submission_trigger'
+    );
+    if (
+      storedWebhook?.secret &&
+      !verifyTypeformWebhookSignature(
+        storedWebhook.secret,
+        context.payload.headers['typeform-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Typeform.'
+      );
+    }
     const body = context.payload.body as { form_response: unknown };
     return [body.form_response];
   },
@@ -92,4 +122,6 @@ export const typeformNewSubmission = createTrigger({
 
 interface WebhookInformation {
   tag: string;
+  /** Per-webhook signing secret generated at onEnable and sent to the Webhooks API. */
+  secret?: string;
 }
