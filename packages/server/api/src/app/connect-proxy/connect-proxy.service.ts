@@ -1,4 +1,4 @@
-import { ActivepiecesError, ErrorCode } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, ErrorCode, isNil } from '@inboxfm-connect/core-utils'
 import { safeHttp } from '@inboxfm-connect/server-utils'
 import {
     ALLOWED_PROXY_PROVIDERS,
@@ -89,6 +89,103 @@ export function buildOutboundHeaders(
     }
     outboundHeaders[headerName] = `${headerPrefix}${secretToken}`
     return outboundHeaders
+}
+
+// Strict fallback for providers registered with supportsSubdomain but without an
+// explicit subdomainRegex: a single DNS label — no dots, no URL delimiters
+// (`#`, `@`, `/`, `:`, `?`, `\`), no replacement patterns (`$`).
+const DEFAULT_SUBDOMAIN_REGEX = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/
+
+// Substitute {subdomain} inertly. String.prototype.replace would interpret `$`
+// sequences in the replacement and re-insert the template; split/join is literal.
+function substituteSubdomain(template: string, value: string): string {
+    return template.split('{subdomain}').join(value)
+}
+
+// Placeholder used to make a {subdomain}-bearing base URL parseable so the
+// provider's fixed host suffix can be extracted from the parsed hostname.
+const SUBDOMAIN_PLACEHOLDER = 'connect-proxy-subdomain-placeholder'
+
+/**
+ * Pins the final hostname to the provider's registered domain, independent of how
+ * permissive the provider's subdomainRegex is: everything after the placeholder
+ * position in the template hostname (e.g. `.zendesk.com`) must survive intact as
+ * the target's suffix, with a non-empty tenant label in front of it.
+ */
+function isHostnamePinnedToProvider(hostname: string, templateBaseUrl: string): boolean {
+    const templateHost = new URL(substituteSubdomain(templateBaseUrl, SUBDOMAIN_PLACEHOLDER)).hostname
+    const placeholderIndex = templateHost.indexOf(SUBDOMAIN_PLACEHOLDER)
+    const lowerHostname = hostname.toLowerCase()
+    const lowerTemplateHost = templateHost.toLowerCase()
+    if (placeholderIndex === -1) {
+        // Template has no {subdomain} slot: the host is fully fixed and must match exactly.
+        return lowerHostname === lowerTemplateHost
+    }
+    const fixedSuffix = lowerTemplateHost.substring(placeholderIndex + SUBDOMAIN_PLACEHOLDER.length)
+    return lowerHostname.endsWith(fixedSuffix) && lowerHostname.length > fixedSuffix.length
+}
+
+/**
+ * Resolves the outbound target URL for a provider call.
+ *
+ * The previous logic compared the final target origin to an origin derived from
+ * the already-substituted base URL — a tautology that can never fail — and only
+ * validated the subdomain when the provider defined a subdomainRegex. A
+ * delimiter-bearing value like `evil.test#` (reachable from a connection-stored
+ * subdomain, which the request schema never validates) substituted to
+ * `https://evil.test#…`, which URL-parses with host `evil.test`: the request —
+ * including the injected provider token — went to an attacker host. The subdomain
+ * is now validated BEFORE substitution (strict default regex when the provider
+ * ships none) and the final hostname is pinned to the registered suffix.
+ */
+export function resolveProviderTargetUrl(
+    providerConfig: Pick<SupportedProxyProvider, 'provider' | 'baseUrl' | 'supportsSubdomain' | 'subdomainRegex'>,
+    subdomain: unknown,
+    cleanPath: string,
+): URL {
+    let baseUrl = providerConfig.baseUrl
+    if (providerConfig.supportsSubdomain) {
+        const subdomainText = isNil(subdomain) ? '' : String(subdomain)
+        const effectiveRegex = providerConfig.subdomainRegex ?? DEFAULT_SUBDOMAIN_REGEX
+        if (!subdomainText || !effectiveRegex.test(subdomainText)) {
+            throw new ActivepiecesError({
+                code: ErrorCode.VALIDATION,
+                params: {
+                    code: ConnectProxyErrorCode.INVALID_PATH,
+                    message: `Provider "${providerConfig.provider}" requires a valid subdomain matching ${effectiveRegex}.`,
+                },
+            })
+        }
+        baseUrl = substituteSubdomain(baseUrl, subdomainText)
+    }
+
+    const expectedOrigin = new URL(baseUrl).origin
+    const relativePath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
+    const baseWithSlash = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+    const targetUrl = new URL(relativePath, baseWithSlash)
+
+    if (providerConfig.supportsSubdomain) {
+        if (!isHostnamePinnedToProvider(targetUrl.hostname, providerConfig.baseUrl)) {
+            throw new ActivepiecesError({
+                code: ErrorCode.VALIDATION,
+                params: {
+                    code: ConnectProxyErrorCode.INVALID_PATH,
+                    message: `Target host "${targetUrl.hostname}" does not match the registered host for provider "${providerConfig.provider}".`,
+                },
+            })
+        }
+    }
+    else if (targetUrl.origin !== expectedOrigin) {
+        throw new ActivepiecesError({
+            code: ErrorCode.VALIDATION,
+            params: {
+                code: ConnectProxyErrorCode.INVALID_PATH,
+                message: `Target origin "${targetUrl.origin}" does not match provider origin "${expectedOrigin}".`,
+            },
+        })
+    }
+
+    return targetUrl
 }
 
 function extractRateLimit(headers: Record<string, unknown>): ConnectProxyResponse['rateLimit'] {
@@ -262,37 +359,14 @@ export const connectProxyService = (log: FastifyBaseLogger) => {
                 })
             }
 
-            let baseUrl = providerConfig.baseUrl
+            let subdomain: unknown
             if (providerConfig.supportsSubdomain) {
                 const decryptedValue = (decryptedConnection?.value as Record<string, unknown>) ?? {}
                 const rawValue = (connection.value as Record<string, unknown>) ?? {}
-                const subdomain = request.subdomain || decryptedValue['subdomain'] || rawValue['subdomain']
-                if (!subdomain || (providerConfig.subdomainRegex && !providerConfig.subdomainRegex.test(String(subdomain)))) {
-                    throw new ActivepiecesError({
-                        code: ErrorCode.VALIDATION,
-                        params: {
-                            code: ConnectProxyErrorCode.INVALID_PATH,
-                            message: `Provider "${request.provider}" requires a valid subdomain matching ${providerConfig.subdomainRegex}.`,
-                        },
-                    })
-                }
-                baseUrl = baseUrl.replace('{subdomain}', String(subdomain))
+                subdomain = request.subdomain || decryptedValue['subdomain'] || rawValue['subdomain']
             }
 
-            const expectedOrigin = new URL(baseUrl).origin
-            const relativePath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
-            const baseWithSlash = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
-            const targetUrl = new URL(relativePath, baseWithSlash)
-
-            if (targetUrl.origin !== expectedOrigin) {
-                throw new ActivepiecesError({
-                    code: ErrorCode.VALIDATION,
-                    params: {
-                        code: ConnectProxyErrorCode.INVALID_PATH,
-                        message: `Target origin "${targetUrl.origin}" does not match provider origin "${expectedOrigin}".`,
-                    },
-                })
-            }
+            const targetUrl = resolveProviderTargetUrl(providerConfig, subdomain, cleanPath)
 
             // 4. Construct outbound request headers (caller cannot override authorization)
             const outboundHeaders = buildOutboundHeaders(

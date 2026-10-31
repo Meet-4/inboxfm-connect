@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ConnectProxyErrorCode, OAuth2ConnectionValue } from '@inboxfm-connect/shared'
+import { ConnectProxyErrorCode, BaseOAuth2ConnectionValue } from '@inboxfm-connect/shared'
 import { safeHttp } from '@inboxfm-connect/server-utils'
 import { FastifyBaseLogger } from 'fastify'
 
@@ -49,7 +49,7 @@ function seedSlackConnection() {
         status: 'ACTIVE',
         value: {
             access_token: 'slack_secret_token_123',
-        } as OAuth2ConnectionValue,
+        } as unknown as BaseOAuth2ConnectionValue,
     }
     mockFindOneBy.mockResolvedValue(connection)
     mockDecryptAndRefreshConnection.mockResolvedValue(connection)
@@ -65,7 +65,7 @@ function seedGithubConnection() {
         status: 'ACTIVE',
         value: {
             access_token: 'github_secret_token_123',
-        } as OAuth2ConnectionValue,
+        } as unknown as BaseOAuth2ConnectionValue,
     }
     mockFindOneBy.mockResolvedValue(connection)
     mockDecryptAndRefreshConnection.mockResolvedValue(connection)
