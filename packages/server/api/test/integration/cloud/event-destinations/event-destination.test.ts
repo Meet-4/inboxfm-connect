@@ -20,7 +20,7 @@ afterAll(async () => {
 describe('Event Destinations API', () => {
     describe('POST /v1/event-destinations (Create)', () => {
         it('should create an event destination', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const response = await ctx.post('/v1/event-destinations', {
                 url: 'https://example.com/webhook',
@@ -38,7 +38,7 @@ describe('Event Destinations API', () => {
 
     describe('GET /v1/event-destinations (List)', () => {
         it('should list event destinations', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             await ctx.post('/v1/event-destinations', {
                 url: 'https://example.com/webhook1',
@@ -53,7 +53,7 @@ describe('Event Destinations API', () => {
         })
 
         it('should return empty list for new platform', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const response = await ctx.get('/v1/event-destinations')
 
@@ -66,7 +66,7 @@ describe('Event Destinations API', () => {
 
     describe('PATCH /v1/event-destinations/:id (Update)', () => {
         it('should update event destination', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const createResponse = await ctx.post('/v1/event-destinations', {
                 url: 'https://example.com/original',
@@ -90,7 +90,7 @@ describe('Event Destinations API', () => {
         })
 
         it('should return 404 for non-existent destination', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
             const nonExistentId = apId()
 
             const response = await ctx.inject({
@@ -110,8 +110,8 @@ describe('Event Destinations API', () => {
         })
 
         it('should return 404 when updating a destination of another platform', async () => {
-            const ctx1 = await createTestContext(app!)
-            const ctx2 = await createTestContext(app!)
+            const ctx1 = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
+            const ctx2 = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const createResponse = await ctx1.post('/v1/event-destinations', {
                 url: 'https://example.com/platform1',
@@ -134,7 +134,7 @@ describe('Event Destinations API', () => {
         })
 
         it('should return 404 for a deleted destination', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const createResponse = await ctx.post('/v1/event-destinations', {
                 url: 'https://example.com/deleted',
@@ -160,7 +160,7 @@ describe('Event Destinations API', () => {
 
     describe('DELETE /v1/event-destinations/:id', () => {
         it('should delete an event destination', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const createResponse = await ctx.post('/v1/event-destinations', {
                 url: 'https://example.com/delete-me',
@@ -174,7 +174,7 @@ describe('Event Destinations API', () => {
         })
 
         it('should return 200 for non-existent destination (idempotent delete)', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
             const nonExistentId = apId()
 
             const response = await ctx.delete(`/v1/event-destinations/${nonExistentId}`)
@@ -185,7 +185,7 @@ describe('Event Destinations API', () => {
 
     describe('POST /v1/event-destinations/test', () => {
         it('should accept a test request with a webhook URL and an event name', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const response = await ctx.post('/v1/event-destinations/test', {
                 url: 'https://example.com/webhook',
@@ -196,7 +196,7 @@ describe('Event Destinations API', () => {
         })
 
         it('should accept a test request with no event (defaults to connection.upserted)', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const response = await ctx.post('/v1/event-destinations/test', {
                 url: 'https://example.com/webhook',
@@ -208,7 +208,7 @@ describe('Event Destinations API', () => {
 
     describe('Auth', () => {
         it('should return 403 for non-admin user', async () => {
-            const ctx = await createTestContext(app!)
+            const ctx = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             const { mockUser } = await mockBasicUser({
                 user: {
@@ -237,8 +237,8 @@ describe('Event Destinations API', () => {
         })
 
         it('should isolate event destinations between platforms', async () => {
-            const ctx1 = await createTestContext(app!)
-            const ctx2 = await createTestContext(app!)
+            const ctx1 = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
+            const ctx2 = await createTestContext(app!, { plan: { eventStreamingEnabled: true } })
 
             await ctx1.post('/v1/event-destinations', {
                 url: 'https://example.com/platform1',
