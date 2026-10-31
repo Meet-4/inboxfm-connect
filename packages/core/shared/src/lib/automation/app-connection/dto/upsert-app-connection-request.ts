@@ -1,14 +1,59 @@
-import { Metadata } from '@inboxfm-connect/core-utils'
 import { z } from 'zod'
 import { AppConnectionScope, AppConnectionType } from '../app-connection'
 import { OAuth2AuthorizationMethod } from '../oauth2-authorization-method'
 
+// Connection externalIds are embedded verbatim inside `{{connections['…']}}`
+// template refs — flow/agent step auth, project-replace snapshots, and the
+// engine's props resolver all parse that grammar (quotes and brackets are its
+// delimiters). An externalId containing those characters produces refs that
+// cannot be resolved (or injects arbitrary template content when re-exported),
+// and control characters corrupt logs and UI rendering. The length cap bounds
+// the encrypted row, the Redis upsert-lock key and snapshot artifacts.
+const EXTERNAL_ID_MAX_LENGTH = 128
+const DISPLAY_NAME_MAX_LENGTH = 512
+const METADATA_MAX_KEYS = 50
+const METADATA_MAX_KEY_LENGTH = 128
+const METADATA_MAX_SERIALIZED_LENGTH = 64 * 1024
+
+export const ExternalIdSchema = z.string()
+    .min(1, 'externalId must not be empty')
+    .max(EXTERNAL_ID_MAX_LENGTH)
+    .regex(
+        /^[^'"\\\[\]{}\x00-\x1f\x7f]*$/,
+        'externalId must not contain quotes, brackets, braces, backslashes or control characters',
+    )
+
+// Display names are rendered in the UI and written to logs/audit events —
+// cap the length and reject control characters (tab/newline/CR excepted).
+export const DisplayNameSchema = z.string()
+    .min(1)
+    .max(DISPLAY_NAME_MAX_LENGTH)
+    .refine((value) => {
+        for (const ch of value) {
+            const code = ch.codePointAt(0) ?? 0
+            if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) return false
+            if (code === 0x7f) return false
+        }
+        return true
+    }, 'displayName must not contain control characters')
+
+// Metadata is a free-form record stored as a jsonb column on every connection
+// row; without caps a single request can store an unbounded payload.
+// (Built on the local full-zod record rather than core-utils' zod/mini
+// `Metadata` — the mini API has no instance `.refine`.)
+export const ConnectionMetadataSchema = z.record(z.string(), z.unknown()).refine((metadata) => {
+    const keys = Object.keys(metadata)
+    if (keys.length > METADATA_MAX_KEYS) return false
+    if (keys.some((key) => key.length > METADATA_MAX_KEY_LENGTH)) return false
+    return JSON.stringify(metadata).length <= METADATA_MAX_SERIALIZED_LENGTH
+}, 'connection metadata exceeds size limits (at most 50 keys, 128-char keys, 64KiB total)')
+
 const commonAuthProps = {
-    externalId: z.string(),
-    displayName: z.string(),
+    externalId: ExternalIdSchema,
+    displayName: DisplayNameSchema,
     pieceName: z.string(),
     projectId: z.string(),
-    metadata: z.optional(Metadata),
+    metadata: z.optional(ConnectionMetadataSchema),
     pieceVersion: z.string().optional(),
 }
 
@@ -142,14 +187,14 @@ export type UpsertAppConnectionRequestBody = z.infer<typeof UpsertAppConnectionR
 
 
 export const UpdateConnectionValueRequestBody = z.object({
-    displayName: z.string().min(1),
-    metadata: z.optional(Metadata),
+    displayName: DisplayNameSchema,
+    metadata: z.optional(ConnectionMetadataSchema),
 })
 
 export const UpdateGlobalConnectionValueRequestBody = z.object({
-    displayName: z.string().min(1),
+    displayName: DisplayNameSchema,
     projectIds: z.array(z.string()).optional(),
-    metadata: z.optional(Metadata),
+    metadata: z.optional(ConnectionMetadataSchema),
     preSelectForNewProjects: z.boolean().optional(),
 })
 
@@ -158,8 +203,8 @@ export type UpdateGlobalConnectionValueRequestBody = z.infer<typeof UpdateGlobal
 const GlobalConnectionExtras = z.object({
     scope: z.literal(AppConnectionScope.PLATFORM),
     projectIds: z.array(z.string()),
-    externalId: z.string().optional(),
-    metadata: z.optional(Metadata),
+    externalId: ExternalIdSchema.optional(),
+    metadata: z.optional(ConnectionMetadataSchema),
     preSelectForNewProjects: z.boolean().optional(),
 })
 export const UpsertGlobalConnectionRequestBody =

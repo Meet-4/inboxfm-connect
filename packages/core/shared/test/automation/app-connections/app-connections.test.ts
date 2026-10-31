@@ -479,6 +479,98 @@ describe('ReplaceAppConnectionsRequestBody defaults', () => {
     })
 })
 
+describe('connection externalId / displayName / metadata validation (ref grammar + size guards)', () => {
+    const validBody = {
+        externalId: 'conn_1699999999_abc123',
+        displayName: 'My Slack Connection',
+        pieceName: '@inboxfm-connect/piece-slack',
+        projectId: 'proj-1',
+        type: AppConnectionType.SECRET_TEXT,
+        value: {
+            type: AppConnectionType.SECRET_TEXT,
+            secret_text: 'my-api-token',
+        },
+    }
+
+    it('accepts the externalId shapes the clients mint (uuid, conn_ts_rand, app_name)', () => {
+        for (const externalId of [
+            '0d5c7e2a-1b4d-4c1a-9c2f-6f0e5a3b2d10',
+            'conn_1699999999_x7f2k9',
+            'slack_myteam',
+            'test-external-id',
+        ]) {
+            const parsed = UpsertAppConnectionRequestBody.parse({ ...validBody, externalId })
+            expect(parsed.externalId).toBe(externalId)
+        }
+    })
+
+    it('rejects externalIds that break out of the {{connections[...apos...]} } reference grammar', () => {
+        const breaking = [
+            "o'brien", // single quote — used by the ref grammar delimiters
+            'a"b', // double quote — second ref form
+            'x[y]', // square brackets — ref delimiters
+            'p{q}', // curly braces — template delimiters
+            'back\\slash', // escape character
+            "x']}} {{injected", // closes the ref and injects template content
+            'tab\tchar', // control character
+            'newline\nchar', // control character
+            'nul\x00char', // control character
+            'del\x7fchar', // DEL
+        ]
+        for (const externalId of breaking) {
+            expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, externalId })).toThrow()
+        }
+    })
+
+    it('rejects empty and oversized externalIds', () => {
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, externalId: '' })).toThrow()
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, externalId: 'a'.repeat(129) })).toThrow()
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, externalId: 'a'.repeat(128) })).not.toThrow()
+    })
+
+    it('caps displayName length and rejects control characters while keeping unicode', () => {
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: '' })).toThrow()
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: 'a'.repeat(513) })).toThrow()
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: 'a'.repeat(512) })).not.toThrow()
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: 'bad\x00name' })).toThrow()
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: 'bad\x1fname' })).toThrow()
+        // Common whitespace and unicode text are legitimate display names.
+        expect(() => UpdateConnectionValueRequestBody.parse({ displayName: 'Slack — Prod ✅\tTeam' })).not.toThrow()
+    })
+
+    it('rejects oversized connection metadata payloads', () => {
+        const tooManyKeys: Record<string, unknown> = {}
+        for (let i = 0; i < 51; i++) {
+            tooManyKeys[`k${i}`] = 'v'
+        }
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, metadata: tooManyKeys })).toThrow()
+
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, metadata: { ['k'.repeat(129)]: 'v' } })).toThrow()
+
+        expect(() => UpsertAppConnectionRequestBody.parse({ ...validBody, metadata: { blob: 'x'.repeat(70000) } })).toThrow()
+
+        const parsed = UpsertAppConnectionRequestBody.parse({ ...validBody, metadata: { env: 'production', note: 'n'.repeat(1000) } })
+        expect(parsed.metadata?.env).toBe('production')
+    })
+
+    it('applies the same externalId and displayName rules to global connection upserts', () => {
+        const globalBase = {
+            displayName: 'Global OpenAI',
+            pieceName: '@inboxfm-connect/piece-openai',
+            scope: AppConnectionScope.PLATFORM,
+            projectIds: ['p1'],
+            type: AppConnectionType.SECRET_TEXT,
+            value: {
+                type: AppConnectionType.SECRET_TEXT,
+                secret_text: 'sk-x',
+            },
+        }
+        expect(() => UpsertGlobalConnectionRequestBody.parse({ ...globalBase, externalId: "o'brien" })).toThrow()
+        expect(() => UpsertGlobalConnectionRequestBody.parse({ ...globalBase, externalId: 'openai-global' })).not.toThrow()
+        expect(() => UpsertGlobalConnectionRequestBody.parse({ ...globalBase, displayName: 'x'.repeat(513) })).toThrow()
+    })
+})
+
 describe('Constants and Enum validation', () => {
     it('exposes BOTH_CLIENT_CREDENTIALS_AND_AUTHORIZATION_CODE and PLACEHOLDER_CONNECTION_TYPE', () => {
         expect(BOTH_CLIENT_CREDENTIALS_AND_AUTHORIZATION_CODE).toBe('both_client_credentials_and_authorization_code')
