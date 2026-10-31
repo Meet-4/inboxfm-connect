@@ -4,7 +4,7 @@ import {
     AppConnectionStatus,
     AppConnectionType,
     ConnectProxyErrorCode,
-    OAuth2ConnectionValue,
+    OAuth2ConnectionValueWithApp,
 } from '@inboxfm-connect/shared'
 import axios from 'axios'
 import { FastifyInstance } from 'fastify'
@@ -75,9 +75,16 @@ describe('Connect API Proxy Contract & Authorization Suite (#213)', () => {
             type: AppConnectionType.OAUTH2,
             access_token: token,
             token_type: 'Bearer',
+            client_id: 'proxy-contract-client-id',
+            client_secret: 'proxy-contract-client-secret',
+            redirect_url: 'https://example.com/oauth2/redirect',
+            claimed_at: Date.now(),
+            refresh_token: 'fake_refresh_token_proxy_contract',
+            scope: 'slack',
+            token_url: 'https://slack.com/api/oauth2.token',
             data: extraValue,
             ...extraValue,
-        } as OAuth2ConnectionValue)
+        } as OAuth2ConnectionValueWithApp)
 
         return appConnectionsRepo().save({
             id: apId(),

@@ -6,7 +6,7 @@ import { applicationEvents } from '../../../../src/app/helper/application-events
 // Listeners are module-global, so this file owns them in a fresh fork
 // (vitest pool is maxForks: 1) — registering here can't pollute other files.
 describe('application-events listener rejection containment', () => {
-    let log: { error: vi.Mock, info: vi.Mock, debug: vi.Mock, warn: vi.Mock }
+    let log: { error: ReturnType<typeof vi.fn>, info: ReturnType<typeof vi.fn>, debug: ReturnType<typeof vi.fn>, warn: ReturnType<typeof vi.fn> }
     let unhandled: unknown[]
     let onUnhandled: (reason: unknown) => void
 

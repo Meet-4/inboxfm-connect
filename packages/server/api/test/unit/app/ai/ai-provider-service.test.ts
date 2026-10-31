@@ -1,4 +1,4 @@
-import { ActivepiecesError, AIProviderName, ErrorCode } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, AIProviderName, ErrorCode, InvalidAIProviderCredentialsParams } from '@inboxfm-connect/core-utils'
 import { FastifyBaseLogger } from 'fastify'
 import { describe, expect, it, vi } from 'vitest'
 import { aiProviderService } from '../../../../src/app/ai/ai-provider-service'
@@ -46,11 +46,12 @@ describe('aiProviderService & Credential Error Masking (#163)', () => {
         }
 
         expect(caughtError).toBeInstanceOf(ActivepiecesError)
-        const apError = caughtError as ActivepiecesError<{ provider: AIProviderName, message: string }>
+        const apError = caughtError as ActivepiecesError
+        const error = apError.error as InvalidAIProviderCredentialsParams
 
-        expect(apError.error.code).toBe(ErrorCode.INVALID_AI_PROVIDER_CREDENTIALS)
-        expect(apError.error.params.provider).toBe(AIProviderName.OPENAI)
-        expect(apError.error.params.message).toBe(`Failed to validate credentials for ${aiProviders[AIProviderName.OPENAI].name}`)
+        expect(error.code).toBe(ErrorCode.INVALID_AI_PROVIDER_CREDENTIALS)
+        expect(error.params.provider).toBe(AIProviderName.OPENAI)
+        expect(error.params.message).toBe(`Failed to validate credentials for ${aiProviders[AIProviderName.OPENAI].name}`)
 
         // Crucial security assertion: client-facing error parameters must never contain the upstream secret data
         const serializedError = JSON.stringify(apError.error)

@@ -13,7 +13,7 @@ vi.mock('../../../../src/app/tool-search/tool-search.service', () => ({
 
 import { knowledgeSearchService } from '../../../../src/app/knowledge-search/knowledge-search.service'
 import { ToolSearchEmbedder } from '../../../../src/app/tool-search/embedder'
-import { ActionSearchResult, TriggerSearchResult } from '../../../../src/app/tool-search/tool-search.service'
+import { ToolSearchActionResult, ToolSearchTriggerResult } from '../../../../src/app/tool-search/tool-search.service'
 
 describe('knowledgeSearchService', () => {
     const mockLog = {
@@ -29,7 +29,7 @@ describe('knowledgeSearchService', () => {
 
     describe('objectKind: "action"', () => {
         it('queries searchActions, formats action results, and ignores triggers', async () => {
-            const mockAction: ActionSearchResult = {
+            const mockAction: ToolSearchActionResult = {
                 pieceName: '@inboxfm-connect/piece-slack',
                 actionName: 'send_channel_message',
                 displayName: 'Send Slack Message',
@@ -83,7 +83,7 @@ describe('knowledgeSearchService', () => {
 
     describe('objectKind: "trigger"', () => {
         it('queries searchTriggers, formats trigger results, and ignores actions', async () => {
-            const mockTrigger: TriggerSearchResult = {
+            const mockTrigger: ToolSearchTriggerResult = {
                 pieceName: '@inboxfm-connect/piece-gmail',
                 triggerName: 'new_email_received',
                 displayName: 'New Email',
@@ -134,7 +134,7 @@ describe('knowledgeSearchService', () => {
 
     describe('objectKind: "all" (default)', () => {
         it('queries both actions and triggers, sorts results by cosine descending, and limits results', async () => {
-            const mockAction1: ActionSearchResult = {
+            const mockAction1: ToolSearchActionResult = {
                 pieceName: '@inboxfm-connect/piece-slack',
                 actionName: 'send_message',
                 displayName: 'Send Message',
@@ -143,7 +143,7 @@ describe('knowledgeSearchService', () => {
                 cosine: 0.75,
                 connected: true,
             }
-            const mockAction2: ActionSearchResult = {
+            const mockAction2: ToolSearchActionResult = {
                 pieceName: '@inboxfm-connect/piece-discord',
                 actionName: 'send_channel_msg',
                 displayName: 'Send Discord Message',
@@ -152,7 +152,7 @@ describe('knowledgeSearchService', () => {
                 cosine: 0.95,
                 connected: true,
             }
-            const mockTrigger1: TriggerSearchResult = {
+            const mockTrigger1: ToolSearchTriggerResult = {
                 pieceName: '@inboxfm-connect/piece-slack',
                 triggerName: 'new_channel_message',
                 displayName: 'New Slack Message',
@@ -161,7 +161,7 @@ describe('knowledgeSearchService', () => {
                 cosine: 0.85,
                 connected: true,
             }
-            const mockTrigger2: TriggerSearchResult = {
+            const mockTrigger2: ToolSearchTriggerResult = {
                 pieceName: '@inboxfm-connect/piece-github',
                 triggerName: 'new_issue',
                 displayName: 'New GitHub Issue',

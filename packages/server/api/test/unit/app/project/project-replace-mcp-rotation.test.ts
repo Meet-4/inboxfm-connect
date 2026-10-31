@@ -1,4 +1,4 @@
-import { ApSystemProp, ProjectStateSnapshot } from '@inboxfm-connect/shared'
+import { ProjectStateSnapshot } from '@inboxfm-connect/shared'
 import { StatusCodes } from 'http-status-codes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { system } from '../../../../src/app/helper/system/system'
