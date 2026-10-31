@@ -39,6 +39,18 @@ function handleBase64File(propertyValue: string): ApFile | null {
 async function handleUrlFile(path: string): Promise<ApFile | null> {
     const fileResponse = await fetch(path)
 
+    // A non-2xx response is a failed download, not a file: without this check the
+    // error page's bytes (404 HTML, 403 "Forbidden", 500 stack page) are buffered
+    // into an ApFile that passes FILE validation, so the step runs with garbage
+    // content and the run reports success — the failure never propagates. Return
+    // null so the existing validation path flags the property
+    // ("Expected file url or base64 with mimeType, received: …") and the run fails
+    // as a user-visible error, consistent with unreachable/invalid URLs.
+    if (!fileResponse.ok) {
+        console.error(`Failed to download file from ${path}: ${fileResponse.status} ${fileResponse.statusText}`)
+        return null
+    }
+
     const filename = getFileName(path, fileResponse.headers.get('content-disposition'), fileResponse.headers.get('content-type') ?? undefined) ?? 'unknown'
     const extension = filename.split('.').length > 1 ? filename.split('.').pop() : undefined
 
