@@ -70,7 +70,6 @@ const systemPropValidators: {
     [AppSystemProp.MAX_FILE_SIZE_MB]: numberValidator,
     [AppSystemProp.MAX_FLOW_RUN_LOG_SIZE_MB]: numberValidator,
     [AppSystemProp.SANDBOX_MEMORY_LIMIT]: numberValidator,
-    [AppSystemProp.SANDBOX_PROPAGATED_ENV_VARS]: stringValidator,
     [AppSystemProp.SENTRY_DSN]: urlValidator,
     [AppSystemProp.FRONTEND_SENTRY_DSN]: urlValidator,
     [AppSystemProp.LOKI_PASSWORD]: stringValidator,
@@ -144,8 +143,6 @@ const systemPropValidators: {
     [AppSystemProp.QUEUE_UI_PASSWORD]: stringValidator,
     [AppSystemProp.QUEUE_UI_USERNAME]: stringValidator,
     [AppSystemProp.REDIS_TYPE]: enumValidator(Object.values(RedisType)),
-    [AppSystemProp.REDIS_FAILED_JOB_RETENTION_DAYS]: numberValidator,
-    [AppSystemProp.REDIS_FAILED_JOB_RETENTION_MAX_COUNT]: numberValidator,
     [AppSystemProp.REDIS_SSL_CA_FILE]: stringValidator,
     [AppSystemProp.REDIS_DB]: numberValidator,
     [AppSystemProp.REDIS_HOST]: stringValidator,
@@ -207,17 +204,6 @@ const systemPropValidators: {
     [AppSystemProp.MAX_FIELDS_PER_TABLE]: numberValidator,
 
     [AppSystemProp.ENABLE_FLOW_ON_PUBLISH]: booleanValidator,
-    [AppSystemProp.ISSUE_ARCHIVE_DAYS]: (value: string) => {
-        const days = parseInt(value)
-        if (isNaN(days) || days < 0) {
-            return 'Value must be a non-negative number'
-        }
-        return true
-    },
-
-    // Webhook payload limits
-    [AppSystemProp.MAX_WEBHOOK_PAYLOAD_SIZE_MB]: numberValidator,
-    [AppSystemProp.WEBHOOK_PAYLOAD_INLINE_THRESHOLD_KB]: numberValidator,
 
     // SSRF protection
     [AppSystemProp.SSRF_ALLOW_LIST]: stringValidator,

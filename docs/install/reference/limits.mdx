@@ -85,20 +85,15 @@ uploaded file) and your instance's memory limits instead.
 
 ### Webhooks
 
-Limits on how long a synchronous webhook waits for a response and how large an
-incoming payload can be.
+Limits on how long a synchronous webhook waits for a response.
 
 | Limit | Cloud | Env var | Self-hosted default |
 |---|---|---|---|
 | Sync webhook response timeout | 30 s | `AP_WEBHOOK_TIMEOUT_SECONDS` | `30` |
-| Max webhook payload size | 5 MB | `AP_MAX_WEBHOOK_PAYLOAD_SIZE_MB` | `25` |
-| Webhook payload inline threshold | 1024 KB | `AP_WEBHOOK_PAYLOAD_INLINE_THRESHOLD_KB` | `512` |
 
 <Tip>
 For synchronous webhook requests (URLs ending in `/sync`), Inboxfm Connect will
-wait up to the response timeout before returning HTTP 408. Payloads above the
-inline threshold are offloaded from Redis to file storage to protect Redis
-memory; smaller payloads stay inline for the fastest path.
+wait up to the response timeout before returning HTTP 408.
 </Tip>
 
 ---

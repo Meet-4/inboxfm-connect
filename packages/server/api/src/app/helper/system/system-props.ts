@@ -1,4 +1,3 @@
-import { assertNotNullOrUndefined } from '@inboxfm-connect/core-utils'
 import { environmentMigrations } from '@inboxfm-connect/server-utils'
 
 export type SystemProp = AppSystemProp
@@ -55,7 +54,6 @@ export enum AppSystemProp {
     GOOGLE_CLIENT_SECRET = 'GOOGLE_CLIENT_SECRET',
     HYPERDX_TOKEN = 'HYPERDX_TOKEN',
     INTERNAL_URL = 'INTERNAL_URL',
-    ISSUE_ARCHIVE_DAYS = 'ISSUE_ARCHIVE_DAYS',
     JWT_SECRET = 'JWT_SECRET',
     JWT_ISSUER = 'JWT_ISSUER',
     LOAD_TRANSLATIONS_FOR_DEV_PIECES = 'LOAD_TRANSLATIONS_FOR_DEV_PIECES',
@@ -68,8 +66,6 @@ export enum AppSystemProp {
     MAX_FIELDS_PER_TABLE = 'MAX_FIELDS_PER_TABLE',
     MAX_FILE_SIZE_MB = 'MAX_FILE_SIZE_MB',
     MAX_FLOW_RUN_LOG_SIZE_MB = 'MAX_FLOW_RUN_LOG_SIZE_MB',
-    MAX_WEBHOOK_PAYLOAD_SIZE_MB = 'MAX_WEBHOOK_PAYLOAD_SIZE_MB',
-    WEBHOOK_PAYLOAD_INLINE_THRESHOLD_KB = 'WEBHOOK_PAYLOAD_INLINE_THRESHOLD_KB',
     MAX_RECORDS_PER_TABLE = 'MAX_RECORDS_PER_TABLE',
     OTEL_ENABLED = 'OTEL_ENABLED',
     PAUSED_FLOW_TIMEOUT_DAYS = 'PAUSED_FLOW_TIMEOUT_DAYS',
@@ -100,8 +96,6 @@ export enum AppSystemProp {
     QUEUE_UI_PASSWORD = 'QUEUE_UI_PASSWORD',
     QUEUE_UI_USERNAME = 'QUEUE_UI_USERNAME',
     REDIS_DB = 'REDIS_DB',
-    REDIS_FAILED_JOB_RETENTION_DAYS = 'REDIS_FAILED_JOB_RETENTION_DAYS',
-    REDIS_FAILED_JOB_RETENTION_MAX_COUNT = 'REDIS_FAILED_JOB_RETENTION_MAX_COUNT',
     REDIS_HOST = 'REDIS_HOST',
     REDIS_PASSWORD = 'REDIS_PASSWORD',
     REDIS_PORT = 'REDIS_PORT',
@@ -121,7 +115,6 @@ export enum AppSystemProp {
     S3_USE_IRSA = 'S3_USE_IRSA',
     S3_USE_SIGNED_URLS = 'S3_USE_SIGNED_URLS',
     SANDBOX_MEMORY_LIMIT = 'SANDBOX_MEMORY_LIMIT',
-    SANDBOX_PROPAGATED_ENV_VARS = 'SANDBOX_PROPAGATED_ENV_VARS',
     SCIM_DEFAULT_PROJECT_ROLE = 'SCIM_DEFAULT_PROJECT_ROLE',
     SECRET_MANAGER_API_KEY = 'SECRET_MANAGER_API_KEY',
     SENTRY_DSN = 'SENTRY_DSN',
@@ -168,14 +161,6 @@ export enum CaptchaProvider {
 }
 
 export const environmentVariables = {
-    hasAppModules(): boolean {
-        const environment = this.getEnvironment(AppSystemProp.CONTAINER_TYPE) ?? ContainerType.WORKER_AND_APP
-        return [ContainerType.APP, ContainerType.WORKER_AND_APP].includes(environment as ContainerType)
-    },
-    getNumberEnvironment: (prop: AppSystemProp): number | undefined => {
-        const value = environmentVariables.getEnvironment(prop)
-        return value ? parseInt(value) : undefined
-    },
     getBooleanEnvironment: (prop: AppSystemProp): boolean | undefined => {
         const value = environmentVariables.getEnvironment(prop)
         return value ? value === 'true' : undefined
@@ -183,11 +168,6 @@ export const environmentVariables = {
     getEnvironment: (prop: AppSystemProp): string | undefined => {
         const environmnetVariables = environmentMigrations.migrate()
         return environmnetVariables['AP_' + prop]
-    },
-    getEnvironmentOrThrow: (prop: AppSystemProp): string => {
-        const value = environmentVariables.getEnvironment(prop)
-        assertNotNullOrUndefined(value, `Environment variable ${prop} is not set`)
-        return value
     },
 }
 
