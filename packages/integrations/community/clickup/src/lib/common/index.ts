@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Property, OAuth2PropertyValue } from '@inboxfm-connect/pieces-framework';
 import {
   getAccessTokenOrThrow,
@@ -665,5 +666,37 @@ export async function callClickUpApi3<T extends HttpMessageBody = any>(
     body: method === 'GET' ? undefined : body,
     queryParams,
   });
+}
+
+// ClickUp signs every webhook delivery with the secret returned when the
+// webhook was created (`webhook.secret` in the create response): the
+// `X-Signature` header carries the hex-encoded HMAC-SHA256 of the raw
+// request body, digested in hexadecimal format.
+// https://developer.clickup.com/docs/webhooksignature
+export function verifyClickupWebhookSignature(
+  secret: string,
+  signatureHeader: string | undefined,
+  rawBody: unknown
+): boolean {
+  if (!signatureHeader) {
+    return false;
+  }
+  const bodyString =
+    typeof rawBody === 'string'
+      ? rawBody
+      : Buffer.isBuffer(rawBody)
+        ? rawBody.toString('utf8')
+        : JSON.stringify(rawBody);
+  const expected = createHmac('sha256', secret).update(bodyString).digest('hex');
+  try {
+    const expectedBuffer = Buffer.from(expected, 'utf8');
+    const receivedBuffer = Buffer.from(signatureHeader.toLowerCase(), 'utf8');
+    return (
+      expectedBuffer.length === receivedBuffer.length &&
+      timingSafeEqual(expectedBuffer, receivedBuffer)
+    );
+  } catch {
+    return false;
+  }
 }
 

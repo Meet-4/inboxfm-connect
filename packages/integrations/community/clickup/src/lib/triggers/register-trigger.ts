@@ -5,7 +5,7 @@ import {
   HttpMethod,
   AuthenticationType,
 } from '@inboxfm-connect/pieces-common';
-import { callClickupGetTask, clickupCommon } from '../common';
+import { callClickupGetTask, clickupCommon, verifyClickupWebhookSignature } from '../common';
 import { ClickupEventType, ClickupWebhookPayload } from '../common/models';
 import { clickupAuth } from '../auth';
 import { clickupTriggerOutputSchemas } from '../output-schemas';
@@ -93,6 +93,26 @@ export const clickupRegisterTrigger = ({
       }
     },
     async run(context) {
+      // ClickUp signs every delivery with the `webhook.secret` captured at
+      // onEnable, so fail closed when it is present in the store. Webhooks
+      // registered before the secret was persisted keep working.
+      // https://developer.clickup.com/docs/webhooksignature
+      const storedWebhook = await context.store.get<WebhookInformation>(
+        `clickup_${name}_trigger`
+      );
+      if (
+        storedWebhook?.webhook?.secret &&
+        !verifyClickupWebhookSignature(
+          storedWebhook.webhook.secret,
+          context.payload.headers['x-signature'],
+          context.payload.rawBody
+        )
+      ) {
+        throw new Error(
+          'Webhook signature verification failed. This request may not be from ClickUp.'
+        );
+      }
+
       const payload = context.payload.body as ClickupWebhookPayload;
 
       if (
