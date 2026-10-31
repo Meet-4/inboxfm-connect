@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import {
   AuthenticationType,
   HttpMethod,
@@ -11,7 +12,8 @@ export const wooCommon = {
     name: string,
     webhookUrl: string,
     topic: string,
-    auth: PiecePropValueSchema<typeof wooAuth>
+    auth: PiecePropValueSchema<typeof wooAuth>,
+    secret?: string
   ) {
     const trimmedBaseUrl = auth.baseUrl.replace(/\/$/, '');
     return await httpClient.sendRequest<WebhookInformation>({
@@ -21,6 +23,7 @@ export const wooCommon = {
         name: name,
         topic: topic,
         delivery_url: webhookUrl,
+        ...(secret ? { secret } : {}),
       },
       authentication: {
         type: AuthenticationType.BASIC,
@@ -60,4 +63,34 @@ export interface WebhookInformation {
   date_created_gmt: string;
   date_modified: string;
   date_modified_gmt: string;
+}
+
+// WooCommerce signs every webhook delivery when the webhook was created with a
+// `secret`: the `X-WC-Webhook-Signature` header carries the base64-encoded
+// HMAC-SHA256 hash of the raw request body.
+// https://woocommerce.com/document/webhooks/#section-6 (Signature)
+export function generateWebhookSecret(): string {
+  return randomBytes(32).toString('hex');
+}
+
+export function verifyWooCommerceWebhookSignature(
+  secret: string,
+  signatureHeader: string | undefined,
+  rawBody: unknown
+): boolean {
+  if (!signatureHeader) {
+    return false;
+  }
+  const bodyString =
+    typeof rawBody === 'string'
+      ? rawBody
+      : Buffer.isBuffer(rawBody)
+        ? rawBody.toString('utf8')
+        : JSON.stringify(rawBody);
+  const expected = createHmac('sha256', secret).update(bodyString).digest('base64');
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
+  } catch {
+    return false;
+  }
 }

@@ -4,7 +4,12 @@ import {
   createTrigger,
 } from '@inboxfm-connect/pieces-framework';
 import { wooAuth } from '../auth';
-import { WebhookInformation, wooCommon } from '../common';
+import {
+  generateWebhookSecret,
+  verifyWooCommerceWebhookSignature,
+  WebhookInformation,
+  wooCommon,
+} from '../common';
 import { isEmpty } from '@inboxfm-connect/pieces-framework';
 import { WebhookHandshakeStrategy } from '@inboxfm-connect/pieces-framework';
 import {
@@ -40,15 +45,21 @@ export const woocommerceRegisterTrigger = ({
     sampleData,
     type: TriggerStrategy.WEBHOOK,
     async onEnable(context) {
+      const webhookSecret = generateWebhookSecret();
       const res = await wooCommon.createWebhook(
         displayName,
         context.webhookUrl,
         topic,
-        context.auth.props
+        context.auth.props,
+        webhookSecret
       );
       await context.store.put<WebhookInformation>(
         `$woocommerce_trigger_${name}`,
         res.body
+      );
+      await context.store.put<string>(
+        `$woocommerce_trigger_${name}_secret`,
+        webhookSecret
       );
     },
     async onDisable(context) {
@@ -102,6 +113,20 @@ export const woocommerceRegisterTrigger = ({
       const trimmedBaseUrl = context.auth.props.baseUrl.replace(/\/$/, '');
 
       if (payload['webhook_id']) return [];
+
+      const webhookSecret = await context.store.get<string>(
+        `$woocommerce_trigger_${name}_secret`
+      );
+      if (
+        webhookSecret &&
+        !verifyWooCommerceWebhookSignature(
+          webhookSecret,
+          context.payload.headers['x-wc-webhook-signature'],
+          context.payload.rawBody
+        )
+      ) {
+        throw new Error('Webhook signature verification failed. This request may not be from WooCommerce.');
+      }
 
       if (topic.includes('deleted')) {
         const response = await httpClient.sendRequest({
