@@ -244,4 +244,114 @@ describe('ApiClient', () => {
       expect(mockNavigator).not.toHaveBeenCalled()
     })
   })
+
+  describe('server error body shapes (error bodies must not be dropped)', () => {
+    it('extracts the real reason from ActivepiecesError bodies ({ code, params } with no top-level message)', async () => {
+      // This is the exact shape the execute controller throws on a failed tool
+      // run (`ENGINE_OPERATION_FAILURE` with the piece failure text) and the
+      // server's error handler serializes (`error-handler.ts`): `{ code, params }`
+      // — there is no top-level `message` field.
+      const body = {
+        code: 'ENGINE_OPERATION_FAILURE',
+        params: { message: 'Piece google-drive failed: the stored credential is no longer valid' },
+      }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => body,
+      })
+
+      const promise = apiClient.post('/execute', {})
+
+      await expect(promise).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'Piece google-drive failed: the stored credential is no longer valid',
+      })
+    })
+
+    it('extracts params.error for INVALID_APP_CONNECTION bodies', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ code: 'INVALID_APP_CONNECTION', params: { error: 'connection refresh failed' } }),
+      })
+
+      await expect(apiClient.post('/connections', {})).rejects.toMatchObject({
+        message: 'connection refresh failed',
+      })
+    })
+
+    it('keeps the Fastify-style top-level message winning when both shapes appear', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ message: 'Validation failed', code: 'VALIDATION', params: {} }),
+      })
+
+      await expect(apiClient.post('/trigger-bindings', {})).rejects.toMatchObject({
+        message: 'Validation failed',
+      })
+    })
+
+    it('falls back to the generic status string when the body carries no readable reason', async () => {
+      // INVALID_CREDENTIALS sends `params: null` — nothing readable anywhere.
+      const body = { code: 'INVALID_CREDENTIALS', params: null }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => body,
+      })
+
+      await expect(apiClient.post('/authentication/sign-in', {})).rejects.toMatchObject({
+        statusCode: 401,
+        message: 'Request failed with status 401',
+      })
+    })
+
+    it('preserves the raw body on details so local extractors keep working', async () => {
+      const body = {
+        code: 'INVALID_AI_PROVIDER_CREDENTIALS',
+        params: { provider: 'openai', message: 'The API key was rejected by the provider' },
+      }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => body,
+      })
+
+      const error = await apiClient.post('/ai-providers', {}).catch((e: ApiClientError) => e)
+
+      expect(error).toBeInstanceOf(ApiClientError)
+      expect((error as ApiClientError).details).toEqual(body)
+    })
+
+    it('surfaces the server reason through executionErrors.describe (user-visible pipeline)', async () => {
+      // executionErrors/connectionErrors/mcpErrors describe() pass
+      // `error.message` through for any 4xx — before this fix that message was
+      // the generic status string for every ActivepiecesError, so toasts and
+      // the Actions execution panel showed "Request failed with status 400"
+      // while the server had said exactly what failed.
+      const { executionErrors } = await import('../utils/execution-errors')
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          code: 'ENGINE_OPERATION_FAILURE',
+          params: { message: 'Input validation failed: messageId is required' },
+        }),
+      })
+
+      const error = await apiClient.post('/execute', {}).catch((e: ApiClientError) => e)
+
+      expect(executionErrors.describe(error, 'fallback')).toBe(
+        'Input validation failed: messageId is required'
+      )
+    })
+  })
 })

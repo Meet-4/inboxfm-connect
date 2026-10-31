@@ -15,6 +15,46 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, unknown>
 }
 
+/**
+ * Reads the human-readable reason out of the error bodies this backend actually
+ * sends, before falling back to the generic status string.
+ *
+ * Two shapes exist:
+ * - Fastify-generated errors (`{ message }`) and any handler that returns a
+ *   top-level message keep that message.
+ * - The server's error handler (`api/src/app/helper/error-handler.ts`) sends
+ *   ActivepiecesError bodies as `{ code, params }` with NO top-level `message` —
+ *   the reason lives at `params.message` (VALIDATION, AUTHENTICATION,
+ *   ENGINE_OPERATION_FAILURE, TEST_TRIGGER_FAILED, ENTITY_NOT_FOUND,
+ *   INVALID_AI_PROVIDER_CREDENTIALS, GENERIC_ERROR, …) or `params.error`
+ *   (INVALID_APP_CONNECTION). Without this, every such failure rendered as
+ *   "Request failed with status 400/403/…" in toasts and error banners
+ *   (executionErrors/connectionErrors/mcpErrors describe() pass `error.message`
+ *   through), dropping what the server actually said.
+ */
+function resolveErrorMessage(responseData: unknown): string | null {
+  if (typeof responseData !== 'object' || responseData === null) {
+    return null
+  }
+  const body = responseData as {
+    message?: unknown
+    params?: { message?: unknown, error?: unknown } | null
+  }
+  if (typeof body.message === 'string' && body.message.trim().length > 0) {
+    return body.message
+  }
+  const params = body.params
+  if (typeof params === 'object' && params !== null) {
+    if (typeof params.message === 'string' && params.message.trim().length > 0) {
+      return params.message
+    }
+    if (typeof params.error === 'string' && params.error.trim().length > 0) {
+      return params.error
+    }
+  }
+  return null
+}
+
 export class ApiClient {
   private baseUrl = '/api/v1'
   private token: string | null = null
@@ -221,8 +261,7 @@ export class ApiClient {
         this.handleUnauthorized()
       }
       const errorMessage =
-        (responseData as { message?: string })?.message ||
-        `Request failed with status ${response.status}`
+        resolveErrorMessage(responseData) || `Request failed with status ${response.status}`
       throw new ApiClientError(response.status, errorMessage, responseData)
     }
 
