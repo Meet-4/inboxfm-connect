@@ -71,6 +71,7 @@ export const stripeNewDispute = createTrigger({
     );
     await context.store.put<StripeWebhookInformation>('_new_dispute_trigger', {
       webhookId: webhook.id,
+      webhookSecret: webhook.secret,
     });
   },
 
@@ -106,6 +107,18 @@ export const stripeNewDispute = createTrigger({
   },
 
   async run(context) {
+    const webhookInfo = await context.store.get<StripeWebhookInformation>('_new_dispute_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as StripeWebhookPayload;
     const disputeObject = payloadBody.data.object;
     const { charge, payment_intent } = context.propsValue;

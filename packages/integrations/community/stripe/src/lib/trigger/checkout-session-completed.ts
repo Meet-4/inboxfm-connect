@@ -67,6 +67,7 @@ export const stripeCheckoutSessionCompleted = createTrigger({
       '_checkout_session_completed_trigger',
       {
         webhookId: webhook.id,
+      webhookSecret: webhook.secret,
       }
     );
   },
@@ -101,6 +102,18 @@ export const stripeCheckoutSessionCompleted = createTrigger({
     return response.body.data;
   },
   async run(context) {
+    const webhookInfo = await context.store.get<StripeWebhookInformation>('_checkout_session_completed_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as StripeWebhookPayload;
     const sessionObject = payloadBody.data.object;
     const { customer } = context.propsValue;

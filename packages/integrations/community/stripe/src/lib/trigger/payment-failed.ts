@@ -166,6 +166,7 @@ export const stripePaymentFailed = createTrigger({
     );
     await context.store?.put<WebhookInformation>('_payment_failed_trigger', {
       webhookId: webhook.id,
+      webhookSecret: webhook.secret,
     });
   },
   async onDisable(context) {
@@ -197,6 +198,18 @@ export const stripePaymentFailed = createTrigger({
     return response.body.data;
   },
   async run(context) {
+    const webhookInfo = await context.store.get<WebhookInformation>('_payment_failed_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as PayloadBody;
     return [payloadBody.data.object];
   },
@@ -210,4 +223,5 @@ type PayloadBody = {
 
 interface WebhookInformation {
   webhookId: string;
+  webhookSecret?: string;
 }

@@ -1,5 +1,7 @@
 export interface StripeWebhookInformation {
   webhookId: string;
+  /** Stripe webhook endpoint signing secret (whsec_...) captured at creation. */
+  webhookSecret?: string;
 }
 
 export interface StripeCustomerSearchResult {

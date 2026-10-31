@@ -101,6 +101,7 @@ export const stripeUpdatedSubscription = createTrigger({
       '_updated_subscription_trigger',
       {
         webhookId: webhook.id,
+      webhookSecret: webhook.secret,
       }
     );
   },
@@ -135,6 +136,18 @@ export const stripeUpdatedSubscription = createTrigger({
     return response.body.data;
   },
   async run(context) {
+    const webhookInfo = await context.store.get<StripeWebhookInformation>('_updated_subscription_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as StripeWebhookPayload;
     const subscriptionObject = payloadBody.data.object;
     const { status, customer } = context.propsValue;

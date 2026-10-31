@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   HttpRequest,
   HttpMethod,
@@ -32,7 +33,7 @@ export const stripeCommon = {
     eventName: string,
     webhookUrl: string,
     apiKey: string
-  ): Promise<{ id: string }> => {
+  ): Promise<{ id: string; secret: string }> => {
     const request: HttpRequest = {
       method: HttpMethod.POST,
       url: `${baseUrl}/webhook_endpoints`,
@@ -50,10 +51,57 @@ export const stripeCommon = {
       queryParams: {},
     };
 
-    const { body: webhook } = await httpClient.sendRequest<{ id: string }>(
-      request
-    );
+    // The signing secret (whsec_...) is only returned by the create call, so
+    // capture it here and persist it alongside the webhook id for later
+    // signature verification. https://docs.stripe.com/api/webhook_endpoints/create
+    const { body: webhook } = await httpClient.sendRequest<{
+      id: string;
+      secret: string;
+    }>(request);
     return webhook;
+  },
+
+  // Verifies the `Stripe-Signature` header (t=<timestamp>,v1=<hex signature>)
+  // against the endpoint's signing secret: the signature is the hex
+  // HMAC-SHA256 of `${timestamp}.${rawBody}`.
+  // https://docs.stripe.com/webhooks#verify-official-libraries
+  verifyStripeWebhookSignature: (
+    secret: string,
+    signatureHeader: string | undefined,
+    rawBody: unknown
+  ): boolean => {
+    if (!signatureHeader) {
+      return false;
+    }
+    let timestamp: string | undefined;
+    const signatures: string[] = [];
+    for (const part of signatureHeader.split(',')) {
+      const [key, value] = part.split('=', 2);
+      if (key.trim() === 't') {
+        timestamp = value;
+      } else if (key.trim() === 'v1') {
+        signatures.push(value);
+      }
+    }
+    if (!timestamp || signatures.length === 0) {
+      return false;
+    }
+    const bodyString =
+      typeof rawBody === 'string'
+        ? rawBody
+        : Buffer.isBuffer(rawBody)
+          ? rawBody.toString('utf8')
+          : JSON.stringify(rawBody);
+    const expected = createHmac('sha256', secret)
+      .update(`${timestamp}.${bodyString}`)
+      .digest('hex');
+    try {
+      return signatures.some((signature) =>
+        timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+      );
+    } catch {
+      return false;
+    }
   },
 
   unsubscribeWebhook: async (webhookId: string, apiKey: string) => {

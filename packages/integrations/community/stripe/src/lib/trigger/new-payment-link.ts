@@ -51,6 +51,7 @@ export const stripeNewPaymentLink = createTrigger({
       '_new_payment_link_trigger',
       {
         webhookId: webhook.id,
+      webhookSecret: webhook.secret,
       }
     );
   },
@@ -85,6 +86,18 @@ export const stripeNewPaymentLink = createTrigger({
   },
 
   async run(context) {
+    const webhookInfo = await context.store.get<StripeWebhookInformation>('_new_payment_link_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as StripeWebhookPayload;
     return [payloadBody.data.object];
   },

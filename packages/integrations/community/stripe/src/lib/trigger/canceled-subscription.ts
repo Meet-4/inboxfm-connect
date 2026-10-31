@@ -90,6 +90,7 @@ export const stripeCanceledSubscription = createTrigger({
       '_canceled_subscription_trigger',
       {
         webhookId: webhook.id,
+      webhookSecret: webhook.secret,
       }
     );
   },
@@ -125,6 +126,18 @@ export const stripeCanceledSubscription = createTrigger({
   },
 
   async run(context) {
+    const webhookInfo = await context.store.get<StripeWebhookInformation>('_canceled_subscription_trigger');
+    if (
+      webhookInfo?.webhookSecret &&
+      !stripeCommon.verifyStripeWebhookSignature(
+        webhookInfo.webhookSecret,
+        context.payload.headers['stripe-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Stripe.');
+    }
+
     const payloadBody = context.payload.body as StripeWebhookPayload;
     const subscriptionObject = payloadBody.data.object;
     const { customer } = context.propsValue;
