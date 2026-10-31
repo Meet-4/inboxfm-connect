@@ -30,6 +30,8 @@ export const signingKeyController: FastifyPluginAsyncZod = async (app) => {
         assertNotNullOrUndefined(platformId, 'platformId')
         return signingKeyService.list({
             platformId,
+            cursorRequest: req.query.cursor ?? null,
+            limit: req.query.limit,
         })
     })
 
@@ -65,6 +67,12 @@ export const signingKeyController: FastifyPluginAsyncZod = async (app) => {
 const ListSigningKeysRequest = {
     config: {
         security: securityAccess.platformAdminOnly([PrincipalType.USER]),
+    },
+    schema: {
+        querystring: z.object({
+            cursor: z.string().optional(),
+            limit: z.string().optional(),
+        }),
     },
 }
 const AddSigningKeyRequest = {

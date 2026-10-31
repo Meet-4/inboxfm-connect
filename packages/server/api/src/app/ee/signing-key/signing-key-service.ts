@@ -1,10 +1,29 @@
 import { ActivepiecesError, apId, ErrorCode, isNil, PlatformId, SeekPage } from '@inboxfm-connect/core-utils'
 import { AddSigningKeyResponse, SigningKey, SigningKeyId } from '@inboxfm-connect/shared'
 import { repoFactory } from '../../core/db/repo-factory'
+import { buildPaginator } from '../../helper/pagination/build-paginator'
+import { paginationHelper } from '../../helper/pagination/pagination-utils'
 import { SigningKeyEntity } from './signing-key-entity'
 import { signingKeyGenerator } from './signing-key-generator'
 
-const repo = repoFactory<SigningKey>(SigningKeyEntity)
+// Untyped generic (matching the user-service/execution-service convention) so
+// the repository element type (SigningKeySchema, incl. the platform relation)
+// lines up with buildPaginator's `entity: SigningKeyEntity`.
+const repo = repoFactory(SigningKeyEntity)
+
+/**
+ * `GET /v1/signing-keys` used to return every key row for the platform in a
+ * fake SeekPage (hard-coded null cursors). Real cursor pagination now bounds
+ * each response. Default 100 because admin callers render one page with no
+ * "load more" UI, so the default must exceed realistic key counts; hard max
+ * follows the record-list convention (issue #400).
+ */
+const DEFAULT_LIST_LIMIT = 100
+const MAX_LIST_LIMIT = 500
+
+function clampListLimit(rawLimit: string | number | undefined): number {
+    return Math.max(1, Math.min(Math.floor(Number(rawLimit ?? DEFAULT_LIST_LIMIT)) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT))
+}
 
 export const signingKeyService = {
     async add({ platformId, displayName }: AddParams): Promise<AddSigningKeyResponse> {
@@ -26,16 +45,25 @@ export const signingKeyService = {
         }
     },
 
-    async list({ platformId }: ListParams): Promise<SeekPage<SigningKey>> {
-        const data = await repo().findBy({
-            platformId,
+    async list({ platformId, cursorRequest, limit }: ListParams): Promise<SeekPage<SigningKey>> {
+        const decodedCursor = paginationHelper.decodeCursor(cursorRequest ?? null)
+        const paginator = buildPaginator({
+            entity: SigningKeyEntity,
+            query: {
+                limit: clampListLimit(limit),
+                // Oldest first matches the pre-pagination display order.
+                order: 'ASC',
+                afterCursor: decodedCursor.nextCursor,
+                beforeCursor: decodedCursor.previousCursor,
+            },
         })
 
-        return {
-            data,
-            next: null,
-            previous: null,
-        }
+        const query = repo()
+            .createQueryBuilder('signing_key')
+            .where('signing_key.platformId = :platformId', { platformId })
+
+        const { data, cursor } = await paginator.paginate(query)
+        return paginationHelper.createPage<SigningKey>(data, cursor)
     },
 
     async get({ id, platformId }: GetParams): Promise<SigningKey | null> {
@@ -101,4 +129,6 @@ type NewSigningKey = Omit<SigningKey, 'created' | 'updated'>
 
 type ListParams = {
     platformId?: PlatformId
+    cursorRequest?: string | null
+    limit?: string | number
 }
