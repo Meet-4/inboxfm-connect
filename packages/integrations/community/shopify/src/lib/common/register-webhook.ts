@@ -50,11 +50,25 @@ export const createShopifyWebhookTrigger = ({
           },
         },
       });
-      await context.store?.put(`shopify_webhook_id`, response.body.webhook.id);
+      await context.store?.put(`shopify_webhook_id_${name}`, response.body.webhook.id);
       console.log('webhook created', response.body.webhook.id);
     },
     async onDisable(context) {
-      const webhookId = await context.store.get<string>(`shopify_webhook_id`);
+      // The trigger store is flow-scoped, so a shared `shopify_webhook_id`
+      // key let multiple Shopify triggers in one flow clobber each other's
+      // registration: the last onEnable overwrote every earlier webhook id,
+      // and the first onDisable then deleted the wrong webhook. Give each
+      // trigger its own store key and fall back to the legacy shared key so
+      // webhooks created before this change are still deleted.
+      let storeKey = `shopify_webhook_id_${name}`;
+      let webhookId = await context.store.get<string>(storeKey);
+      if (webhookId === null || webhookId === undefined) {
+        storeKey = `shopify_webhook_id`;
+        webhookId = await context.store.get<string>(storeKey);
+      }
+      if (webhookId === null || webhookId === undefined) {
+        return;
+      }
       const shopName = context.auth.props.shopName;
       await httpClient.sendRequest<{
         webhook: {
@@ -67,7 +81,7 @@ export const createShopifyWebhookTrigger = ({
           'X-Shopify-Access-Token': context.auth.props.adminToken,
         },
       });
-      await context.store?.put(`shopify_webhook_id`, null);
+      await context.store?.put(storeKey, null);
     },
     async run(context) {
       return [context.payload.body];
