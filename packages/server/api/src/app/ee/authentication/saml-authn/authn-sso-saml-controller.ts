@@ -3,6 +3,7 @@ import { ApplicationEventName, PrincipalType } from '@inboxfm-connect/shared'
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { securityAccess } from '../../../core/security/authorization/fastify-security'
+import { authAbuseRateLimitOptions } from '../../../core/security/rate-limit'
 import { applicationEvents } from '../../../helper/application-events'
 import { networkUtils } from '../../../helper/network-utils'
 import { system } from '../../../helper/system/system'
@@ -67,6 +68,10 @@ export const authnSsoSamlController: FastifyPluginAsyncZod = async (app) => {
 const AcsRequest = {
     config: {
         security: securityAccess.public(),
+        // The assertion consumer runs SAML XML parsing + signature verification
+        // per request and hands a session-bearing redirect to whoever lands here
+        // — same abuse tier as the other unauthenticated authn entrypoints.
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         body: z.record(z.string(), z.unknown()),
@@ -79,6 +84,7 @@ const AcsRequest = {
 const LoginRequest = {
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         querystring: z.object({
@@ -90,6 +96,9 @@ const LoginRequest = {
 const DiscoverRequest = {
     config: {
         security: securityAccess.public(),
+        // Unauthenticated platform-by-domain oracle — bounded like the rest of
+        // the authn tier.
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         body: z.object({
