@@ -42,9 +42,31 @@ async function findOrWaitForConnection({ client, externalUserId, integration, co
     throw new Error(`Timed out after ${connectTimeoutMs}ms waiting for ${externalUserId} to connect ${integration}`)
 }
 
-async function findActiveConnection({ client, externalUserId, integration }: { client: InboxFM, externalUserId: string, integration: string }): Promise<Connection | undefined> {
-    const page = await client.listConnections({ externalUserId, pieceName: integration })
-    return page.data.find((connection) => connection.status === 'ACTIVE')
+// Exported for the package's example tests: the pagination walk (and its page
+// cap) is part of the quickstart's documented behavior, not an implementation
+// detail — the README tells developers to "paginate with cursor/limit".
+export async function findActiveConnection({ client, externalUserId, integration }: { client: InboxFM, externalUserId: string, integration: string }): Promise<Connection | undefined> {
+    // The server pages connections (10 per page by default), so the customer's
+    // active connection can sit past the first page. Follow `next` until it is
+    // exhausted instead of reading a single page — otherwise a customer with a
+    // fuller connection list is told to reconnect even though they are connected,
+    // and the wait loop below can never observe the connection it is polling for.
+    // The page cap keeps a misbehaving cursor sequence (a repeated cursor makes
+    // the server serve the first page again) from looping forever.
+    const MAX_PAGES = 50
+    let cursor: string | undefined = undefined
+    for (let page = 0; page < MAX_PAGES; page++) {
+        const result = await client.listConnections({ externalUserId, pieceName: integration, cursor })
+        const active = result.data.find((connection) => connection.status === 'ACTIVE')
+        if (active) {
+            return active
+        }
+        cursor = result.next ?? undefined
+        if (cursor === undefined) {
+            return undefined
+        }
+    }
+    return undefined
 }
 
 function findMissingRequiredInputs({ tool, input }: { tool: Tool, input: Record<string, unknown> }): string[] {
