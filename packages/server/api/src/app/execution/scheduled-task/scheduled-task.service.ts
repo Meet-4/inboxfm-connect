@@ -14,6 +14,8 @@ import { MoreThan } from 'typeorm'
 import { repoFactory } from '../../core/db/repo-factory'
 import { getScheduledTaskTickLockKey } from '../../database/redis/keys'
 import { distributedStore } from '../../database/redis-connections'
+import { buildPaginator } from '../../helper/pagination/build-paginator'
+import { paginationHelper } from '../../helper/pagination/pagination-utils'
 import { executionService } from '../execution.service'
 import { ScheduledTaskEntity, ScheduledTaskSchema } from './scheduled-task-entity'
 
@@ -39,6 +41,23 @@ const RE_REGISTER_BATCH_SIZE = 500
  * column, so it can never match a row.
  */
 const DB_AVAILABILITY_PROBE_ID = 'boot-scan-db-availability-probe'
+
+/**
+ * `GET /v1/scheduled-tasks` used to return every task row for the project in
+ * one response — a fake SeekPage whose `next`/`previous` were hard-coded null,
+ * so the web client's `useScheduledTasksInfiniteQuery` (which already sends
+ * cursor/limit) could never advance a page. Real cursor pagination now bounds
+ * each response. Default 100, not the usual 10: the schedules page and the
+ * dashboard render a single page with no "load more" UI, so the default must
+ * exceed realistic per-project counts. Hard max follows the record-list
+ * convention (MAX_PAGE_SIZE, issue #400).
+ */
+const DEFAULT_LIST_LIMIT = 100
+const MAX_LIST_LIMIT = 500
+
+function clampListLimit(rawLimit: string | number | undefined): number {
+    return Math.max(1, Math.min(Math.floor(Number(rawLimit ?? DEFAULT_LIST_LIMIT)) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT))
+}
 
 export const scheduledTaskService = {
     async create({ request, projectId, platformId }: CreateParams): Promise<ScheduledTask> {
@@ -97,13 +116,27 @@ export const scheduledTaskService = {
         return task
     },
 
-    async list({ projectId, platformId }: ListParams): Promise<SeekPage<ScheduledTask>> {
-        const tasks = await scheduledTaskRepo().findBy({ projectId, platformId })
-        return {
-            data: tasks,
-            next: null,
-            previous: null,
-        }
+    async list({ projectId, platformId, cursorRequest, limit }: ListParams): Promise<SeekPage<ScheduledTask>> {
+        const decodedCursor = paginationHelper.decodeCursor(cursorRequest ?? null)
+        const paginator = buildPaginator({
+            entity: ScheduledTaskEntity,
+            query: {
+                limit: clampListLimit(limit),
+                // Oldest first matches the insertion order callers saw before
+                // pagination existed, so paged and un-paged responses agree.
+                order: 'ASC',
+                afterCursor: decodedCursor.nextCursor,
+                beforeCursor: decodedCursor.previousCursor,
+            },
+        })
+
+        const query = scheduledTaskRepo()
+            .createQueryBuilder('scheduled_task')
+            .where('scheduled_task.projectId = :projectId', { projectId })
+            .andWhere('scheduled_task.platformId = :platformId', { platformId })
+
+        const { data, cursor } = await paginator.paginate(query)
+        return paginationHelper.createPage<ScheduledTask>(data, cursor)
     },
 
     async update({ id, projectId, platformId, request }: UpdateParams): Promise<ScheduledTask> {
@@ -347,6 +380,8 @@ type GetOneParams = {
 type ListParams = {
     projectId: ProjectId
     platformId: PlatformId
+    cursorRequest?: string | null
+    limit?: string | number
 }
 
 type UpdateParams = {

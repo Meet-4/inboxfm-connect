@@ -25,6 +25,8 @@ export const scheduledTaskController: FastifyPluginAsyncZod = async (fastify) =>
         return scheduledTaskService.list({
             projectId,
             platformId,
+            cursorRequest: request.query.cursor ?? null,
+            limit: request.query.limit,
         })
     })
 
@@ -101,6 +103,19 @@ const ListScheduledTasksRouteOptions = {
             Permission.READ_RUN,
             { type: ProjectResourceType.QUERY },
         ),
+    },
+    schema: {
+        tags: ['scheduled-tasks'],
+        // `projectId` stays optional: it is enforced by the QUERY resource
+        // check, not by zod, so an omitted projectId still produces the
+        // security-layer rejection the authorization tests assert (403).
+        // (`ApId` is a zod-mini schema with no `.optional()`, hence plain
+        // z.string(); the security layer does its own format validation.)
+        querystring: z.object({
+            projectId: z.string().optional(),
+            cursor: z.string().optional(),
+            limit: z.string().optional(),
+        }),
     },
 }
 
