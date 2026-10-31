@@ -6,7 +6,7 @@ icon: "hammer"
 ## Language
 
 Inboxfm Connect uses **Typescript** as its one and only language.
-The reason behind unifying the language is the ability for it to break data models and features into packages, which can be shared across its components (worker / frontend / backend). 
+The reason behind unifying the language is the ability for it to break data models and features into packages, which can be shared across its components (frontend / backend). 
 
 This enables it to focus on learning fewer tooling options and perfect them across all its packages.
 
@@ -19,8 +19,8 @@ This enables it to focus on learning fewer tooling options and perfect them acro
 
 - Framework: [Fastify](https://www.fastify.io/)
 - Database: [PostgreSQL](https://www.postgresql.org/)
-- Task Queuing: [Redis](https://redis.io/)
-- Task Worker: [BullMQ](https://github.com/taskforcesh/bullmq)
+- Cache, distributed locks & rate limiting: [Redis](https://redis.io/)
+- Background system jobs: in-process cron (`@inboxfm-connect/scheduler`) — there is no job queue and no separate task worker; flow executions run in-process in the app
 
 ## Testing
 
