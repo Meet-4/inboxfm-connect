@@ -1,6 +1,10 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { linearAuth } from '../..';
-import { makeClient } from '../common/client';
+import {
+  generateWebhookSecret,
+  makeClient,
+  verifyLinearWebhookSignature,
+} from '../common/client';
 import { props } from '../common/props';
 
 export const linearUpdatedProject = createTrigger({
@@ -50,7 +54,9 @@ export const linearUpdatedProject = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const client = makeClient(context.auth);
+    const webhookSecret = generateWebhookSecret();
     const webhook = await client.createWebhook({
+      secret: webhookSecret,
       label: 'ActivePieces Updated Project',
       url: context.webhookUrl,
       resourceTypes: ['Project'],
@@ -61,6 +67,7 @@ export const linearUpdatedProject = createTrigger({
         '_updated_project_trigger',
         {
           webhookId: (await webhook.webhook).id,
+      webhookSecret,
         }
       );
     } else {
@@ -77,6 +84,18 @@ export const linearUpdatedProject = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<WebhookInformation>('_updated_project_trigger');
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyLinearWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['linear-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Linear.');
+    }
+
     const body = context.payload.body as ProjectUpdatePayload;
 
     if (body.action !== 'update') return [];
@@ -103,6 +122,7 @@ export const linearUpdatedProject = createTrigger({
 
 interface WebhookInformation {
   webhookId: string;
+  webhookSecret?: string;
 }
 
 interface ProjectUpdatePayload {

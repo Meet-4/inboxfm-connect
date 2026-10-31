@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { AppConnectionValueForAuthProperty } from '@inboxfm-connect/pieces-framework';
 import { LinearClient, LinearDocument } from '@linear/sdk';
 import { linearAuth } from '../..';
@@ -97,3 +98,33 @@ export function makeClient(auth: AppConnectionValueForAuthProperty<typeof linear
   return new LinearClientWrapper(auth.secret_text);
 }
 
+
+// Linear signs every webhook delivery when the webhook was created with a
+// `secret`: the `Linear-Signature` header carries the hex-encoded
+// HMAC-SHA256 of the raw request body.
+// https://linear.app/developers/webhooks#securing-webhooks
+export function generateWebhookSecret(): string {
+  return randomBytes(32).toString('hex');
+}
+
+export function verifyLinearWebhookSignature(
+  secret: string,
+  signatureHeader: string | undefined,
+  rawBody: unknown
+): boolean {
+  if (!signatureHeader) {
+    return false;
+  }
+  const bodyString =
+    typeof rawBody === 'string'
+      ? rawBody
+      : Buffer.isBuffer(rawBody)
+        ? rawBody.toString('utf8')
+        : JSON.stringify(rawBody);
+  const expected = createHmac('sha256', secret).update(bodyString).digest('hex');
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
+  } catch {
+    return false;
+  }
+}

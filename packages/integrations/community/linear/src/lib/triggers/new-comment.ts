@@ -1,6 +1,10 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { linearAuth } from '../..';
-import { makeClient } from '../common/client';
+import {
+  generateWebhookSecret,
+  makeClient,
+  verifyLinearWebhookSignature,
+} from '../common/client';
 import { props } from '../common/props';
 
 export const linearNewComment = createTrigger({
@@ -43,7 +47,9 @@ export const linearNewComment = createTrigger({
   async onEnable(context) {
     const client = makeClient(context.auth);
 
+    const webhookSecret = generateWebhookSecret();
     const webhook = await client.createWebhook({
+      secret: webhookSecret,
       label: 'ActivePieces New Comment',
       url: context.webhookUrl,
       resourceTypes: ['Comment'],
@@ -53,6 +59,7 @@ export const linearNewComment = createTrigger({
     if (webhook.success && webhook.webhook) {
       await context.store?.put<WebhookInformation>('_new_comment_trigger', {
         webhookId: (await webhook.webhook).id,
+      webhookSecret,
       });
     } else {
       console.error('Failed to create the webhook');
@@ -67,6 +74,18 @@ export const linearNewComment = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<WebhookInformation>('_new_comment_trigger');
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyLinearWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['linear-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Linear.');
+    }
+
     const body = context.payload.body as {
       action: string;
       data: {
@@ -102,5 +121,6 @@ export const linearNewComment = createTrigger({
 
 interface WebhookInformation {
   webhookId: string;
+  webhookSecret?: string;
 }
 

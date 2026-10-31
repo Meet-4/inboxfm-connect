@@ -1,6 +1,10 @@
 import { createTrigger, TriggerStrategy } from '@inboxfm-connect/pieces-framework';
 import { linearAuth } from '../..';
-import { makeClient } from '../common/client';
+import {
+  generateWebhookSecret,
+  makeClient,
+  verifyLinearWebhookSignature,
+} from '../common/client';
 import { props } from '../common/props';
 
 export const linearRemovedIssue = createTrigger({
@@ -67,7 +71,9 @@ export const linearRemovedIssue = createTrigger({
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const client = makeClient(context.auth);
+    const webhookSecret = generateWebhookSecret();
     const webhook = await client.createWebhook({
+      secret: webhookSecret,
       label: 'ActivePieces Updated Issue',
       url: context.webhookUrl,
       teamId: context.propsValue['team_id'],
@@ -75,7 +81,8 @@ export const linearRemovedIssue = createTrigger({
     });
     if (webhook.success && webhook.webhook) {
       await context.store?.put<WebhookInformation>('_removed_issue_trigger', {
-        webhookId: (await webhook.webhook).id
+        webhookId: (await webhook.webhook).id,
+        webhookSecret,
       });
     } else {
       console.error('Failed to create the webhook');
@@ -91,6 +98,18 @@ export const linearRemovedIssue = createTrigger({
     }
   },
   async run(context) {
+    const storedWebhook = await context.store.get<WebhookInformation>('_removed_issue_trigger');
+    if (
+      storedWebhook?.webhookSecret &&
+      !verifyLinearWebhookSignature(
+        storedWebhook.webhookSecret,
+        context.payload.headers['linear-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error('Webhook signature verification failed. This request may not be from Linear.');
+    }
+
     const body = context.payload.body as { action: string; data: unknown};
     if (body.action === 'remove') {
       return [body.data];
@@ -101,5 +120,6 @@ export const linearRemovedIssue = createTrigger({
 
 interface WebhookInformation {
   webhookId: string;
+  webhookSecret?: string;
 }
 
