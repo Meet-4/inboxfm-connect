@@ -7,6 +7,7 @@ const WEBHOOK_DATA_STORE_KEY = 'mail_chimp_segment_tag_subscriber_webhook_data';
 
 type WebhookData = {
   id: string;
+  signingSecret?: string;
   listId: string;
   segmentId?: string;
   tagName?: string;
@@ -195,7 +196,7 @@ export const mailChimpNewSegmentTagSubscriberTrigger = createTrigger({
       const accessToken = getAccessTokenOrThrow(context.auth);
       const server = await mailchimpCommon.getMailChimpServerPrefix(accessToken);
 
-      const enabledWebhookId = await mailchimpCommon.enableWebhookRequest({
+      const enabledWebhook = await mailchimpCommon.enableWebhookRequest({
         server,
         listId: context.propsValue.list_id as string,
         token: accessToken,
@@ -206,7 +207,8 @@ export const mailChimpNewSegmentTagSubscriberTrigger = createTrigger({
       });
 
       await context.store?.put<WebhookData>(WEBHOOK_DATA_STORE_KEY, {
-        id: enabledWebhookId,
+        id: enabledWebhook.id,
+        signingSecret: enabledWebhook.signingSecret,
         listId: context.propsValue.list_id as string,
         segmentId: context.propsValue.segment_id,
         tagName: context.propsValue.tag_name,
@@ -239,6 +241,25 @@ export const mailChimpNewSegmentTagSubscriberTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
+    // Mailchimp signs each delivery with the signing secret captured at
+    // onEnable, so fail closed when it is present in the store. Webhooks
+    // created before this change have no stored secret and keep working.
+    // https://mailchimp.com/developer/marketing/guides/sync-audience-data-webhooks/
+    const storedWebhook = await context.store?.get<WebhookData>(
+      WEBHOOK_DATA_STORE_KEY
+    );
+    if (
+      storedWebhook?.signingSecret &&
+      !mailchimpCommon.verifyMailchimpWebhookSignature(
+        storedWebhook.signingSecret,
+        context.payload.headers['x-mailchimp-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Mailchimp.'
+      );
+    }
     try {
       const request = context.payload.body as any;
 

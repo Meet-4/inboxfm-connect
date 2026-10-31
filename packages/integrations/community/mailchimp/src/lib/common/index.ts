@@ -168,7 +168,7 @@ export const mailchimpCommon = {
     listId,
     webhookUrl,
     events,
-  }: EnableTriggerRequestParams): Promise<string> => {
+  }: EnableTriggerRequestParams): Promise<{ id: string; signingSecret?: string }> => {
     const response = await httpClient.sendRequest<EnableTriggerResponse>({
       method: HttpMethod.POST,
       url: `https://${server}.api.mailchimp.com/3.0/lists/${listId}/webhooks`,
@@ -187,8 +187,13 @@ export const mailchimpCommon = {
       },
     });
 
-    const { id: webhookId } = response.body;
-    return webhookId;
+    // Mailchimp returns the webhook's signing secret exactly once, in the
+    // create-webhook response; it cannot be retrieved afterwards, so capture
+    // it here and persist it alongside the webhook id for later signature
+    // verification.
+    // https://mailchimp.com/developer/marketing/guides/sync-audience-data-webhooks/
+    const { id: webhookId, signing_secret: signingSecret } = response.body;
+    return { id: webhookId, signingSecret };
   },
   disableWebhookRequest: async ({
     server,
@@ -207,6 +212,52 @@ export const mailchimpCommon = {
   },
   getMD5EmailHash: (email: string) => {
     return crypto.createHash('md5').update(email.toLowerCase()).digest('hex');
+  },
+  // Mailchimp can sign webhook deliveries with a per-webhook signing secret
+  // (returned exactly once by the create-webhook call): the
+  // `X-Mailchimp-Signature` header carries
+  // `t=<unix ts>,v1=<hex HMAC-SHA256 of `${timestamp}.${raw body}`>`.
+  // https://mailchimp.com/developer/marketing/guides/sync-audience-data-webhooks/
+  verifyMailchimpWebhookSignature: (
+    signingSecret: string,
+    signatureHeader: string | undefined,
+    rawBody: unknown
+  ): boolean => {
+    if (!signatureHeader) {
+      return false;
+    }
+    let timestamp: string | undefined;
+    const signatures: string[] = [];
+    for (const part of signatureHeader.split(',')) {
+      const [key, value] = part.split('=', 2);
+      if (key.trim() === 't') {
+        timestamp = value;
+      } else if (key.trim() === 'v1') {
+        signatures.push(value);
+      }
+    }
+    if (!timestamp || signatures.length === 0) {
+      return false;
+    }
+    const bodyString =
+      typeof rawBody === 'string'
+        ? rawBody
+        : Buffer.isBuffer(rawBody)
+          ? rawBody.toString('utf8')
+          : JSON.stringify(rawBody);
+    const expected = crypto
+      .createHmac('sha256', signingSecret)
+      .update(`${timestamp}.${bodyString}`)
+      .digest('hex');
+    try {
+      return signatures.some(
+        (signature) =>
+          expected.length === signature.length &&
+          crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+      );
+    } catch {
+      return false;
+    }
   },
 };
 
@@ -229,4 +280,10 @@ type EnableTriggerResponse = {
   id: string;
   url: string;
   list_id: string;
+  /**
+   * One-time webhook signing secret, returned exactly once by the
+   * create-webhook call and never retrievable afterwards.
+   * https://mailchimp.com/developer/marketing/guides/sync-audience-data-webhooks/
+   */
+  signing_secret?: string;
 };

@@ -8,6 +8,7 @@ const WEBHOOK_DATA_STORE_KEY = 'mail_chimp_email_opened_webhook_data';
 
 type WebhookData = {
   id: string;
+  signingSecret?: string;
   listId: string;
 };
 
@@ -138,7 +139,7 @@ export const mailChimpEmailOpenedTrigger = createTrigger({
       const accessToken = getAccessTokenOrThrow(context.auth);
       const server = await mailchimpCommon.getMailChimpServerPrefix(accessToken);
 
-      const enabledWebhookId = await mailchimpCommon.enableWebhookRequest({
+      const enabledWebhook = await mailchimpCommon.enableWebhookRequest({
         server,
         listId: context.propsValue.list_id as string,
         token: accessToken,
@@ -149,7 +150,8 @@ export const mailChimpEmailOpenedTrigger = createTrigger({
       });
 
       await context.store?.put<WebhookData>(WEBHOOK_DATA_STORE_KEY, {
-        id: enabledWebhookId,
+        id: enabledWebhook.id,
+        signingSecret: enabledWebhook.signingSecret,
         listId: context.propsValue.list_id as string,
       });
     } catch (error: any) {
@@ -180,6 +182,25 @@ export const mailChimpEmailOpenedTrigger = createTrigger({
   },
 
   async run(context): Promise<unknown[]> {
+    // Mailchimp signs each delivery with the signing secret captured at
+    // onEnable, so fail closed when it is present in the store. Webhooks
+    // created before this change have no stored secret and keep working.
+    // https://mailchimp.com/developer/marketing/guides/sync-audience-data-webhooks/
+    const storedWebhook = await context.store?.get<WebhookData>(
+      WEBHOOK_DATA_STORE_KEY
+    );
+    if (
+      storedWebhook?.signingSecret &&
+      !mailchimpCommon.verifyMailchimpWebhookSignature(
+        storedWebhook.signingSecret,
+        context.payload.headers['x-mailchimp-signature'],
+        context.payload.rawBody
+      )
+    ) {
+      throw new Error(
+        'Webhook signature verification failed. This request may not be from Mailchimp.'
+      );
+    }
     try {
       const request = context.payload.body as MailChimpOpenWebhookRequest;
 
