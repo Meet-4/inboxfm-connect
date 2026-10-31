@@ -39,6 +39,8 @@ export const apiKeyController: FastifyPluginAsyncZod = async (app) => {
         assertNotNullOrUndefined(platformId, 'platformId')
         return apiKeyService.list({
             platformId,
+            cursorRequest: req.query.cursor ?? null,
+            limit: req.query.limit,
         })
     })
 
@@ -82,6 +84,10 @@ const ListRequest = {
         security: securityAccess.platformAdminOnly([PrincipalType.USER]),
     },
     schema: {
+        querystring: z.object({
+            cursor: z.string().optional(),
+            limit: z.string().optional(),
+        }),
         response: {
             [StatusCodes.OK]: SeekPage(ApiKeyResponseWithoutValue),
         },

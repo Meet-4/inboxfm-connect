@@ -4,12 +4,31 @@ import { ApiKey, ApiKeyResponseWithValue } from '@inboxfm-connect/shared'
 import { ApiKeyEntity } from '../../api-keys/api-key.entity'
 import { repoFactory } from '../../core/db/repo-factory'
 import { transaction } from '../../core/db/transaction'
+import { buildPaginator } from '../../helper/pagination/build-paginator'
+import { paginationHelper } from '../../helper/pagination/pagination-utils'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 
 const API_KEY_TOKEN_LENGTH = 64
 const DEFAULT_ROTATION_GRACE_PERIOD_SECONDS = 86400
-const repo = repoFactory<ApiKey>(ApiKeyEntity)
+// Untyped generic (matching the user-service/execution-service convention) so
+// the repository element type (ApiKeySchema, incl. the platform relation)
+// lines up with buildPaginator's `entity: ApiKeyEntity`.
+const repo = repoFactory(ApiKeyEntity)
+
+/**
+ * `GET /v1/api-keys` used to return every key row for the platform in a fake
+ * SeekPage (hard-coded null cursors). Real cursor pagination now bounds each
+ * response. Default 100 because the platform settings page renders one page
+ * with no "load more" UI, so the default must exceed realistic key counts;
+ * hard max follows the record-list convention (issue #400).
+ */
+const DEFAULT_LIST_LIMIT = 100
+const MAX_LIST_LIMIT = 500
+
+function clampListLimit(rawLimit: string | number | undefined): number {
+    return Math.max(1, Math.min(Math.floor(Number(rawLimit ?? DEFAULT_LIST_LIMIT)) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT))
+}
 
 // Lookup-by-value (used by authentication) lives in the non-ee apiKeyService at
 // ../../api-keys/api-key.service — it must stay reachable from CE code.
@@ -33,16 +52,25 @@ export const apiKeyService = {
             value: generatedApiKey.secret,
         }
     },
-    async list({ platformId }: ListParams): Promise<SeekPage<ApiKey>> {
-        const data = await repo().findBy({
-            platformId,
+    async list({ platformId, cursorRequest, limit }: ListParams): Promise<SeekPage<ApiKey>> {
+        const decodedCursor = paginationHelper.decodeCursor(cursorRequest ?? null)
+        const paginator = buildPaginator({
+            entity: ApiKeyEntity,
+            query: {
+                limit: clampListLimit(limit),
+                // Oldest first matches the pre-pagination display order.
+                order: 'ASC',
+                afterCursor: decodedCursor.nextCursor,
+                beforeCursor: decodedCursor.previousCursor,
+            },
         })
 
-        return {
-            data,
-            next: null,
-            previous: null,
-        }
+        const query = repo()
+            .createQueryBuilder('api_key')
+            .where('api_key.platformId = :platformId', { platformId })
+
+        const { data, cursor } = await paginator.paginate(query)
+        return paginationHelper.createPage<ApiKey>(data, cursor)
     },
     async delete({ platformId, id }: KeyIdentityParams): Promise<void> {
         await getOwnedKeyOrThrow({ platformId, id })
@@ -138,4 +166,6 @@ type KeyIdentityParams = {
 
 type ListParams = {
     platformId?: string
+    cursorRequest?: string | null
+    limit?: string | number
 }
