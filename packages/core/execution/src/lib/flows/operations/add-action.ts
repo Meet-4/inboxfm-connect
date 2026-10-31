@@ -91,6 +91,19 @@ function handleLoopOnItems(parentStep: LoopOnItemsAction, request: AddActionRequ
 
 function handleRouter(parentStep: RouterAction, request: AddActionRequest): Step {
     if (request.stepLocationRelativeToParent === StepLocationRelativeToParent.INSIDE_BRANCH && !isNil(request.branchIndex)) {
+        // The router's children array is index-aligned with settings.branches. An
+        // out-of-range branchIndex used to be assigned directly into children,
+        // producing a sparse array whose holes serialize to null — children and
+        // branches fell out of sync, the added step became unreachable, and the
+        // version still reported valid. Reject indexes that have no branch.
+        if (request.branchIndex < 0 || request.branchIndex >= parentStep.settings.branches.length) {
+            throw new ActivepiecesError({
+                code: ErrorCode.FLOW_OPERATION_INVALID,
+                params: {
+                    message: `Cannot add step inside branch ${request.branchIndex} of router "${parentStep.name}": the router has ${parentStep.settings.branches.length} branches.`,
+                },
+            })
+        }
         parentStep.children[request.branchIndex] = createAction(request.action, {
             nextAction: parentStep.children[request.branchIndex] ?? undefined,
         })
