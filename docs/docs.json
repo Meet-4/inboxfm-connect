@@ -555,10 +555,10 @@
                         ]
                      },
                      {
-                        "group": "Worker Machines",
+                        "group": "Health",
                         "icon": "server",
                         "pages": [
-                           "endpoints/worker-machines/queue-metrics"
+                           "endpoints/health/queue-metrics"
                         ]
                      },
                      {

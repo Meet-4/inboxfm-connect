@@ -1,0 +1,8 @@
+---
+title: 'Queue Metrics'
+openapi: GET /v1/health/queue-metrics
+---
+
+<Warning>
+The current implementation of this endpoint is a stub: it always returns `running: 0`, `queued: 0`, and an empty `stuckJobs` list, regardless of the requested window. There is no job queue to measure — flow executions run in-process in the app — so the counts stay zero until real metrics are implemented.
+</Warning>
