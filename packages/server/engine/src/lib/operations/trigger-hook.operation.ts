@@ -1,6 +1,6 @@
 import { inspect } from 'util'
 import { formatPieceError } from '@inboxfm-connect/core-utils'
-import { EngineResponse, EngineResponseStatus, ExecuteTriggerOperation, ExecuteTriggerResponse, TriggerHookType } from '@inboxfm-connect/shared'
+import { EngineResponse, EngineResponseStatus, ExecuteTriggerOperation, ExecuteTriggerResponse, ExecutionError, ExecutionErrorType, TriggerHookType } from '@inboxfm-connect/shared'
 import { EngineConstants, ResolvedExecuteTriggerOperation } from '../handler/context/engine-constants'
 import { triggerHelper } from '../helper/trigger-helper'
 import { utils } from '../utils'
@@ -24,8 +24,18 @@ export const triggerHookOperation = {
             }),
         )
         if (error) {
+            // Mirror the classification in operations/index.ts: only USER-level
+            // ExecutionErrors are user failures. Anything else — a plain TypeError
+            // from piece trigger code, a non-ExecutionError crash — is an internal
+            // failure: label it INTERNAL_ERROR and log it, instead of silently
+            // reporting an engine bug as the user's fault (and losing the crash
+            // from the engine's error log).
+            const isUserError = error instanceof ExecutionError && error.type === ExecutionErrorType.USER
+            if (!isUserError) {
+                console.error(error)
+            }
             return {
-                status: EngineResponseStatus.USER_FAILURE,
+                status: isUserError ? EngineResponseStatus.USER_FAILURE : EngineResponseStatus.INTERNAL_ERROR,
                 response: undefined as unknown as ExecuteTriggerResponse<TriggerHookType>,
                 error: JSON.stringify(formatPieceError(error, { raw: inspect(error) })),
             }

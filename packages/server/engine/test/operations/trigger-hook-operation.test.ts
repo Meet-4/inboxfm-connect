@@ -1,6 +1,9 @@
 import {
+    EngineGenericError,
+    EngineResponseStatus,
     FlowTriggerType,
     FlowVersionState,
+    PropsValidationError,
     TriggerHookType,
 } from '@inboxfm-connect/shared'
 import type { ExecuteTriggerOperation, FlowVersion } from '@inboxfm-connect/shared'
@@ -128,6 +131,60 @@ describe('triggerHookOperation payload resolution', () => {
 
         expect(mockExecuteTrigger).toHaveBeenCalledTimes(1)
         expect(mockExecuteTrigger.mock.calls[0][0].params.triggerBinding.id).toBe('tb-1')
+    })
+})
+
+describe('triggerHookOperation failure classification', () => {
+    beforeEach(() => {
+        mockDownload.mockReset()
+        mockExecuteTrigger.mockReset()
+        mockExecuteTrigger.mockResolvedValue({ success: true, output: [] })
+    })
+
+    it('classifies a USER-level ExecutionError as USER_FAILURE', async () => {
+        mockExecuteTrigger.mockRejectedValueOnce(new PropsValidationError({
+            channel: ['Expected string, received: undefined'],
+        }))
+
+        const response = await triggerHookOperation.execute(makeOperation({ type: 'inline', value: {} }))
+
+        expect(response.status).toBe(EngineResponseStatus.USER_FAILURE)
+        expect(response.status).not.toBe(EngineResponseStatus.INTERNAL_ERROR)
+    })
+
+    it('classifies a non-ExecutionError crash as INTERNAL_ERROR, mirroring operations/index.ts', async () => {
+        mockExecuteTrigger.mockRejectedValueOnce(new TypeError('piece trigger code crashed'))
+
+        const response = await triggerHookOperation.execute(makeOperation({ type: 'inline', value: {} }))
+
+        expect(response.status).toBe(EngineResponseStatus.INTERNAL_ERROR)
+        expect(response.status).not.toBe(EngineResponseStatus.USER_FAILURE)
+        expect(response.error).toContain('piece trigger code crashed')
+    })
+
+    it('logs non-user failures via console.error so engine crashes are not silent', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        mockExecuteTrigger.mockRejectedValueOnce(new TypeError('boom'))
+        await triggerHookOperation.execute(makeOperation({ type: 'inline', value: {} }))
+        expect(consoleErrorSpy).toHaveBeenCalledTimes(1)
+        consoleErrorSpy.mockRestore()
+    })
+
+    it('does not log USER-level ExecutionErrors via console.error', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        mockExecuteTrigger.mockRejectedValueOnce(new PropsValidationError({
+            channel: ['Expected string, received: undefined'],
+        }))
+        await triggerHookOperation.execute(makeOperation({ type: 'inline', value: {} }))
+        expect(consoleErrorSpy).not.toHaveBeenCalled()
+        consoleErrorSpy.mockRestore()
+    })
+
+    it('re-throws ENGINE-level ExecutionErrors so operations/index.ts classifies them INTERNAL_ERROR', async () => {
+        mockExecuteTrigger.mockRejectedValueOnce(new EngineGenericError('TriggerSandboxError', 'engine died'))
+
+        await expect(triggerHookOperation.execute(makeOperation({ type: 'inline', value: {} })))
+            .rejects.toThrow('engine died')
     })
 })
 
