@@ -6,6 +6,22 @@ import { ToolCallEntity, ToolCallSchema } from './tool-call-entity'
 
 const toolCallRepo = repoFactory<ToolCallSchema>(ToolCallEntity)
 
+/**
+ * `GET /v1/executions/:id/tool-calls` used to return every matching row with
+ * no bound — a runaway agent loop that logs a tool call per iteration would
+ * drag the whole table (input/output payloads included) into one JSON
+ * response. The response stays `ToolCall[]` (the timeline UI maps the array
+ * directly), so the bound is a row cap: default 500, hard max 1000. Nothing
+ * in the runtime writes tool-call rows yet, so today's consumers see no
+ * change; the cap protects the contract the moment a writer lands.
+ */
+const DEFAULT_TOOL_CALLS_LIMIT = 500
+const MAX_TOOL_CALLS_LIMIT = 1000
+
+function clampToolCallsLimit(rawLimit: string | number | undefined): number {
+    return Math.max(1, Math.min(Math.floor(Number(rawLimit ?? DEFAULT_TOOL_CALLS_LIMIT)) || DEFAULT_TOOL_CALLS_LIMIT, MAX_TOOL_CALLS_LIMIT))
+}
+
 const toolCallService = {
     async createPending({
         executionId,
@@ -218,13 +234,16 @@ const toolCallService = {
     async listForExecution({
         executionId,
         projectId,
+        limit,
     }: {
         executionId: string
         projectId: string
+        limit?: string | number
     }): Promise<ToolCall[]> {
         return toolCallRepo().find({
             where: { executionId, projectId },
             order: { created: 'ASC' },
+            take: clampToolCallsLimit(limit),
         })
     },
 }

@@ -46,6 +46,7 @@ export const executionController: FastifyPluginAsyncZod = async (fastify) => {
         return toolCallService.listForExecution({
             executionId: request.params.id,
             projectId: request.projectId,
+            limit: request.query.limit,
         })
     })
 
@@ -227,6 +228,13 @@ const ListToolCallsOptions = {
     schema: {
         tags: ['executions'],
         params: GetExecutionParams,
+        // The response stays `z.array(ToolCall)`: the activity timeline maps
+        // the array directly and has no page UI, so the bound is a row cap
+        // applied in the service (default 500, hard max 1000), not a page
+        // envelope. `limit` lets an authorized caller trade rows explicitly.
+        querystring: z.object({
+            limit: z.string().optional(),
+        }),
         response: {
             [StatusCodes.OK]: z.array(ToolCall),
         },
