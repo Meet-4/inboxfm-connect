@@ -10,7 +10,10 @@ async function testEndpoint(auth: string): Promise<boolean> {
 	try {
 		await httpClient.sendRequest({
 			method: HttpMethod.GET,
-			url: `${BASE_URL}api/user/info`,
+			// GET api/cube (list cubes) is the live, documented Web API
+			// route the new-csv-cube trigger already uses; the old
+			// api/user/info route answers 404 for every key.
+			url: `${BASE_URL}api/cube`,
 			authentication: {
 				type: AuthenticationType.BEARER_TOKEN,
 				token: auth,
