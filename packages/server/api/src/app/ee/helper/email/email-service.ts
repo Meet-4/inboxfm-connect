@@ -147,29 +147,6 @@ export const emailService = (log: FastifyBaseLogger) => ({
             templateData: otpToTemplate[type],
         })
     },
-
-    async sendChatNotification({ platformId, to, subject, body, senderName, senderEmail }: SendChatNotificationArgs): Promise<void> {
-        log.info({
-            platform: { id: platformId },
-            recipientCount: to.length,
-            subject,
-        }, '[emailService#sendChatNotification] sending chat notification email')
-
-        await emailSender(log).send({
-            emails: to,
-            platformId,
-            replyTo: senderEmail,
-            templateData: {
-                name: 'chat-notification',
-                vars: {
-                    subject,
-                    body,
-                    senderName,
-                    senderEmail,
-                },
-            },
-        })
-    },
 })
 
 async function getEntityNameForInvitation(userInvitation: UserInvitation, log: FastifyBaseLogger): Promise<{ name: string, role: string }> {
@@ -220,13 +197,4 @@ type SendOtpArgs = {
 type SendScimUserWelcomeArgs = {
     email: string
     platformId: string
-}
-
-type SendChatNotificationArgs = {
-    platformId: string
-    to: string[]
-    subject: string
-    body: string
-    senderName: string
-    senderEmail: string
 }

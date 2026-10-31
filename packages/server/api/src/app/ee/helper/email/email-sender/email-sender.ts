@@ -66,13 +66,6 @@ type ScimUserWelcomeTemplateData = BaseEmailTemplateData<'scim-user-welcome', {
     loginLink: string
 }>
 
-type ChatNotificationTemplateData = BaseEmailTemplateData<'chat-notification', {
-    subject: string
-    body: string
-    senderName: string
-    senderEmail: string
-}>
-
 export type EmailTemplateData =
   | InvitationEmailTemplateData
   | ProjectMemberAddedEmailTemplateData
@@ -80,7 +73,6 @@ export type EmailTemplateData =
   | VerifyEmailTemplateData
   | IssueCreatedTemplateData
   | ScimUserWelcomeTemplateData
-  | ChatNotificationTemplateData
 
 type SendArgs = {
     emails: string[]

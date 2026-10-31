@@ -68,11 +68,6 @@ describe('Email subject formatting (Issue #355)', () => {
                 templateName: 'issue-created',
                 vars: { projectName: 'Acme', flowName: 'Sync Contacts' },
             })).toBe('[Acme] Flow has an issue "Sync Contacts" ⚠️')
-
-            expect(getEmailSubject({
-                templateName: 'chat-notification',
-                vars: { subject: 'New message from support' },
-            })).toBe('New message from support')
         })
     })
 })

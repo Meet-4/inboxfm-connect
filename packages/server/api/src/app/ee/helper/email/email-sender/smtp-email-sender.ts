@@ -148,7 +148,6 @@ export const getEmailSubject = ({
         'reset-password': 'Reset your password 🔑',
         'issue-created': `[${vars.projectName}] Flow has an issue "${vars.flowName}" ⚠️`,
         'scim-user-welcome': `Welcome to ${platformName ?? defaultTheme.websiteName} 🎉`,
-        'chat-notification': vars.subject,
     }
 
     return templateToSubject[templateName]
