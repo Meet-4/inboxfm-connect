@@ -40,6 +40,12 @@ export const docusignAuth = PieceAuth.CustomAuth({
       description:
         "Comma-separated list of scopes. These represent the OAuth scopes (permissions) that are being requested. For eSignature REST API methods, use the signature scope. The impersonation scope is implied by the JWT Grant operation and does not need to be included. If the access token will be used for other Docusign APIs, additional scopes may be required; see each API's <https://developers.docusign.com/docs/esign-rest-api/esign101/auth/|authentication> requirements",
     }),
+    webhookSecret: PieceAuth.SecretText({
+      displayName: 'Webhook Secret (Connect HMAC Key)',
+      description:
+        'Optional but strongly recommended. DocuSign Connect signs each delivery when HMAC security is enabled on the Connect configuration (eSignature Settings -> Connect -> Integration and Security Settings -> Include HMAC Signature): the base64 HMAC-SHA256 of the raw body is sent in the X-DocuSign-Signature-1..N headers, one per active HMAC key. When provided, webhook triggers verify each delivery and reject unsigned or tampered requests. Existing connections keep working without it (deliveries are accepted unsigned); fill this in to turn on verification.',
+      required: false,
+    }),
   },
   validate: async ({ auth, server }) => {
     try {
