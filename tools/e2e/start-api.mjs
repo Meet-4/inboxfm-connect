@@ -41,7 +41,6 @@ const child = spawn(process.execPath, [resolve('packages/server/api/dist/src/boo
         AP_TELEMETRY_ENABLED: 'false',
         AP_LOG_LEVEL: 'warn',
         AP_LOG_PRETTY: 'false',
-        AP_QUEUE_UI_ENABLED: 'false',
     },
 })
 

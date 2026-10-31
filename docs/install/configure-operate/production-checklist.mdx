@@ -38,7 +38,6 @@ The exhaustive list with defaults lives in [Environment Variables](/install/refe
 
 - TLS termination (see below) — nothing in the app enforces HTTPS; an operator who forgets it just serves plaintext.
 - SMTP (see below) — invitations and password resets silently no-op via the log-only sender if unset, rather than erroring.
-- `AP_QUEUE_UI_USERNAME`/`AP_QUEUE_UI_PASSWORD` — required *if* `AP_QUEUE_UI_ENABLED=true` (the default); leaving the queue UI enabled without credentials exposes job internals on whatever port serves it.
 
 **Dev-only defaults that must never reach production:** `.env.dev` at the repo root is loaded automatically by the local dev server (`bootstrap.ts` reads it directly, and `tools/setup-dev.js` parses it) — it's checked into the repo for local-development convenience and its values are not production secrets. Separately, `tools/deploy.sh` copies `.env.example` to `.env` and **already randomizes** `AP_API_KEY`, `AP_POSTGRES_PASSWORD`, `AP_JWT_SECRET`, and `AP_ENCRYPTION_KEY` with `openssl rand` as part of that copy — that's the intended path for a fresh production `.env`, not something you need to do by hand on top of it. The actual risk is skipping that script and hand-copying `.env.dev` (or an unrandomized `.env.example`) into a production deployment instead. Either way, never commit a filled-in `.env` to version control.
 
@@ -96,7 +95,6 @@ If you're planning to use any Enterprise-gated feature (SSO, SCIM, audit logs, c
 - [ ] Deployment secrets are injected via your platform's secret store, not baked into the image or committed to version control.
 - [ ] `AP_EXECUTION_MODE` is a sandboxed mode (not `UNSANDBOXED`) if you're multi-tenant or on `ee`/`cloud` in production — boot-enforced for `ee`/`cloud`, your own responsibility on `ce`.
 - [ ] `AP_FILE_STORAGE_LOCATION` decision made deliberately (DB is fine to start; S3 config is smoke-tested at boot if you switch).
-- [ ] `AP_QUEUE_UI_ENABLED` is either `false` or has real `AP_QUEUE_UI_USERNAME`/`PASSWORD` set.
 - [ ] Observability drain configured and a `warn`/`error` event confirmed to reach it — see the [Observability checklist](./setup-opentelemetry#pre-launch-checklist).
 - [ ] Postgres backups enabled and a restore has actually been rehearsed — see the [Backup checklist](./backup-and-restore#pre-launch-checklist).
 - [ ] If using Enterprise features, the license is activated (**Platform Admin → Setup → License Keys**) and you've confirmed which features it actually unlocks — see [License & Editions](/about/license).

@@ -123,9 +123,6 @@ inspecting jobs.
 | `AP_REDIS_SENTINEL_ROLE` | Role to connect to, either `master` or `slave`. | `None` |
 | `AP_REDIS_FAILED_JOB_RETENTION_DAYS` | Days to retain failed jobs in Redis. | `30` |
 | `AP_REDIS_FAILED_JOB_RETENTION_MAX_COUNT` | Maximum number of failed jobs to retain in Redis. | `100000` |
-| `AP_QUEUE_UI_ENABLED` | Enable the queue UI (Redis only). | `true` |
-| `AP_QUEUE_UI_USERNAME` | Username for the queue UI. Required when `AP_QUEUE_UI_ENABLED` is `true`. | `None` |
-| `AP_QUEUE_UI_PASSWORD` | Password for the queue UI. Required when `AP_QUEUE_UI_ENABLED` is `true`. | `None` |
 
 <Info>
 If `AP_REDIS_URL` is set, all other **Redis properties are ignored**. The same

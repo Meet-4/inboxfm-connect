@@ -26,14 +26,6 @@ export const domainHelper = {
     async getInternalApiUrl({ path }: InternalUrlParams): Promise<string> {
         return this.getInternalUrl({ path: `/api/${cleanLeadingSlash(path ?? '')}` })
     },
-    async getApiUrlForWorker({ path }: PublicUrlParams): Promise<string> {
-        const hasWorkerModule = system.isWorker()
-        if (hasWorkerModule) {
-            const port = system.get(AppSystemProp.PORT)
-            return networkUtils.combineUrl(`http://127.0.0.1:${port}/api`, path ?? '')
-        }
-        return this.getInternalApiUrl({ path: path ?? '' })
-    },
 }
 
 function cleanLeadingSlash(path: string) {

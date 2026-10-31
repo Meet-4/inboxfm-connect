@@ -231,10 +231,6 @@ inboxfmConnectEnvVariables:
     - AP_GOOGLE_CLIENT_ID
     - AP_GOOGLE_CLIENT_SECRET
     - AP_FIREBASE_HASH_PARAMETERS
-  inboxfm-connect-queue-secrets:
-    - AP_QUEUE_UI_ENABLED
-    - AP_QUEUE_UI_USERNAME
-    - AP_QUEUE_UI_PASSWORD
   inboxfm-connect-log-secrets:
     - AP_LOG_LEVEL
     - AP_LOG_PRETTY
