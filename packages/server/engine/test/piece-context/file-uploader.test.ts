@@ -107,15 +107,26 @@ describe('file-uploader service', () => {
     })
 
     it('throws when the initial PUT fails', async () => {
-        vi.spyOn(global, 'fetch').mockResolvedValue(new Response(
-            'Internal Server Error',
-            { status: 500 },
-        ))
+        // A persistent 500 is retried by engineFileApi's retry policy with
+        // exponential backoff — drive those delays with fake timers so the
+        // test does not wait ~20s of real backoff before asserting the failure.
+        vi.useFakeTimers()
+        try {
+            vi.spyOn(global, 'fetch').mockResolvedValue(new Response(
+                'Internal Server Error',
+                { status: 500 },
+            ))
 
-        const files = createFileUploader(SERVICE_PARAMS)
-        await expect(
-            files.write({ fileName: 'test.txt', data: Buffer.from('hello') }),
-        ).rejects.toThrow(EngineGenericError)
+            const files = createFileUploader(SERVICE_PARAMS)
+            const pending = expect(
+                files.write({ fileName: 'test.txt', data: Buffer.from('hello') }),
+            ).rejects.toThrow(EngineGenericError)
+            await vi.advanceTimersByTimeAsync(30_000)
+            await pending
+        }
+        finally {
+            vi.useRealTimers()
+        }
     })
 
     it('throws when the S3 PUT fails', async () => {

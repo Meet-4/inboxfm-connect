@@ -5,9 +5,23 @@ import fetchRetry from 'fetch-retry'
 
 const zstdDecompress = promisify(zstdDecompressCallback)
 
+// fetch-retry v6 defaults `retryOn: []`, which NEVER retries on an HTTP status —
+// only network-level failures — so `retries: 3` below never applied to a 502/503
+// from a restarting API: the request failed on the very first response. Retry
+// the transient statuses explicitly. Every 4xx stays terminal (404/410 map to
+// EngineFileNotFoundError, other client errors to EngineGenericError), so a bad
+// request can never be retried forever. Retry-After on 429s is not honored;
+// the backoff below is the wait budget instead.
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504]
+
 const RETRY_CONFIG = {
     retries: 3,
-    retryDelay: 3000,
+    retryOn: RETRYABLE_STATUS_CODES,
+    // Exponential backoff with ±20% jitter: a flat delay puts every sandbox
+    // engine retrying in lockstep against an API that just came back — the
+    // thundering herd the retry is trying to recover from. attempt is 0-based,
+    // so the delays are ~2.4s / ~4.8s / ~9.6s at the jitter floor.
+    retryDelay: (attempt: number): number => Math.round(3000 * 2 ** attempt * (0.8 + 0.4 * Math.random())),
 } as const
 
 const READ_URL_HEADER = 'x-ap-file-read-url'
