@@ -11,13 +11,59 @@ import { AppSystemProp } from '../../helper/system/system-props'
 import { FieldEntity, FieldSchema } from '../field/field.entity'
 import { fieldService } from '../field/field.service'
 import { CellEntity } from '../record/cell.entity'
-import { RecordEntity } from '../record/record.entity'
+import { RecordEntity, RecordSchema } from '../record/record.entity'
 import { TableEntity } from './table.entity'
 
 export const tableRepo = repoFactory(TableEntity)
 export const recordRepo = repoFactory(RecordEntity)
 const tablePieceName = '@inboxfm-connect/piece-tables'
 const MAX_BATCH_SIZE = 50
+
+/**
+ * Export-style reads (`GET /v1/tables/:id/export`, `GET /v1/tables/:id/template`)
+ * used to hydrate every record WITH its cells in a single
+ * `find({ relations: ['cells'] })` — a table with R records and F fields
+ * materialized R*(F+1) entities (records + every cell row) in one request
+ * before a single JSON byte was written. Records are now fetched in
+ * deterministic (`id ASC`) batches: each query pins at most
+ * EXPORT_RECORD_BATCH_SIZE record entities plus their cells, and the total is
+ * refused past MAX_EXPORT_RECORDS — an unbounded export is a server OOM, not
+ * a feature, and both endpoints are readable by every SERVICE principal.
+ */
+const EXPORT_RECORD_BATCH_SIZE = 500
+const MAX_EXPORT_RECORDS = 50_000
+
+async function listRecordsWithCellsForExport({ projectId, tableId }: { projectId: string, tableId: string }): Promise<RecordSchema[]> {
+    const records: RecordSchema[] = []
+    let offset = 0
+
+    for (;;) {
+        const batch = await recordRepo().find({
+            where: { tableId, projectId },
+            relations: ['cells'],
+            order: { id: 'ASC' },
+            take: EXPORT_RECORD_BATCH_SIZE,
+            skip: offset,
+        })
+
+        records.push(...batch)
+
+        if (batch.length < EXPORT_RECORD_BATCH_SIZE) {
+            return records
+        }
+
+        offset += EXPORT_RECORD_BATCH_SIZE
+
+        if (offset >= MAX_EXPORT_RECORDS) {
+            throw new ActivepiecesError({
+                code: ErrorCode.VALIDATION,
+                params: {
+                    message: `Table export is capped at ${MAX_EXPORT_RECORDS} records. Table ${tableId} exceeds the export limit — narrow the table or export a subset.`,
+                },
+            })
+        }
+    }
+}
 
 export const tableService = {
     async create({
@@ -135,10 +181,7 @@ export const tableService = {
 
         const fields = await fieldService.getAll({ projectId, tableId })
 
-        const records = await recordRepo().find({
-            where: { tableId: table.id, projectId },
-            relations: ['cells'],
-        })
+        const records = await listRecordsWithCellsForExport({ projectId, tableId: table.id })
 
         const rows: TableDataState['rows'] = records.map((record) => {
             const row: { fieldId: string, value: string }[] = []
@@ -207,10 +250,7 @@ export const tableService = {
 
         const fields = await fieldService.getAll({ projectId, tableId: id })
 
-        const records = await recordRepo().find({
-            where: { tableId: id, projectId },
-            relations: ['cells'],
-        })
+        const records = await listRecordsWithCellsForExport({ projectId, tableId: id })
 
         const rows = records.map((record) => {
             const row: Record<string, string> = {}
