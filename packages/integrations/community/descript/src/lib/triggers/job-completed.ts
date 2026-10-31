@@ -69,7 +69,7 @@ const polling: Polling<
   TriggerProps
 > = {
   strategy: DedupeStrategy.TIMEBASED,
-  items: async ({ auth, propsValue, lastFetchEpochMS }) => {
+  items: async ({ auth, propsValue }) => {
     const { job_type_filter } = propsValue;
     const apiKey = descriptCommon.getAuthToken(auth);
     const params: Record<string, string> = { limit: '100' };
@@ -77,10 +77,12 @@ const polling: Polling<
       params['type'] = job_type_filter;
     }
 
-    // Use created_after to avoid re-fetching full history on every poll.
-    if (lastFetchEpochMS > 0) {
-      params['created_after'] = new Date(lastFetchEpochMS).toISOString();
-    }
+    // Do NOT filter with created_after: the event this trigger detects is job
+    // completion (stopped_at), not creation. Filtering server-side by creation
+    // time made jobs whose runtime exceeded one poll interval invisible to
+    // every subsequent poll, dropping their completion events. The API returns
+    // recent jobs by default (7-day window) and items() filters client-side on
+    // stopped_at, which pollingHelper dedupes via the epoch cursor.
 
     const allJobs: JobItem[] = [];
     let cursor: string | undefined = undefined;
