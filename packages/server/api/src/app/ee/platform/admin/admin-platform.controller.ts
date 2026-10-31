@@ -7,6 +7,7 @@ import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { securityAccess } from '../../../core/security/authorization/fastify-security'
+import { authAbuseRateLimitOptions } from '../../../core/security/rate-limit'
 import { system } from '../../../helper/system/system'
 import { AppSystemProp } from '../../../helper/system/system-props'
 import { pieceMetadataService } from '../../../pieces/metadata/piece-metadata-service'
@@ -88,6 +89,7 @@ const UpdateWorkerGroupRequest = {
     },
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
 }
 
@@ -97,6 +99,7 @@ const ApplyLicenseKeyByEmailRequest = {
     },
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
 }
 
@@ -106,6 +109,7 @@ const IncreaseAICreditsForPlatformRequest = {
     },
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
 }
 
@@ -150,6 +154,7 @@ const CreatePieceRequest = {
     },
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
 }
 
