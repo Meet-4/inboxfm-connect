@@ -194,8 +194,27 @@ function _validateImportBranches(trigger: FlowTrigger): void {
     }
 }
 
+function _validateImportedStepNames(trigger: FlowTrigger): void {
+    const seenNames = new Set<string>()
+    for (const step of flowStructureUtil.getAllSteps(trigger)) {
+        if (seenNames.has(step.name)) {
+            throw new ActivepiecesError({
+                code: ErrorCode.FLOW_OPERATION_INVALID,
+                params: {
+                    message: `Imported flow contains duplicate step name "${step.name}". Step names must be unique (including the trigger name).`,
+                },
+            })
+        }
+        seenNames.add(step.name)
+    }
+}
+
 function _importFlow(flowVersion: FlowVersion, request: ImportFlowRequest): FlowOperationRequest[] {
     _validateImportBranches(request.trigger)
+    // The import tree is grafted as-is (the trigger's nextAction is parsed as z.any,
+    // so nothing else checks it), so duplicates in it would land directly in the
+    // version and make every name-addressed operation ambiguous.
+    _validateImportedStepNames(request.trigger)
 
     const existingActions = flowStructureUtil.getAllNextActionsWithoutChildren(flowVersion.trigger)
 

@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { isNil } from '@inboxfm-connect/core-utils'
+import { ActivepiecesError, ErrorCode, isNil } from '@inboxfm-connect/core-utils'
 import { FlowAction } from '../actions/action'
 import { FlowVersion } from '../flow-version'
 import { SampleDataSettings } from '../sample-data'
@@ -42,11 +42,23 @@ function createTrigger(name: string, request: UpdateTriggerRequest, nextAction: 
 }
 
 function _updateTrigger(flowVersion: FlowVersion, request: UpdateTriggerRequest): FlowVersion {
+    // Only the flow's root trigger can be updated. A request whose name matched any
+    // step used to replace that step — including an action — with a trigger object,
+    // grafting a second trigger into the middle of the tree while the version
+    // stayed valid. Require the request to address the root trigger by name.
+    if (flowVersion.trigger.name !== request.name) {
+        throw new ActivepiecesError({
+            code: ErrorCode.FLOW_OPERATION_INVALID,
+            params: {
+                message: `Cannot update trigger: "${request.name}" is not this flow's trigger step ("${flowVersion.trigger.name}"). Only the trigger can be updated with this operation.`,
+            },
+        })
+    }
     const trigger = flowStructureUtil.getStepOrThrow(request.name, flowVersion.trigger)
     const existingSampleData = trigger.type === FlowTriggerType.PIECE ? trigger.settings.sampleData : undefined
     const updatedTrigger = createTrigger(request.name, request, trigger.nextAction, existingSampleData)
     const next = flowStructureUtil.transferFlow(flowVersion, (parentStep) => {
-        if (parentStep.name === request.name) {
+        if (parentStep.name === request.name && flowStructureUtil.isTrigger(parentStep.type)) {
             return updatedTrigger
         }
         return parentStep

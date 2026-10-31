@@ -149,6 +149,20 @@ function handleContinueOnFailureBranches(parentStep: Step, request: AddActionReq
 }
 
 function _addAction(flowVersion: FlowVersion, request: AddActionRequest): FlowVersion {
+    // Steps are addressed by name everywhere (lookup, updates, deletes, execution
+    // output keys, mustache references), so a duplicate name makes every one of
+    // those ambiguous. The name "trigger" is worse: the transfer walks by name, so
+    // re-adding a step whose name matches the matched parent re-triggers the add
+    // on every visited step and recurses until the stack overflows. Enforce
+    // uniqueness across all existing steps (the trigger's name included).
+    if (flowStructureUtil.getAllSteps(flowVersion.trigger).some((step) => step.name === request.action.name)) {
+        throw new ActivepiecesError({
+            code: ErrorCode.FLOW_OPERATION_INVALID,
+            params: {
+                message: `Step name "${request.action.name}" is already used by another step in this flow (including the trigger). Step names must be unique.`,
+            },
+        })
+    }
     // Adding a step under a parent that does not exist in the flow used to be a
     // silent no-op (transferFlow simply matched nothing), which made composed
     // operations — MOVE_ACTION batches, pastes with stale parent names, imports —
