@@ -114,6 +114,11 @@ export const userIdentityService = (log: FastifyBaseLogger) => ({
     async update(id: string, params: UpdateParams): Promise<void> {
         await userIdentityRepository().update(id, {
             ...params,
+            // A password change must revoke every existing session, exactly like
+            // updatePassword(): tokenVersion is the only revocation axis for the
+            // stateless session JWTs, so it rotates whenever a new password is
+            // set through this path too. Profile-only updates never rotate it.
+            ...(params.password ? { tokenVersion: nanoid() } : {}),
             ...spreadIfDefined('password', params.password ? await passwordHasher.hash(params.password) : undefined),
         })
     },
