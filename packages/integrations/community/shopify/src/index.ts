@@ -71,6 +71,12 @@ export const shopifyAuth = PieceAuth.CustomAuth({
       displayName: 'Admin Token',
       required: true,
     }),
+    webhookSecret: PieceAuth.SecretText({
+      displayName: 'Webhook Secret (API Secret Key)',
+      description:
+        'Optional but strongly recommended. Shopify signs every webhook delivery with the API secret key of the app that created the webhook (Settings -> Apps -> Develop apps -> your app -> App credentials -> API secret key), sent in the X-Shopify-Hmac-Sha256 header. When provided, webhook triggers verify each delivery and reject unsigned or tampered requests. Existing connections keep working without it (deliveries are accepted unsigned); fill this in to turn on verification.',
+      required: false,
+    }),
   },
   validate: async ({ auth }) => {
     try {
