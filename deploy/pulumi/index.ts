@@ -387,10 +387,6 @@ if (subDomain && domain) {
 const environmentVariables = [
     ...containerEnvironmentVars,
     {
-        name: "AP_ENGINE_EXECUTABLE_PATH",
-        value: "dist/packages/engine/main.js"
-    },
-    {
         name: "AP_ENCRYPTION_KEY",
         value: apEncryptionKey
     },
@@ -419,16 +415,8 @@ const environmentVariables = [
         value: "false"
     },
     {
-        name: "AP_SANDBOX_RUN_TIME_SECONDS",
-        value: "600"
-    },
-    {
         name: "AP_TELEMETRY_ENABLED",
         value: "true"
-    },
-    {
-        name: "AP_TEMPLATES_SOURCE_URL",
-        value: "https://cloud.activepieces.com/api/v1/templates"
     }
 ];
 

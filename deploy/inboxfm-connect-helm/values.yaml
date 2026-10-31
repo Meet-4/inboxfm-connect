@@ -220,10 +220,7 @@ inboxfmConnectEnvVariables:
     - AP_ENABLE_FLOW_ON_PUBLISH
     - AP_CLIENT_REAL_IP_HEADER
     - AP_DB_TYPE
-    - AP_ENGINE_EXECUTABLE_PATH
-    - AP_PLATFORM_ID_FOR_DEDICATED_WORKER
     - AP_PIECES_SYNC_MODE
-    - AP_PIECES_SOURCE
   inboxfm-connect-auth-secrets:
     - AP_ENCRYPTION_KEY
     - AP_JWT_SECRET
