@@ -1,11 +1,11 @@
 ---
 title: "Docker"
-description: "Single docker image deployment with PGLite and Memory Queue"
+description: "Single docker image deployment with PGLite and in-memory Redis"
 icon: "docker"
 ---
 
 <Warning>
-This setup is only meant for personal use or testing. It runs on [PGLite](https://pglite.dev/) (embedded PostgreSQL) and an in-memory Redis queue, which supports only a single instance on a single machine. For production or multi-instance setups, you must use Docker Compose with PostgreSQL and Redis. You will not be able to upgrade from Community Edition to Enterprise out of the box, as Enterprise does not support PGLite.
+This setup is only meant for personal use or testing. It runs on [PGLite](https://pglite.dev/) (embedded PostgreSQL) and an in-memory Redis instance (locks, rate limiting and shared state — there is no job queue; flow executions run in-process), which supports only a single instance on a single machine. For production or multi-instance setups, you must use Docker Compose with PostgreSQL and Redis. You will not be able to upgrade from Community Edition to Enterprise out of the box, as Enterprise does not support PGLite.
 </Warning>
 
 To get up and running quickly with Inboxfm Connect, we will use the Inboxfm Connect Docker image. Follow these steps:
@@ -18,7 +18,7 @@ You need to have [Git](https://git-scm.com/book/en/2/Getting-Started/Installing-
 
 ### Build the Image and Run the Docker image
 
-Build the unified image from this repository — the same image `docker-compose.yml` builds and runs — and start a single container with the embedded PGLite database and the in-memory queue:
+Build the unified image from this repository — the same image `docker-compose.yml` builds and runs — and start a single container with the embedded PGLite database and the in-memory Redis:
 
 ```bash
 git clone https://github.com/Mihir-Rabari/inboxfm-connect.git
