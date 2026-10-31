@@ -5,6 +5,7 @@ import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
+import { authAbuseRateLimitOptions } from '../../core/security/rate-limit'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { appsumoService } from './appsumo.service'
@@ -62,6 +63,13 @@ const appsumoController: FastifyPluginAsyncZod = async (
         {
             config: {
                 security: securityAccess.public(),
+                // This endpoint is a shared-secret LOGIN: both credentials are
+                // compared against the single static AP_APPSUMO_TOKEN and the
+                // token itself is returned on success. Without the abuse tier
+                // it allowed an unbounded, line-rate guess loop (the
+                // constant-time compare from #463 removes the timing signal,
+                // not the brute force).
+                rateLimit: authAbuseRateLimitOptions,
             },
             schema: {
                 body: ExchangeTokenRequest,
@@ -93,6 +101,11 @@ const appsumoController: FastifyPluginAsyncZod = async (
         {
             config: {
                 security: securityAccess.public(),
+                // Bearer-gated on the same shared secret as /token and every
+                // call mutates billing state (activations) — same abuse tier,
+                // so probing the secret is bounded per IP like every other
+                // scripted-against auth route.
+                rateLimit: authAbuseRateLimitOptions,
             },
             schema: {
                 headers: AuthorizationHeaders,
