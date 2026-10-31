@@ -40,6 +40,101 @@ function resolveValue(value: unknown, context: StepContext): unknown {
   return value
 }
 
+export type OutputBudget = {
+  /** Maximum serialized byte estimate accepted for a single step output. */
+  maxStepOutputBytes: number
+  /** Maximum cumulative serialized byte estimate across every step output in a run. */
+  maxRunOutputBytes: number
+  /** Maximum container nesting accepted in any step or flow output. */
+  maxOutputDepth: number
+}
+
+/**
+ * Output-size knobs. `resolveValue` returns shared references, so referencing a
+ * previous step output k times per step is free in memory — but the redaction
+ * clone and the JSON.stringify in `finishRun` both materialize the full
+ * expansion, which makes reference fan-out an exponential blowup. The budgets
+ * below bound what the executor will buffer or persist.
+ */
+export function resolveOutputBudget(sourceEnv: Record<string, string | undefined> = process.env): OutputBudget {
+  const positiveInt = (raw: string | undefined, fallback: number): number => {
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+  }
+  return {
+    maxStepOutputBytes: positiveInt(sourceEnv.FLOWSCRIPT_MAX_STEP_OUTPUT_BYTES, 1_048_576),
+    maxRunOutputBytes: positiveInt(sourceEnv.FLOWSCRIPT_MAX_RUN_OUTPUT_BYTES, 16 * 1_048_576),
+    maxOutputDepth: positiveInt(sourceEnv.FLOWSCRIPT_MAX_OUTPUT_DEPTH, 64),
+  }
+}
+
+type SizeEstimate =
+  | { ok: true; bytes: number }
+  | { ok: false; reason: 'bytes' | 'depth'; depth?: number; limit: number }
+
+/**
+ * Iterative serialized-size estimate with an early abort, so a pathological
+ * value can never be fully walked: the loop stops at the first frame that
+ * pushes the cumulative estimate over `maxBytes`, or at a container nested
+ * deeper than `maxDepth` (which also terminates self-referential structures
+ * without a visited-set). Never recursive on purpose — it must survive the
+ * exact payloads that overflow the recursive consumers it guards.
+ */
+function estimateSerializedSize(value: unknown, maxDepth: number, maxBytes: number): SizeEstimate {
+  let bytes = 0
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }]
+  while (stack.length > 0) {
+    const frame = stack.pop()!
+    const current = frame.value
+    if (current === null || current === undefined) {
+      bytes += 4
+    } else if (typeof current === 'string') {
+      bytes += 2 + Buffer.byteLength(current)
+    } else if (typeof current === 'object') {
+      if (frame.depth >= maxDepth) {
+        return { ok: false, reason: 'depth', depth: frame.depth + 1, limit: maxDepth }
+      }
+      bytes += 2
+      if (Array.isArray(current)) {
+        for (let index = current.length - 1; index >= 0; index--) {
+          stack.push({ value: current[index], depth: frame.depth + 1 })
+        }
+      } else {
+        for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+          bytes += 4 + Buffer.byteLength(key)
+          stack.push({ value: child, depth: frame.depth + 1 })
+        }
+      }
+    } else {
+      // numbers, booleans, bigints and exotic values
+      bytes += 8
+    }
+    if (bytes > maxBytes) {
+      return { ok: false, reason: 'bytes', limit: maxBytes }
+    }
+  }
+  return { ok: true, bytes }
+}
+
+function outputBudgetError(violation: SizeEstimate & { ok: false }, scope: 'step' | 'run'): Error {
+  if (violation.reason === 'depth') {
+    return Object.assign(
+      new Error(`[OUTPUT_NESTING_TOO_DEEP] Output nests ${violation.depth} levels deep, beyond the maximum of ${violation.limit} (FLOWSCRIPT_MAX_OUTPUT_DEPTH)`),
+      { code: 'OUTPUT_NESTING_TOO_DEEP', retryable: false },
+    )
+  }
+  if (scope === 'step') {
+    return Object.assign(
+      new Error(`[OUTPUT_TOO_LARGE] Step output exceeds the maximum serialized size of ${violation.limit} bytes (FLOWSCRIPT_MAX_STEP_OUTPUT_BYTES); refusing to buffer it`),
+      { code: 'OUTPUT_TOO_LARGE', retryable: false },
+    )
+  }
+  return Object.assign(
+    new Error(`[RUN_OUTPUT_TOO_LARGE] Run output budget exceeded: cumulative step outputs reach ${violation.limit} bytes (FLOWSCRIPT_MAX_RUN_OUTPUT_BYTES)`),
+    { code: 'RUN_OUTPUT_TOO_LARGE', retryable: false },
+  )
+}
+
 export function topologicallySortSteps<T extends { id: string; dependsOn: string[] }>(steps: T[]): T[] {
   const byId = new Map<string, T>()
   const inDegree = new Map<string, number>()
@@ -101,6 +196,9 @@ export async function executeFlowIR(
     maxSteps?: number
     stepTimeoutMs?: number
     maxStepAttempts?: number
+    maxStepOutputBytes?: number
+    maxRunOutputBytes?: number
+    maxOutputDepth?: number
     signal?: AbortSignal
     onStepAttemptStart?: (stepId: string, attempt: number) => Promise<string | void>
     onStepAttemptFinish?: (
@@ -118,6 +216,13 @@ export async function executeFlowIR(
   const maxSteps = options.maxSteps ?? 200
   const timeoutMs = options.stepTimeoutMs ?? 30_000
   const maxStepAttempts = Math.max(1, options.maxStepAttempts ?? 3)
+  const defaultBudget = resolveOutputBudget()
+  const budget = {
+    maxStepOutputBytes: options.maxStepOutputBytes ?? defaultBudget.maxStepOutputBytes,
+    maxRunOutputBytes: options.maxRunOutputBytes ?? defaultBudget.maxRunOutputBytes,
+    maxOutputDepth: options.maxOutputDepth ?? defaultBudget.maxOutputDepth,
+  }
+  let cumulativeStepOutputBytes = 0
   if (ir.steps.length > maxSteps) throw new Error(`Flow exceeds maximum step count (${maxSteps})`)
   const context = (): StepContext => ({ input, trigger, outputs, env: options.env ?? {} })
 
@@ -203,6 +308,18 @@ export async function executeFlowIR(
           stepOutput = config.when === true
         }
 
+        // Bound the output BEFORE the redaction clone materializes it: resolveValue
+        // returns shared references, so an amplifying config is cheap to build but
+        // exponentially expensive to clone, stringify and persist.
+        const stepSize = estimateSerializedSize(stepOutput, budget.maxOutputDepth, budget.maxStepOutputBytes)
+        if (!stepSize.ok) {
+          throw outputBudgetError(stepSize, 'step')
+        }
+        cumulativeStepOutputBytes += stepSize.bytes
+        if (cumulativeStepOutputBytes > budget.maxRunOutputBytes) {
+          throw outputBudgetError({ ok: false, reason: 'bytes', limit: budget.maxRunOutputBytes }, 'run')
+        }
+
         const sanitizedOutput = redactSensitiveData(stepOutput)
         stepSuccess = true
         outputs[step.id] = sanitizedOutput
@@ -282,6 +399,10 @@ export async function executeFlowIR(
 
   try {
     const finalOutput = ir.output ? resolveValue(ir.output, context()) : outputs
+    const finalSize = estimateSerializedSize(finalOutput, budget.maxOutputDepth, budget.maxRunOutputBytes)
+    if (!finalSize.ok) {
+      throw outputBudgetError(finalSize, 'run')
+    }
     return { status: 'succeeded', output: redactSensitiveData(finalOutput), steps }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Output resolution failed'
