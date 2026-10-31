@@ -55,7 +55,14 @@ export type ScimUserResource = z.infer<typeof ScimUserResource>
 export const CreateScimUserRequest = z.object({
     schemas: z.array(z.string()),
     externalId: z.string().optional(),
-    userName: z.string(),
+    // userName is the sole source for BOTH the stored identity email and the
+    // SMTP envelope recipient of the welcome mail the service sends on user
+    // creation (scim-user-service.create -> sendScimUserWelcome ->
+    // emails: [userName]), so it must be a real address: a CR/LF pair or a
+    // space inside it corrupts the envelope — nodemailer parses the To:
+    // address as a group and the mail silently goes to the wrong recipient.
+    // Same check as alertReceiverEmail in project-requests.
+    userName: z.email(),
     name: ScimName.optional(),
     emails: z.array(ScimEmail).optional(),
     active: z.boolean().optional(),
