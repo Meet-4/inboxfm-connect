@@ -22,6 +22,7 @@ import { connectMcpService } from '../connect-mcp/connect-mcp.service'
 import { connectOAuthAppService } from '../connect-oauth-apps/connect-oauth-app.service'
 import { ProjectResourceType } from '../core/security/authorization/common'
 import { securityAccess } from '../core/security/authorization/fastify-security'
+import { authAbuseRateLimitOptions } from '../core/security/rate-limit'
 import { projectService } from '../project/project-service'
 import { connectSessionService } from './connect-session.service'
 
@@ -186,6 +187,11 @@ const CreateSessionRequest = {
 const GetSessionRequest = {
     config: {
         security: securityAccess.public(),
+        // The token in the URL is the ONLY credential on these public routes
+        // (SHA-256 lookup per attempt) — same capability-URL shape as the
+        // trigger-binding ingress (issue #351): token probing must be bounded
+        // per IP.
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         tags: ['connect-sessions'],
@@ -209,6 +215,7 @@ const ConnectSessionAuthorizationUrlRequestBody = z.object({
 const GetAuthorizationUrlRequest = {
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         tags: ['connect-sessions'],
@@ -225,6 +232,7 @@ const GetAuthorizationUrlRequest = {
 const CreateConnectionRequest = {
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         tags: ['connect-sessions'],
@@ -241,6 +249,7 @@ const CreateConnectionRequest = {
 const ExchangeSessionMcpTokenRequest = {
     config: {
         security: securityAccess.public(),
+        rateLimit: authAbuseRateLimitOptions,
     },
     schema: {
         tags: ['connect-sessions'],
