@@ -4,6 +4,7 @@ import { apVersionUtil } from '@inboxfm-connect/server-utils'
 import {
     AgentSnapshotSchema,
     AgentTool,
+    AgentToolType,
     AppConnectionScope,
     AppConnectionType,
     AppConnectionValue,
@@ -147,6 +148,112 @@ function sanitizeMcpTool(tool: AgentTool): AgentTool {
     return tool
 }
 
+// A connection externalId is only safe to embed in a `{{connections['…']}}`
+// template ref if it cannot break out of the ref grammar (quotes, brackets,
+// braces, backslash) and carries no control characters. The API now rejects
+// such externalIds at the DTO boundary, but rows created before that guard
+// may persist — they must be redacted on export instead of emitting a
+// malformed (or injectable) auth template into the snapshot artifact.
+const SAFE_CONNECTION_REF_EXTERNAL_ID = /^[^'"\\\[\]{}\x00-\x1f\x7f]{1,200}$/
+
+const CONNECTION_TEMPLATE_REF = /^\{\{connections\['([^']+)'\]\}\}$|^\{\{connections\["([^"]+)"\]\}\}$/
+
+function isConnectionTemplateRef(auth: unknown): auth is string {
+    return typeof auth === 'string' && CONNECTION_TEMPLATE_REF.test(auth)
+}
+
+// Legacy flow definitions predate the snapshot contract: agent tools stored
+// there carry live MCP credentials (access tokens, API keys, auth headers) and
+// raw piece auth values. The main agent export path redacts both before they
+// reach the artifact; agents extracted from flows must go through the same
+// scrub, or `GET /export` ships those secrets verbatim (and `apply` then
+// writes them into the destination's agent rows).
+function sanitizeLegacyAgentTools(tools: AgentTool[]): AgentTool[] {
+    return tools.map((tool): AgentTool => {
+        if (tool.type === AgentToolType.MCP) {
+            return sanitizeMcpTool(tool)
+        }
+        if (tool.type === AgentToolType.PIECE) {
+            const rawAuth = tool.pieceMetadata?.predefinedInput?.auth
+            if (rawAuth === undefined || rawAuth === null || isConnectionTemplateRef(rawAuth)) {
+                return tool
+            }
+            return {
+                ...tool,
+                pieceMetadata: {
+                    ...tool.pieceMetadata,
+                    predefinedInput: {
+                        fields: tool.pieceMetadata.predefinedInput?.fields ?? {},
+                        auth: '[REDACTED]',
+                    },
+                },
+            }
+        }
+        return tool
+    })
+}
+
+// The raw flows array is embedded in the exported snapshot as-is; it is only
+// ever consumed on import through extractAgentsFromFlows, so the same
+// credential scrub must be applied to the flow definitions themselves or the
+// artifact leaks MCP tokens that the extracted (sanitized) agents no longer
+// carry. Flows without agent tools are returned unchanged (same object).
+function scrubFlowsSnapshotForExport(flows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+    const flowHasAgentTools = (flow: Record<string, unknown>): boolean => {
+        const flowVersion = (flow.version ?? flow) as Record<string, unknown> | undefined
+        const trigger = flowVersion?.trigger
+        if (!trigger || typeof trigger !== 'object') return false
+        const visited = new Set<Record<string, unknown>>()
+        const walk = (step: Record<string, unknown> | undefined): boolean => {
+            if (!step || typeof step !== 'object' || visited.has(step)) return false
+            visited.add(step)
+            const settings = step.settings as Record<string, unknown> | undefined
+            const input = settings && typeof settings === 'object' ? settings.input as Record<string, unknown> | undefined : undefined
+            if (input && typeof input === 'object' && Array.isArray(input.agentTools)) return true
+            if (step.nextAction && typeof step.nextAction === 'object' && walk(step.nextAction as Record<string, unknown>)) return true
+            if (Array.isArray(step.children)) {
+                for (const child of step.children) {
+                    if (child && typeof child === 'object' && walk(child as Record<string, unknown>)) return true
+                }
+            }
+            return false
+        }
+        return walk(trigger as Record<string, unknown>)
+    }
+
+    return flows.map((flow) => {
+        if (!flow || typeof flow !== 'object' || !flowHasAgentTools(flow)) {
+            return flow
+        }
+        const clone = structuredClone(flow) as Record<string, unknown>
+        const clonedVersion = (clone.version ?? clone) as Record<string, unknown>
+        const visited = new Set<Record<string, unknown>>()
+        const walk = (step: Record<string, unknown> | undefined): void => {
+            if (!step || typeof step !== 'object' || visited.has(step)) return
+            visited.add(step)
+            const settings = step.settings as Record<string, unknown> | undefined
+            if (settings && typeof settings === 'object') {
+                const input = settings.input as Record<string, unknown> | undefined
+                if (input && typeof input === 'object' && Array.isArray(input.agentTools)) {
+                    input.agentTools = sanitizeLegacyAgentTools(input.agentTools as AgentTool[])
+                }
+            }
+            if (step.nextAction && typeof step.nextAction === 'object') {
+                walk(step.nextAction as Record<string, unknown>)
+            }
+            if (Array.isArray(step.children)) {
+                for (const child of step.children) {
+                    if (child && typeof child === 'object') {
+                        walk(child as Record<string, unknown>)
+                    }
+                }
+            }
+        }
+        walk(clonedVersion.trigger as Record<string, unknown>)
+        return clone
+    })
+}
+
 function isTableNotFoundError(err: unknown): boolean {
     if (!err || typeof err !== 'object') {
         return false
@@ -219,7 +326,7 @@ function extractAgentsFromFlows(flows?: Array<Record<string, unknown>>): AgentSn
                         provider: modelInput?.provider ?? (typeof input.provider === 'string' ? input.provider : ''),
                         model: modelInput?.model ?? (typeof input.modelName === 'string' ? input.modelName : ''),
                     },
-                    tools: Array.isArray(input.agentTools) ? (input.agentTools as AgentTool[]) : [],
+                    tools: Array.isArray(input.agentTools) ? sanitizeLegacyAgentTools(input.agentTools as AgentTool[]) : [],
                     structuredOutput: null,
                     status: 'ENABLED',
                 })
@@ -532,7 +639,9 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                             })
                             if (conn && conn.externalId) {
                                 requiredConnectionsMap.set(conn.externalId, conn.pieceName)
-                                resolvedAuth = `{{connections['${conn.externalId}']}}`
+                                resolvedAuth = SAFE_CONNECTION_REF_EXTERNAL_ID.test(conn.externalId)
+                                    ? `{{connections['${conn.externalId}']}}`
+                                    : '[REDACTED]'
                             }
                         }
                         toolCopy = {
@@ -603,10 +712,10 @@ export const projectReplaceService = (log: FastifyBaseLogger) => ({
                     }
                 }
 
-                flowsSnapshot = flows.map((f) => ({
+                flowsSnapshot = scrubFlowsSnapshotForExport(flows.map((f) => ({
                     ...f,
                     version: versionsByFlowId.get(f.id as string) ?? f.version,
-                }))
+                })))
 
                 const extractedAgents = extractAgentsFromFlows(flowsSnapshot)
                 for (const ea of extractedAgents) {
@@ -2632,4 +2741,5 @@ export const projectReplaceTesting = {
     getSigningSecret,
     extractAgentsFromFlows,
     isTableNotFoundError,
+    scrubFlowsSnapshotForExport,
 }

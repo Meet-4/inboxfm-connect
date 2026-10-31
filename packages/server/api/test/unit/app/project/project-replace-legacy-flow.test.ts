@@ -2,7 +2,7 @@ import { AgentTool } from '@inboxfm-connect/shared'
 import { describe, expect, it } from 'vitest'
 import { projectReplaceTesting } from '../../../../src/app/project/replace/project-replace.service'
 
-const { extractAgentsFromFlows, isTableNotFoundError } = projectReplaceTesting
+const { extractAgentsFromFlows, isTableNotFoundError, scrubFlowsSnapshotForExport } = projectReplaceTesting
 
 describe('project-replace legacy flow agent derivation (Issue #125)', () => {
     describe('isTableNotFoundError', () => {
@@ -238,6 +238,127 @@ describe('project-replace legacy flow agent derivation (Issue #125)', () => {
             expect(agents).toHaveLength(1)
             expect(agents[0].externalId).toBe('shared-agent-ext-id')
             expect(agents[0].prompt).toBe('First prompt')
+        })
+    })
+
+    describe('extractAgentsFromFlows — credential redaction (exported snapshots must not leak tool secrets)', () => {
+        const flowWithSecretTools = [
+            {
+                id: 'flow-secrets',
+                version: {
+                    trigger: {
+                        name: 't',
+                        nextAction: {
+                            name: 'agent_step',
+                            settings: {
+                                input: {
+                                    agentId: 'agent-with-secrets',
+                                    prompt: 'p',
+                                    agentTools: [
+                                        {
+                                            type: 'MCP',
+                                            toolName: 'mcp-token-tool',
+                                            auth: { type: 'access_token', accessToken: 'tok_live_super_secret' },
+                                        },
+                                        {
+                                            type: 'MCP',
+                                            toolName: 'mcp-api-key-tool',
+                                            auth: { type: 'api_key', apiKey: 'sk-live-123', apiKeyHeader: 'X-API-Key' },
+                                        },
+                                        {
+                                            type: 'MCP',
+                                            toolName: 'mcp-headers-tool',
+                                            auth: {
+                                                type: 'headers',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-Trace-Id': 'trace-1',
+                                                    'Authorization': 'Bearer tok_bearer_secret',
+                                                },
+                                            },
+                                        },
+                                        {
+                                            type: 'PIECE',
+                                            toolName: 'piece-raw-auth',
+                                            pieceMetadata: {
+                                                pieceName: '@inboxfm-connect/piece-slack',
+                                                pieceVersion: '1.0.0',
+                                                actionName: 'send_message',
+                                                predefinedInput: {
+                                                    fields: {},
+                                                    auth: 'raw-connection-id-123',
+                                                },
+                                            },
+                                        },
+                                        {
+                                            type: 'PIECE',
+                                            toolName: 'piece-ref-auth',
+                                            pieceMetadata: {
+                                                pieceName: '@inboxfm-connect/piece-github',
+                                                pieceVersion: '1.0.0',
+                                                actionName: 'create_issue',
+                                                predefinedInput: {
+                                                    fields: {},
+                                                    auth: "{{connections['github-prod']}}",
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        ] as unknown as Array<Record<string, unknown>>
+
+        it('redacts MCP access tokens, API keys and auth-bearing headers from extracted agent tools', () => {
+            const agents = extractAgentsFromFlows(flowWithSecretTools)
+            expect(agents).toHaveLength(1)
+            const serialized = JSON.stringify(agents[0].tools)
+            expect(serialized).not.toContain('tok_live_super_secret')
+            expect(serialized).not.toContain('sk-live-123')
+            expect(serialized).not.toContain('Bearer tok_bearer_secret')
+            expect(serialized).toContain('[REDACTED]')
+        })
+
+        it('keeps well-formed connection refs but redacts non-ref piece auth', () => {
+            const agents = extractAgentsFromFlows(flowWithSecretTools)
+            const tools = (agents[0].tools ?? []) as AgentTool[]
+            const refTool = tools.find(t => t.type === 'PIECE' && (t as { toolName: string }).toolName === 'piece-ref-auth') as unknown as { pieceMetadata: { predefinedInput: { auth: string } } }
+            const rawTool = tools.find(t => t.type === 'PIECE' && (t as { toolName: string }).toolName === 'piece-raw-auth') as unknown as { pieceMetadata: { predefinedInput: { auth: string } } }
+            expect(refTool.pieceMetadata.predefinedInput.auth).toBe("{{connections['github-prod']}}")
+            expect(rawTool.pieceMetadata.predefinedInput.auth).toBe('[REDACTED]')
+        })
+
+        it('sanitizes agentTools inside the exported flows snapshot itself', () => {
+            const scrubbed = scrubFlowsSnapshotForExport(flowWithSecretTools)
+            const serialized = JSON.stringify(scrubbed)
+            expect(serialized).not.toContain('tok_live_super_secret')
+            expect(serialized).not.toContain('sk-live-123')
+            expect(serialized).not.toContain('Bearer tok_bearer_secret')
+            expect(serialized).not.toContain('raw-connection-id-123')
+            // Non-secret structure survives the scrub.
+            expect(serialized).toContain('agent-with-secrets')
+            expect(serialized).toContain('{{connections[\'github-prod\']}}')
+        })
+
+        it('leaves flows without agent tools untouched by the scrub', () => {
+            const plainFlows = [
+                {
+                    id: 'flow-plain',
+                    version: {
+                        trigger: {
+                            name: 'schedule',
+                            nextAction: {
+                                name: 'step',
+                                settings: { input: { message: 'hello {{connections[\'x\']}}' } },
+                            },
+                        },
+                    },
+                },
+            ] as Array<Record<string, unknown>>
+            expect(scrubFlowsSnapshotForExport(plainFlows)).toEqual(plainFlows)
         })
     })
 
