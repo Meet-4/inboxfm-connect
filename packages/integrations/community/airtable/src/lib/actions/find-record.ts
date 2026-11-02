@@ -7,11 +7,12 @@ export const airtableFindRecordAction = createAction({
   auth: airtableAuth,
   name: 'airtable_find_record',
   displayName: 'Find Airtable Record',
-  description: 'Find a record in airtable',
+  description:
+    'Find a record in airtable. Follows Airtable pagination (100 records per page) and returns up to 1000 matching records.',
   audience: 'both',
   aiMetadata: {
     description:
-      'Searches a table for records whose chosen field contains the given search value, using a substring (FIND) match, and optionally limits the search to a specific view. Use to look up records by a field value when you do not have the record ID. The search field and a non-empty search value are required; read-only and idempotent.',
+      'Searches a table for records whose chosen field contains the given search value, using a substring (FIND) match, and optionally limits the search to a specific view. Follows Airtable pagination (100 records per page) and returns up to 1000 matching records. Use to look up records by a field value when you do not have the record ID. The search field and a non-empty search value are required; read-only and idempotent.',
     idempotent: true,
   },
   props: {

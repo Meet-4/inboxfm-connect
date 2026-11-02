@@ -214,28 +214,49 @@ async function findRecord({
   baseId,
   limitToView,
 }: Params) {
-  const request: HttpRequest = {
-    method: HttpMethod.GET,
-    url: `https://api.airtable.com/v0/${baseId}/${tableId}`,
-    authentication: {
-      type: AuthenticationType.BEARER_TOKEN,
-      token,
-    },
-    queryParams: {
-      filterByFormula: `FIND("${searchValue}",{${searchField}})`,
-      view: limitToView ?? '',
-    },
-  };
+  // Airtable list-records returns at most 100 records per page and provides
+  // an offset for the next page. Walk pages so matching records beyond the
+  // first page are not silently dropped.
+  const PER_PAGE = 100;
+  const MAX_PAGES = 10; // bounded walk: at most 1000 records
 
-  const response = await httpClient.sendRequest<{
-    records: AirtableRecord[];
-  }>(request);
+  let offset: string | undefined = undefined;
+  const allRecords: AirtableRecord[] = [];
 
-  if (response.status === 200) {
-    return response.body.records;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const request: HttpRequest = {
+      method: HttpMethod.GET,
+      url: `https://api.airtable.com/v0/${baseId}/${tableId}`,
+      authentication: {
+        type: AuthenticationType.BEARER_TOKEN,
+        token,
+      },
+      queryParams: {
+        filterByFormula: `FIND("${searchValue}",{${searchField}})`,
+        view: limitToView ?? '',
+        pageSize: String(PER_PAGE),
+        offset: offset ?? '',
+      },
+    };
+
+    const response = await httpClient.sendRequest<{
+      records: AirtableRecord[];
+      offset?: string;
+    }>(request);
+
+    if (response.status === 200) {
+      allRecords.push(...response.body.records);
+      offset = response.body.offset;
+
+      if (!offset || response.body.records.length < PER_PAGE) {
+        break; // last page reached
+      }
+    } else {
+      break;
+    }
   }
 
-  return [];
+  return allRecords;
 }
 async function updateRecord({
   personalToken: token,
