@@ -21,18 +21,25 @@ export const gitlabCommon = {
         const client = makeClient({
           auth: auth,
         });
-        const res = await client.listProjects({
+        const res = await client.listAllProjects({
           simple: true,
           membership: true,
         });
+        const options = res.projects.map((project) => {
+          return {
+            label: project.name,
+            value: project.id,
+          };
+        });
+        if (res.truncated) {
+          options.push({
+            label: '⚠️ Could not load all projects (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: res.map((project) => {
-            return {
-              label: project.name,
-              value: project.id,
-            };
-          }),
+          options,
         };
       },
     }),

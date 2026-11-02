@@ -40,6 +40,38 @@ export class GitlabApi {
       prepareQuery(request)
     );
   }
+
+  // GitLab lists return 20 items per page by default (per_page max 100)
+  // and paginate via the `page` parameter
+  // https://docs.gitlab.com/api/rest/#pagination
+  async listAllProjects(
+    request: ListProjectsRequest,
+    maxPages = 50
+  ): Promise<{ projects: GitlabProject[]; truncated: boolean }> {
+    const projects: GitlabProject[] = [];
+    let truncated = false;
+    const perPage = 100;
+    let page = 1;
+    let lastPageSize = perPage;
+
+    while (page <= maxPages && lastPageSize === perPage) {
+      const batch = await this.makeRequest<GitlabProject[]>(
+        HttpMethod.GET,
+        '/projects',
+        prepareQuery({ ...request, per_page: perPage, page })
+      );
+      lastPageSize = Array.isArray(batch) ? batch.length : 0;
+      if (Array.isArray(batch)) {
+        projects.push(...batch);
+      }
+      if (page >= maxPages && lastPageSize === perPage) {
+        truncated = true;
+      }
+      page++;
+    }
+
+    return { projects, truncated };
+  }
   async createProjectIssue(
     projectId: string,
     request: CreateProjectIssueRequest
