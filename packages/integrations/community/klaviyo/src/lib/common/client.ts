@@ -42,16 +42,16 @@ export function normalizeProfileIds(value: unknown): string[] {
 
 export const BASE_URL = `https://a.klaviyo.com/api`;
 
-export async function makeRequest(
+async function sendKlaviyoRequest(
   auth: KlaviyoAuthValue,
   method: HttpMethod,
-  path: string,
+  url: string,
   body?: unknown
 ) {
   try {
     const response = await httpClient.sendRequest({
       method,
-      url: `${BASE_URL}${path}`,
+      url,
       headers: {
         Authorization: getAuthorizationHeader(auth),
         accept: 'application/vnd.api+json',
@@ -86,5 +86,51 @@ export async function makeRequest(
 
     throw new Error(`Unexpected error: ${error.message || String(error)}`);
   }
+}
+
+export async function makeRequest(
+  auth: KlaviyoAuthValue,
+  method: HttpMethod,
+  path: string,
+  body?: unknown
+) {
+  return sendKlaviyoRequest(auth, method, `${BASE_URL}${path}`, body);
+}
+
+/**
+ * Klaviyo paginates list endpoints with `page[cursor]` (default page size is
+ * 20, max 100) and returns the next page as an absolute `links.next` URL
+ * https://developers.klaviyo.com/en/reference/api_overview#pagination
+ */
+export async function fetchAllKlaviyoPages(
+  auth: KlaviyoAuthValue,
+  path: string,
+  opts?: { pageSize?: number; maxPages?: number }
+): Promise<{ items: Record<string, any>[]; truncated: boolean }> {
+  const pageSize = opts?.pageSize ?? 100;
+  const maxPages = opts?.maxPages ?? 50;
+  const joiner = path.includes('?') ? '&' : '?';
+  let url: string | null = `${BASE_URL}${path}${joiner}page[size]=${pageSize}`;
+  const items: Record<string, any>[] = [];
+  let truncated = false;
+  let pages = 0;
+
+  while (url && pages < maxPages) {
+    pages++;
+    const body = (await sendKlaviyoRequest(
+      auth,
+      HttpMethod.GET,
+      url
+    )) as Record<string, any>;
+    if (Array.isArray(body?.data)) {
+      items.push(...body.data);
+    }
+    url = body?.links?.next ?? null;
+    if (pages >= maxPages && url) {
+      truncated = true;
+    }
+  }
+
+  return { items, truncated };
 }
 

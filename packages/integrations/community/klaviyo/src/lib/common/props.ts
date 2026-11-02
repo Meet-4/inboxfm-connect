@@ -1,7 +1,6 @@
 import { Property } from '@inboxfm-connect/pieces-framework';
-import { makeRequest } from './client';
+import { fetchAllKlaviyoPages } from './client';
 import { klaviyoAuth, KlaviyoAuthValue } from './auth';
-import { HttpMethod } from '@inboxfm-connect/pieces-common';
 
 interface KlaviyoProfile {
   id: string;
@@ -19,6 +18,20 @@ interface KlaviyoList {
   };
 }
 
+const TRUNCATED_WARNING = '⚠️ Could not load all records (partial list)';
+
+function addTruncationWarning<
+  T extends { label: string; value: string },
+>(options: T[], truncated: boolean): T[] {
+  if (truncated) {
+    options.push({
+      label: TRUNCATED_WARNING,
+      value: '__truncated_notice__',
+    } as T);
+  }
+  return options;
+}
+
 export const profileIdDropdown = Property.Dropdown({
   displayName: 'Profile Id',
   required: true,
@@ -32,22 +45,23 @@ export const profileIdDropdown = Property.Dropdown({
         options: [],
       };
     }
-    const profiles = await makeRequest(
+    const { items: profiles, truncated } = await fetchAllKlaviyoPages(
       auth as KlaviyoAuthValue,
-      HttpMethod.GET,
-      '/profiles',
-      {}
+      '/profiles'
     );
 
-    const options = (profiles.data as KlaviyoProfile[]).map((field) => {
-      const firstName = field.attributes.first_name || '';
-      const lastName = field.attributes.last_name || '';
-      const label = [firstName, lastName].filter(Boolean).join(' ');
-      return {
-        label: label || field.attributes.email || field.id,
-        value: field.id,
-      };
-    });
+    const options = addTruncationWarning(
+      (profiles as unknown as KlaviyoProfile[]).map((field) => {
+        const firstName = field.attributes.first_name || '';
+        const lastName = field.attributes.last_name || '';
+        const label = [firstName, lastName].filter(Boolean).join(' ');
+        return {
+          label: label || field.attributes.email || field.id,
+          value: field.id,
+        };
+      }),
+      truncated
+    );
 
     return {
       disabled: false,
@@ -70,24 +84,26 @@ export const allProfileIdsMultiSelectDropdown = Property.MultiSelectDropdown({
         options: [],
       };
     }
-    const profiles = await makeRequest(
+    const { items: profiles, truncated } = await fetchAllKlaviyoPages(
       auth as KlaviyoAuthValue,
-      HttpMethod.GET,
-      '/profiles',
+      '/profiles'
     );
 
-    const options = (profiles.data as KlaviyoProfile[]).map((field) => {
-      const firstName = field.attributes.first_name || '';
-      const lastName = field.attributes.last_name || '';
-      const email = field.attributes.email || '';
-      const label =
-        [firstName, lastName].filter(Boolean).join(' ') +
-        (email ? ` (${email})` : '');
-      return {
-        label: label || field.id,
-        value: field.id,
-      };
-    });
+    const options = addTruncationWarning(
+      (profiles as unknown as KlaviyoProfile[]).map((field) => {
+        const firstName = field.attributes.first_name || '';
+        const lastName = field.attributes.last_name || '';
+        const email = field.attributes.email || '';
+        const label =
+          [firstName, lastName].filter(Boolean).join(' ') +
+          (email ? ` (${email})` : '');
+        return {
+          label: label || field.id,
+          value: field.id,
+        };
+      }),
+      truncated
+    );
 
     return { options };
   },
@@ -107,24 +123,26 @@ export const profileIdsMultiSelectDropdown = Property.MultiSelectDropdown({
         options: [],
       };
     }
-    const profiles = await makeRequest(
+    const { items: profiles, truncated } = await fetchAllKlaviyoPages(
       auth as KlaviyoAuthValue,
-      HttpMethod.GET,
-      `/lists/${list_id}/profiles`,
+      `/lists/${list_id}/profiles`
     );
 
-    const options = (profiles.data as KlaviyoProfile[]).map((field) => {
-      const firstName = field.attributes.first_name || '';
-      const lastName = field.attributes.last_name || '';
-      const email = field.attributes.email || '';
-      const label =
-        [firstName, lastName].filter(Boolean).join(' ') +
-        (email ? ` (${email})` : '');
-      return {
-        label: label || field.id,
-        value: field.id,
-      };
-    });
+    const options = addTruncationWarning(
+      (profiles as unknown as KlaviyoProfile[]).map((field) => {
+        const firstName = field.attributes.first_name || '';
+        const lastName = field.attributes.last_name || '';
+        const email = field.attributes.email || '';
+        const label =
+          [firstName, lastName].filter(Boolean).join(' ') +
+          (email ? ` (${email})` : '');
+        return {
+          label: label || field.id,
+          value: field.id,
+        };
+      }),
+      truncated
+    );
 
     return {
       options,
@@ -146,19 +164,20 @@ export const listIdDropdown = Property.Dropdown({
       };
     }
 
-    const list = await makeRequest(
+    const { items: lists, truncated } = await fetchAllKlaviyoPages(
       auth as KlaviyoAuthValue,
-      HttpMethod.GET,
-      '/lists',
-      {}
+      '/lists'
     );
 
-    const options = (list.data as KlaviyoList[]).map((field) => {
-      return {
-        label: field.attributes.name || field.id,
-        value: field.id,
-      };
-    });
+    const options = addTruncationWarning(
+      (lists as unknown as KlaviyoList[]).map((field) => {
+        return {
+          label: field.attributes.name || field.id,
+          value: field.id,
+        };
+      }),
+      truncated
+    );
 
     return {
       disabled: false,
@@ -173,4 +192,3 @@ export const countryCode = Property.ShortText({
     'Enter 2-letter ISO country code. Popular: US, GB, CA, DE, FR, AU, JP, CN, IN, BR',
   required: false,
 });
-
