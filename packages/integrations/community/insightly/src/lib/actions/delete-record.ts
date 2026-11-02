@@ -2,7 +2,7 @@ import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import {
     HttpMethod
 } from '@inboxfm-connect/pieces-common';
-import { insightlyAuth, makeInsightlyRequest } from '../common/common';
+import { insightlyAuth, makeInsightlyRequest, listInsightlyRecordOptions } from '../common/common';
 
 export const deleteRecord = createAction({
     auth: insightlyAuth,
@@ -51,31 +51,21 @@ export const deleteRecord = createAction({
                     };
                 }
 
-                const response = await makeInsightlyRequest(
+                const { options, truncated } = await listInsightlyRecordOptions(
                     auth,
-                    `/${objectName}?top=100&brief=true`,
+                    objectName as string,
                     pod as string
                 );
 
-                const records = Array.isArray(response.body) ? response.body : [];
-                
+                if (truncated) {
+                    options.push({
+                        label: '⚠️ Could not load all records (partial list)',
+                        value: '__truncated_notice__',
+                    });
+                }
+
                 return {
-                    options: records.map((record: any) => {
-                        const idKey = Object.keys(record).find(key => key.endsWith('_ID'));
-                        const recordId = idKey ? record[idKey] : 'Unknown ID';
-
-                        const nameKey = Object.keys(record).find(key => key.endsWith('_NAME') || key === 'TITLE' || key === 'FIRST_NAME');
-                        let recordName = nameKey ? record[nameKey] : `Record ${recordId}`;
-
-                        if (objectName === 'Contacts' || objectName === 'Leads') {
-                            recordName = `${record.FIRST_NAME || ''} ${record.LAST_NAME || ''}`.trim();
-                        }
-                        
-                        return {
-                            label: `${recordName} (ID: ${recordId})`,
-                            value: recordId
-                        };
-                    })
+                    options
                 };
             }
         })
