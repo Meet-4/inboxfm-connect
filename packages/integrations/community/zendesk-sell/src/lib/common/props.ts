@@ -1,8 +1,28 @@
 import { Property } from '@inboxfm-connect/pieces-framework';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
 import { zendeskSellAuth, ZendeskSellAuth } from './auth';
-import { callZendeskApi } from './client';
+import { callZendeskApi, fetchZendeskSellItems } from './client';
 
+type SellItem = { data: { id: number; name: string } };
+
+// Zendesk Sell paginates every collection with page/per_page (default 25
+// per page, maximum 100), so a single unparameterized call silently drops
+// everything past the first 25 records. Walk pages with a bounded budget
+// and surface a truncation notice when the budget is exhausted.
+// https://developer.zendesk.com/api-reference/sales-crm/requests/#pagination
+function sellOptions(items: SellItem[], truncated: boolean, resourceLabel: string) {
+    const options = items.map((item) => ({ label: item.data.name, value: item.data.id }));
+    if (truncated) {
+        options.push({
+            label: `⚠️ Could not load all ${resourceLabel} (partial list)`,
+            value: '__truncated_notice__' as unknown as number,
+        });
+    }
+    return {
+        disabled: false,
+        options,
+    };
+}
 
 export const zendeskSellCommon = {
     lead: (required = true) => Property.Dropdown({
@@ -21,13 +41,8 @@ export const zendeskSellCommon = {
                 };
             }
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/leads', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/leads', auth);
+                return sellOptions(items, truncated, 'leads');
             } catch (error) {
                 return { disabled: true, placeholder: "Error fetching leads.", options: [] };
             }
@@ -50,13 +65,8 @@ export const zendeskSellCommon = {
                 };
             }
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/contacts', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/contacts', auth);
+                return sellOptions(items, truncated, 'contacts');
             } catch (error) {
                 return { disabled: true, placeholder: "Error fetching contacts.", options: [] };
             }
@@ -79,12 +89,21 @@ export const zendeskSellCommon = {
                 };
             }
             try {
-                const response = await callZendeskApi<{ items: { data: { name: string } }[] }>(
-                    HttpMethod.GET, `v2/tags?resource_type=${resourceType}`, auth
+                const { items, truncated } = await fetchZendeskSellItems<{ data: { name: string } }>(
+                    'v2/tags',
+                    auth,
+                    { resource_type: resourceType }
                 );
+                const options = items.map((item) => ({ label: item.data.name, value: item.data.name }));
+                if (truncated) {
+                    options.push({
+                        label: '⚠️ Could not load all tags (partial list)',
+                        value: '__truncated_notice__',
+                    });
+                }
                 return {
                     disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.name })),
+                    options,
                 };
             } catch (error) {
                 console.error("Error fetching Zendesk Sell tags:", error);
@@ -110,13 +129,8 @@ export const zendeskSellCommon = {
                 };
             }
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/lead_sources', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/lead_sources', auth);
+                return sellOptions(items, truncated, 'lead sources');
             } catch (error) {
                 console.error("Error fetching Zendesk Sell lead sources:", error);
                 return { disabled: true, placeholder: "Error fetching lead sources.", options: [] };
@@ -134,13 +148,8 @@ export const zendeskSellCommon = {
             const auth = propsValue.auth
             if (!auth) return { disabled: true, placeholder: 'Connect account first', options: [] };
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/deals', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/deals', auth);
+                return sellOptions(items, truncated, 'deals');
             } catch (e) {
                 return { disabled: true, placeholder: 'Error fetching deals', options: [] };
             }
@@ -157,13 +166,12 @@ export const zendeskSellCommon = {
             const auth = propsValue.auth
             if (!auth) return { disabled: true, placeholder: 'Connect account first', options: [] };
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/contacts?is_organization=true', auth
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>(
+                    'v2/contacts',
+                    auth,
+                    { is_organization: 'true' }
                 );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                return sellOptions(items, truncated, 'companies');
             } catch (e) {
                 return { disabled: true, placeholder: 'Error fetching companies', options: [] };
             }
@@ -180,13 +188,8 @@ export const zendeskSellCommon = {
             const auth = propsValue.auth
             if (!auth) return { disabled: true, placeholder: 'Connect account first', options: [] };
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/pipelines', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/pipelines', auth);
+                return sellOptions(items, truncated, 'pipelines');
             } catch (e) {
                 return { disabled: true, placeholder: 'Error fetching pipelines', options: [] };
             }
@@ -207,13 +210,11 @@ export const zendeskSellCommon = {
                 return { disabled: true, placeholder: 'Select a pipeline first', options: [] };
             }
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, `v2/pipelines/${pipelineId}/stages`, auth
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>(
+                    `v2/pipelines/${pipelineId}/stages`,
+                    auth
                 );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                return sellOptions(items, truncated, 'stages');
             } catch (e) {
                 return { disabled: true, placeholder: 'Error fetching stages', options: [] };
             }
@@ -230,13 +231,8 @@ export const zendeskSellCommon = {
             const auth = propsValue.auth
             if (!auth) return { disabled: true, placeholder: 'Connect account first', options: [] };
             try {
-                const response = await callZendeskApi<{ items: { data: { id: number; name: string } }[] }>(
-                    HttpMethod.GET, 'v2/users', auth
-                );
-                return {
-                    disabled: false,
-                    options: response.body.items.map(item => ({ label: item.data.name, value: item.data.id })),
-                };
+                const { items, truncated } = await fetchZendeskSellItems<SellItem>('v2/users', auth);
+                return sellOptions(items, truncated, 'users');
             } catch (e) {
                 return { disabled: true, placeholder: 'Error fetching users', options: [] };
             }
