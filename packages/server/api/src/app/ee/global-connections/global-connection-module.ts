@@ -5,6 +5,7 @@ import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { appConnectionService } from '../../app-connection/app-connection-service/app-connection-service'
+import { assertPrincipalCanAccessPlatformConnections } from '../../app-connection/platform-app-connection.controller'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
 import { applicationEvents } from '../../helper/application-events'
 import { auditEvents } from '../../helper/audit-events'
@@ -18,6 +19,7 @@ export const globalConnectionModule: FastifyPluginAsyncZod = async (app) => {
 
 const globalConnectionController: FastifyPluginAsyncZod = async (app) => {
     app.post('/', UpsertGlobalConnectionRequest, async (request, reply) => {
+        assertPrincipalCanAccessPlatformConnections(request.principal)
         const appConnection = await appConnectionService(request.log).upsert({
             platformId: request.principal.platform.id,
             type: request.body.type,
@@ -43,6 +45,7 @@ const globalConnectionController: FastifyPluginAsyncZod = async (app) => {
     })
 
     app.post('/:id', UpdateGlobalConnectionRequest, async (request) => {
+        assertPrincipalCanAccessPlatformConnections(request.principal)
         return appConnectionService(request.log).update({
             id: request.params.id,
             platformId: request.principal.platform.id,
@@ -57,6 +60,7 @@ const globalConnectionController: FastifyPluginAsyncZod = async (app) => {
     })
 
     app.get('/', ListGlobalConnectionsRequest, async (request): Promise<SeekPage<AppConnectionWithoutSensitiveData>> => {
+        assertPrincipalCanAccessPlatformConnections(request.principal)
         const { displayName, pieceName, status, cursor, limit } = request.query
 
         const appConnections = await appConnectionService(request.log).list({
@@ -88,6 +92,7 @@ const globalConnectionController: FastifyPluginAsyncZod = async (app) => {
     )
 
     app.delete('/:id', DeleteGlobalConnectionRequest, async (request, reply): Promise<void> => {
+        assertPrincipalCanAccessPlatformConnections(request.principal)
         const connection = await appConnectionService(request.log).getOneOrThrowWithoutValue({
             id: request.params.id,
             platformId: request.principal.platform.id,
