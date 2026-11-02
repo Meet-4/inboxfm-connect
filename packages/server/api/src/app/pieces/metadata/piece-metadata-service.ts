@@ -1,13 +1,15 @@
 import { ActivepiecesError, apId, assertNotNullOrUndefined, ErrorCode, isNil, LocalesEnum, PlatformId } from '@inboxfm-connect/core-utils'
 import { PieceMetadata, PieceMetadataModel, PieceMetadataModelSummary, PiecePackageInformation, pieceTranslation } from '@inboxfm-connect/pieces-framework'
 import { apVersionUtil } from '@inboxfm-connect/server-utils'
-import { EXACT_VERSION_REGEX, PackageType, PieceCategory, PieceOrderBy, PiecePackage, PieceSortBy, PieceType, PrivatePiecePackage, PublicPiecePackage, SuggestionType } from '@inboxfm-connect/shared'
+import { EXACT_VERSION_REGEX, FileType, PackageType, PieceCategory, PieceOrderBy, PiecePackage, PieceSortBy, PieceType, PrivatePiecePackage, PublicPiecePackage, SuggestionType } from '@inboxfm-connect/shared'
 import dayjs from 'dayjs'
 import { FastifyBaseLogger } from 'fastify'
 import semVer from 'semver'
 import { EntityManager, In, IsNull } from 'typeorm'
 import { repoFactory } from '../../core/db/repo-factory'
 import { distributedLock } from '../../database/redis-connections'
+import { fileRepo } from '../../file/file.service'
+import { s3Helper } from '../../file/s3-helper'
 import { pieceTagService } from '../tags/pieces/piece-tag.service'
 import { localPieceCatalog } from './local-piece-catalog'
 import { pieceCache, PieceRegistryEntry } from './piece-cache'
@@ -221,7 +223,22 @@ export const pieceMetadataService = (log: FastifyBaseLogger) => {
                     params: { message: 'Only custom pieces can be deleted' },
                 })
             }
+            // Collect every archive the uninstall is about to orphan BEFORE deleting the
+            // rows that reference them — after the delete there is no way to know which
+            // files belonged to this piece anymore.
+            const pieceRows = await pieceRepos().find({
+                where: { name: piece.name, platformId, pieceType: PieceType.CUSTOM },
+            })
             await pieceRepos().delete({ name: piece.name, platformId, pieceType: PieceType.CUSTOM })
+            // Rows first, archives second: fk_piece_metadata_file is ON DELETE RESTRICT,
+            // so deleting a file row while its piece row still exists would abort the
+            // uninstall. deleteArchives is best-effort — a cleanup failure must not turn a
+            // successful uninstall into an error.
+            await deleteArchives({
+                archiveIds: pieceRows.map((row) => row.archiveId).filter((archiveId): archiveId is string => !isNil(archiveId)),
+                platformId,
+                log,
+            })
             await pieceCache(log).invalidate()
         },
     }
@@ -354,6 +371,41 @@ const findOldestCreatedDate = async ({ name, platformId }: { name: string, platf
         },
     })
     return piece?.created ?? dayjs().toISOString()
+}
+
+// Uninstall archive cleanup: nothing else ever deletes PACKAGE_ARCHIVE files — the hourly
+// FILE_CLEANUP_TRIGGER sweep only covers flow-run/trigger/webhook payload types — so
+// before this, every custom-piece uninstall leaked its uploaded archive (the File row
+// plus its S3 object, or the raw bytes stored in the file table) forever.
+const deleteArchives = async ({ archiveIds, platformId, log }: DeleteArchivesParams): Promise<void> => {
+    if (archiveIds.length === 0) {
+        return
+    }
+    try {
+        const uniqueArchiveIds = Array.from(new Set(archiveIds))
+        const files = await fileRepo().find({
+            select: ['id', 's3Key'],
+            where: {
+                id: In(uniqueArchiveIds),
+                platformId,
+                type: FileType.PACKAGE_ARCHIVE,
+            },
+        })
+        if (files.length === 0) {
+            return
+        }
+        const s3Keys = files.filter((file) => !isNil(file.s3Key)).map((file) => file.s3Key!)
+        if (s3Keys.length > 0) {
+            await s3Helper(log).deleteFiles(s3Keys)
+        }
+        for (const file of files) {
+            await fileRepo().delete({ id: file.id })
+        }
+    }
+    catch (cleanupError) {
+        log.warn({ cleanupError, archiveIds, platformId },
+            '[pieceMetadataService#delete] Failed to clean up uninstalled piece archives')
+    }
 }
 
 const enrichTags = async (platformId: string | undefined, pieces: PieceMetadataSchema[], includeTags: boolean | undefined): Promise<PieceMetadataSchema[]> => {
@@ -650,6 +702,12 @@ type GetOrThrowParams = {
 type DeleteParams = {
     id: string
     platformId: string
+}
+
+type DeleteArchivesParams = {
+    archiveIds: string[]
+    platformId: string
+    log: FastifyBaseLogger
 }
 
 

@@ -82,6 +82,12 @@ vi.mock('../../../../src/app/database/redis-connections', () => ({
             return fn()
         },
     }),
+    // piece-metadata-service now (uninstall archive cleanup) imports the file module
+    // chain, which pulls jwt-utils -> redisConnections at module load (jwt-utils reads
+    // getRedisType() eagerly; it is only consumed lazily inside getJwtSecret()).
+    redisConnections: {
+        getRedisType: () => 'MEMORY',
+    },
 }))
 
 const mockLog: FastifyBaseLogger = {
