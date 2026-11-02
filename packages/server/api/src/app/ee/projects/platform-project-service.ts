@@ -257,6 +257,43 @@ export const platformProjectService = (log: FastifyBaseLogger) => ({
     },
 })
 
+// The plan's team-projects limit is enforced on the REST create surface
+// (assertMaximumNumberOfProjectsReachedByEdition in platform-project-controller).
+// SCIM group-create and managed-authn JIT provisioning also create TEAM
+// projects, so they must hold the same limit — this shared assertion is the
+// service-level twin of the controller's check (kept separate because the
+// controller file is owned by an open PR). Error codes mirror the REST
+// surface exactly so clients see one consistent contract everywhere.
+export async function assertTeamProjectsQuotaAvailable({ platformId, log }: AssertTeamProjectsQuotaParams): Promise<void> {
+    const platform = await platformService(log).getOneWithPlanOrThrow(platformId)
+
+    switch (platform.plan.teamProjectsLimit) {
+        case TeamProjectsLimit.NONE: {
+            throw new ActivepiecesError({
+                code: ErrorCode.VALIDATION,
+                params: {
+                    message: 'Team projects are not available on your current plan',
+                },
+            })
+        }
+        case TeamProjectsLimit.ONE: {
+            const projectsCount = await projectService(log).countByPlatformIdAndType(platformId, ProjectType.TEAM)
+            if (projectsCount >= 1) {
+                throw new ActivepiecesError({
+                    code: ErrorCode.FEATURE_DISABLED,
+                    params: {
+                        message: 'Maximum limit of 1 team project reached for this plan. Upgrade your plan to add more team projects.',
+                    },
+                })
+            }
+            break
+        }
+        case TeamProjectsLimit.UNLIMITED: {
+            break
+        }
+    }
+}
+
 async function enrichProjects(
     projects: Project[],
     log: FastifyBaseLogger,
@@ -373,4 +410,9 @@ type CreateProjectParams = {
 type DeleteProjectParams = {
     id: ProjectId
     platformId: PlatformId
+}
+
+type AssertTeamProjectsQuotaParams = {
+    platformId: PlatformId
+    log: FastifyBaseLogger
 }

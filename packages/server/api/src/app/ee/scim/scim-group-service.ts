@@ -10,7 +10,7 @@ import { AppSystemProp } from '../../helper/system/system-props'
 import { platformService } from '../../platform/platform.service'
 import { projectService } from '../../project/project-service'
 import { userService } from '../../user/user-service'
-import { platformProjectService } from '../projects/platform-project-service'
+import { assertTeamProjectsQuotaAvailable, platformProjectService } from '../projects/platform-project-service'
 import { ProjectMemberEntity, ProjectMemberSchema } from '../projects/project-members/project-member.entity'
 import { projectMemberService } from '../projects/project-members/project-member.service'
 
@@ -26,6 +26,10 @@ export const scimGroupService = (log: FastifyBaseLogger) => ({
         const platform = await platformService(log).getOneOrThrow(platformId)
 
         // no need for existing check, because SCIM will check if the group already exists and use PUT instead of POST
+        // A SCIM group IS a TEAM project, so the platform's plan limit on team
+        // projects applies before the create — the IdP must not be able to
+        // provision past a quota the REST surface enforces.
+        await assertTeamProjectsQuotaAvailable({ platformId, log })
         const project = await projectService(log).create({
             displayName: request.displayName,
             ownerId: platform.ownerId,

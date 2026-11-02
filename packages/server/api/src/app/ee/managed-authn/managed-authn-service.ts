@@ -11,6 +11,7 @@ import { platformService } from '../../platform/platform.service'
 import { projectService } from '../../project/project-service'
 import { userService } from '../../user/user-service'
 import { concurrencyPoolService } from '../platform/concurrency-pool/concurrency-pool.service'
+import { assertTeamProjectsQuotaAvailable } from '../projects/platform-project-service'
 import { projectMemberService } from '../projects/project-members/project-member.service'
 import { projectLimitsService } from '../projects/project-plan/project-plan.service'
 import { externalTokenExtractor } from './lib/external-token-extractor'
@@ -218,6 +219,13 @@ const getOrCreateProject = async ({
             }
 
             const platform = await platformService(log).getOneOrThrow(platformId)
+
+            // JIT-provisioning a NEW team project must respect the platform's
+            // plan limit — the REST surface rejects over-quota team-project
+            // creates, so issuing external tokens with distinct
+            // externalProjectIds must not become an unlimited side door.
+            // Re-entry into an existing project returns above and stays allowed.
+            await assertTeamProjectsQuotaAvailable({ platformId, log })
 
             try {
                 const project = await projectService(log).create({
