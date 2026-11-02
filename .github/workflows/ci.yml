@@ -86,7 +86,7 @@ jobs:
             ci.log
             packages/core/shared/coverage
             packages/core/execution/coverage
-            packages/engine/coverage
+            packages/server/engine/coverage
             packages/connect-sdk/coverage
             packages/web/coverage
             packages/server/api/coverage
