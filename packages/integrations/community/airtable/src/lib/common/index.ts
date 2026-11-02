@@ -2,6 +2,7 @@ import {
   AuthenticationType,
   HttpMethod,
   HttpRequest,
+  HttpResponse,
   httpClient,
 } from '@inboxfm-connect/pieces-common';
 import {
@@ -132,21 +133,46 @@ async function fetchTableList({
 }: {
   token: string;
   baseId: string;
-}): Promise<AirtableTable[]> {
-  const response = await httpClient.sendRequest<{ tables: AirtableTable[] }>({
-    method: HttpMethod.GET,
-    url: `https://api.airtable.com/v0/meta/bases/${baseId}/tables`,
-    authentication: {
-      type: AuthenticationType.BEARER_TOKEN,
-      token,
-    },
-  });
+}): Promise<{ tables: AirtableTable[]; truncated: boolean }> {
+  // The meta API paginates collections with an `offset` cursor (as the bases
+  // listing already does); walk it so bases with many tables are not
+  // truncated. https://airtable.com/developers/web/api/list-tables
+  const tables: AirtableTable[] = [];
+  const MAX_PAGES = 50;
+  let truncated = false;
+  let offset: string | undefined = undefined;
+  let pageCount = 0;
 
-  if (response.status === 200) {
-    return response.body.tables;
-  }
+  do {
+    const response: HttpResponse<{
+      tables?: AirtableTable[];
+      offset?: string;
+    }> = await httpClient.sendRequest<{
+      tables?: AirtableTable[];
+      offset?: string;
+    }>({
+      method: HttpMethod.GET,
+      url: `https://api.airtable.com/v0/meta/bases/${baseId}/tables`,
+      queryParams: offset ? { offset } : {},
+      authentication: {
+        type: AuthenticationType.BEARER_TOKEN,
+        token,
+      },
+    });
 
-  return [];
+    if (response.status === 200 && Array.isArray(response.body.tables)) {
+      tables.push(...response.body.tables);
+    } else if (response.status !== 200) {
+      return { tables, truncated };
+    }
+    offset = response.body.offset;
+    pageCount++;
+    if (pageCount >= MAX_PAGES && offset) {
+      truncated = true;
+    }
+  } while (offset && pageCount < MAX_PAGES);
+
+  return { tables, truncated };
 }
 
 async function fetchTable({
@@ -158,7 +184,7 @@ async function fetchTable({
   baseId: string;
   tableId: string;
 }): Promise<AirtableTable> {
-  const tables = await fetchTableList({ token, baseId });
+  const { tables } = await fetchTableList({ token, baseId });
   return tables.find((t) => t.id === tableId)!;
 }
 
@@ -521,17 +547,24 @@ export const airtableCommon = {
       }
 
       try {
-        const tables: AirtableTable[] = await fetchTableList({
+        const { tables, truncated } = await fetchTableList({
           token: auth.secret_text,
           baseId: base as string,
         });
 
+        const options = tables.map((table) => ({
+          value: table.id,
+          label: table.name,
+        }));
+        if (truncated) {
+          options.push({
+            value: '__truncated_notice__',
+            label: '⚠️ Could not load all tables (partial list)',
+          });
+        }
         return {
           disabled: false,
-          options: tables.map((table) => ({
-            value: table.id,
-            label: table.name,
-          })),
+          options,
         };
       } catch (e) {
         console.debug(e);
