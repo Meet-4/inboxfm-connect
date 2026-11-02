@@ -4,7 +4,7 @@ import {
   DynamicPropsValue,
 } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from '../common/auth';
-import { capsuleCrmClient } from '../common/client';
+import { capsuleCrmClient, capsuleOptions } from '../common/client';
 import { CreateEntryParams } from '../common/types';
 
 export const addNoteToEntityAction = createAction({
@@ -56,7 +56,7 @@ export const addNoteToEntityAction = createAction({
             displayName: 'Party',
             required: true,
             options:{
-              options: contacts.map((contact) => ({
+              options: capsuleOptions(contacts, 'contacts', (contact) => ({
                 label:
                   contact.type === 'person'
                     ? `${contact.firstName} ${contact.lastName}`
@@ -73,7 +73,7 @@ export const addNoteToEntityAction = createAction({
             displayName: 'Opportunity',
             required: true,
             options: {
-              options: opportunities.map((opportunity) => ({
+              options: capsuleOptions(opportunities, 'opportunities', (opportunity) => ({
                 label: opportunity.name,
                 value: opportunity.id,
               })),
@@ -112,7 +112,7 @@ export const addNoteToEntityAction = createAction({
           auth
         );
         return {
-          options: activityTypes.map((activityType) => ({
+          options: capsuleOptions(activityTypes, 'activity types', (activityType) => ({
             label: activityType.name,
             value: activityType.id,
           })),

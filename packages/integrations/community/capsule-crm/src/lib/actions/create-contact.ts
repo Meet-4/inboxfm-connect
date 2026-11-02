@@ -5,7 +5,7 @@ import {
   OAuth2PropertyValue,
 } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from '../common/auth';
-import { capsuleCrmClient } from '../common/client';
+import { capsuleCrmClient, capsuleOptions } from '../common/client';
 import { CreatePartyParams } from '../common/types';
 
 export const createContactAction = createAction({
@@ -51,12 +51,18 @@ export const createContactAction = createAction({
                 ''
               );
               
-              organisationOptions = organisations
+              organisationOptions = organisations.items
                 .filter((party) => party.type === 'organisation')
                 .map((org) => ({
                   label: org.name || 'Unnamed Organisation',
                   value: org.id,
                 }));
+              if (organisations.truncated) {
+                organisationOptions.push({
+                  label: '⚠️ Could not load all organisations (partial list)',
+                  value: '__truncated_notice__' as unknown as number,
+                });
+              }
             } catch (error) {
               console.error('Failed to load organisations:', error);
             }
@@ -109,7 +115,7 @@ export const createContactAction = createAction({
           auth
         );
         return {
-          options: users.map((user) => ({
+          options: capsuleOptions(users, 'users', (user) => ({
             label: user.name,
             value: user.id,
           })),
@@ -127,7 +133,7 @@ export const createContactAction = createAction({
           auth
         );
         return {
-          options: teams.map((team) => ({
+          options: capsuleOptions(teams, 'teams', (team) => ({
             label: team.name,
             value: team.id,
           })),
@@ -143,7 +149,7 @@ export const createContactAction = createAction({
         if (!auth) return { options: [] };
         const tags = await capsuleCrmClient.listTags(auth);
         return {
-          options: tags.map((tag) => ({
+          options: capsuleOptions(tags, 'tags', (tag) => ({
             label: tag.name,
             value: tag.name,
           })),
@@ -161,7 +167,7 @@ export const createContactAction = createAction({
         const customFields = await capsuleCrmClient.listCustomFields(
           auth
         );
-        for (const field of customFields) {
+        for (const field of customFields.items) {
           switch (field.type) {
             case 'list':
               fields[field.id] = Property.StaticDropdown({

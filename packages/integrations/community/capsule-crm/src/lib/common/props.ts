@@ -1,6 +1,6 @@
 import { Property } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from './auth';
-import { capsuleCrmClient } from './client';
+import { capsuleCrmClient, capsuleOptions } from './client';
 
 export const capsuleCrmProps = {
   contact_id: (required = true) =>
@@ -27,7 +27,7 @@ export const capsuleCrmProps = {
           searchTerm
         );
 
-        const options = contacts.map((contact) => {
+        const options = contacts.items.map((contact) => {
           const label =
             contact.type === 'person'
               ? `${contact.firstName} ${contact.lastName}`
@@ -37,6 +37,13 @@ export const capsuleCrmProps = {
             value: contact.id,
           };
         });
+
+        if (contacts.truncated) {
+          options.push({
+            label: '⚠️ Could not load all contacts (partial list)',
+            value: '__truncated_notice__' as unknown as number,
+          });
+        }
 
         return {
           disabled: false,
@@ -63,12 +70,19 @@ export const capsuleCrmProps = {
         const milestones = await capsuleCrmClient.listMilestones(
           auth
         );
-        const options = milestones.map((milestone) => {
+        const options = milestones.items.map((milestone) => {
           return {
             label: milestone.name,
             value: milestone.id,
           };
         });
+        if (milestones.truncated) {
+          options.push({
+            label: '⚠️ Could not load all milestones (partial list)',
+            value: '__truncated_notice__' as unknown as number,
+          });
+        }
+
         return {
           disabled: false,
           options: options,
@@ -96,7 +110,7 @@ export const capsuleCrmProps = {
         );
         return {
           disabled: false,
-          options: opportunities.map((opportunity) => ({
+          options: capsuleOptions(opportunities, 'opportunities', (opportunity) => ({
             label: opportunity.name,
             value: opportunity.id,
           })),
@@ -124,7 +138,7 @@ export const capsuleCrmProps = {
         );
         return {
           disabled: false,
-          options: projects.map((project) => ({
+          options: capsuleOptions(projects, 'projects', (project) => ({
             label: project.name,
             value: project.id,
           })),
@@ -152,7 +166,7 @@ export const capsuleCrmProps = {
         );
         return {
           disabled: false,
-          options: cases.map((kase) => ({ label: kase.name, value: kase.id })),
+          options: capsuleOptions(cases, 'cases', (kase) => ({ label: kase.name, value: kase.id })),
         };
       },
     }),
@@ -177,7 +191,7 @@ export const capsuleCrmProps = {
         );
         return {
           disabled: false,
-          options: users.map((user) => ({
+          options: capsuleOptions(users, 'users', (user) => ({
             label: user.username,
             value: user.id,
           })),
@@ -205,7 +219,7 @@ export const capsuleCrmProps = {
         );
         return {
           disabled: false,
-          options: teams.map((team) => ({
+          options: capsuleOptions(teams, 'teams', (team) => ({
             label: team.name,
             value: team.id,
           })),

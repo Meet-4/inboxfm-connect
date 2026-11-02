@@ -4,7 +4,7 @@ import {
   DynamicPropsValue,
 } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from '../common/auth';
-import { capsuleCrmClient } from '../common/client';
+import { capsuleCrmClient, capsuleOptions } from '../common/client';
 import { CreateTaskParams } from '../common/types';
 
 export const createTaskAction = createAction({
@@ -68,13 +68,19 @@ export const createTaskAction = createAction({
             auth,
             ''
           );
-          const contactOptions = contacts.map((contact) => ({
+          const contactOptions = contacts.items.map((contact) => ({
             label:
               contact.type === 'person'
                 ? `${contact.firstName} ${contact.lastName}`
                 : contact.name || `Unnamed ${contact.type}`,
             value: contact.id,
           }));
+          if (contacts.truncated) {
+            contactOptions.push({
+              label: '⚠️ Could not load all contacts (partial list)',
+              value: '__truncated_notice__' as unknown as number,
+            });
+          }
           fields['partyId'] = Property.StaticDropdown({
             displayName: 'Party',
             required: true,
@@ -86,10 +92,16 @@ export const createTaskAction = createAction({
           const opportunities = await capsuleCrmClient.searchOpportunities(
             auth
           );
-          const opportunityOptions = opportunities.map((opportunity) => ({
+          const opportunityOptions = opportunities.items.map((opportunity) => ({
             label: opportunity.name,
             value: opportunity.id,
           }));
+          if (opportunities.truncated) {
+            opportunityOptions.push({
+              label: '⚠️ Could not load all opportunities (partial list)',
+              value: '__truncated_notice__' as unknown as number,
+            });
+          }
           fields['opportunityId'] = Property.StaticDropdown({
             displayName: 'Opportunity',
             required: true,
@@ -157,7 +169,7 @@ export const createTaskAction = createAction({
           auth
         );
         return {
-          options: users.map((user) => ({
+          options: capsuleOptions(users, 'users', (user) => ({
             label: user.name,
             value: user.id,
           })),

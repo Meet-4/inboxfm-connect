@@ -4,7 +4,7 @@ import {
   DynamicPropsValue,
 } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from '../common/auth';
-import { capsuleCrmClient } from '../common/client';
+import { capsuleCrmClient, capsuleOptions } from '../common/client';
 import {
   UpdateOpportunityParams,
   OpportunityCustomField,
@@ -34,7 +34,7 @@ export const updateOpportunityAction = createAction({
           auth
         );
         return {
-          options: opportunities.map((opportunity) => ({
+          options: capsuleOptions(opportunities, 'opportunities', (opportunity) => ({
             label: opportunity.name,
             value: opportunity.id,
           })),
@@ -60,7 +60,7 @@ export const updateOpportunityAction = createAction({
           auth
         );
         return {
-          options: milestones.map((milestone) => ({
+          options: capsuleOptions(milestones, 'milestones', (milestone) => ({
             label: milestone.name,
             value: milestone.id,
           })),
@@ -113,7 +113,7 @@ export const updateOpportunityAction = createAction({
           auth
         );
         return {
-          options: users.map((user) => ({
+          options: capsuleOptions(users, 'users', (user) => ({
             label: user.name,
             value: user.id,
           })),
@@ -131,7 +131,7 @@ export const updateOpportunityAction = createAction({
           auth
         );
         return {
-          options: teams.map((team) => ({
+          options: capsuleOptions(teams, 'teams', (team) => ({
             label: team.name,
             value: team.id,
           })),
@@ -201,7 +201,7 @@ export const updateOpportunityAction = createAction({
         );
 
         const customFieldOptions =
-          allCustomFields?.map((field) => ({
+          allCustomFields.items.map((field) => ({
             label: field.name,
             value: field.id,
           })) ?? [];

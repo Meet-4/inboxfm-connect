@@ -37,6 +37,64 @@ import {
 } from './types';
 import { CapsuleCrmAuthType } from './auth';
 
+
+// Capsule paginates every multi-item response (50 per page by default,
+// up to 100 with perPage) via the `page` query parameter.
+// https://developer.capsulecrm.com/v2/overview/reading-from-the-api
+const CAPSULE_PAGE_SIZE = 100;
+const CAPSULE_MAX_PAGES = 10;
+
+async function fetchCapsulePaged<T>(
+  url: string,
+  listKey: string,
+  auth: CapsuleCrmAuthType,
+  extraQuery: Record<string, string> = {}
+): Promise<{ items: T[]; truncated: boolean }> {
+  const items: T[] = [];
+
+  for (let page = 1; page <= CAPSULE_MAX_PAGES; page++) {
+    const request: HttpRequest = {
+      method: HttpMethod.GET,
+      url,
+      authentication: {
+        type: AuthenticationType.BEARER_TOKEN,
+        token: auth.access_token,
+      },
+      queryParams: {
+        ...extraQuery,
+        page: String(page),
+        perPage: String(CAPSULE_PAGE_SIZE),
+      },
+    };
+    const response = await httpClient.sendRequest<Record<string, T[]>>(request);
+    const batch = response.body?.[listKey] ?? [];
+    items.push(...batch);
+    if (batch.length < CAPSULE_PAGE_SIZE) {
+      return { items, truncated: false };
+    }
+  }
+
+  return { items, truncated: true };
+}
+
+
+// Maps a paged Capsule response into dropdown options and appends the
+// standard truncation notice when the page budget was exhausted.
+export function capsuleOptions<TItem, TValue>(
+  page: { items: TItem[]; truncated: boolean },
+  resourceLabel: string,
+  toOption: (item: TItem) => { label: string; value: TValue }
+): { label: string; value: TValue }[] {
+  const options = page.items.map(toOption);
+  if (page.truncated) {
+    options.push({
+      label: `⚠️ Could not load all ${resourceLabel} (partial list)`,
+      value: '__truncated_notice__' as unknown as TValue,
+    });
+  }
+  return options;
+}
+
 export const capsuleCrmClient = {
   async createContact(
     auth: CapsuleCrmAuthType,
@@ -106,31 +164,16 @@ export const capsuleCrmClient = {
   async searchContacts(
     auth: CapsuleCrmAuthType,
     searchTerm: string
-  ): Promise<Party[]> {
+  ): Promise<{ items: Party[]; truncated: boolean }> {
     const isSearch = searchTerm && searchTerm.length > 0;
-    const url = isSearch
-      ? `https://api.capsulecrm.com/api/v2/parties/search`
-      : `https://api.capsulecrm.com/api/v2/parties`;
-
-    const queryParams: Record<string, string> = {};
-
-    if (isSearch) {
-      queryParams['q'] = searchTerm;
-    }
-
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: url,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-      queryParams: queryParams,
-    };
-    const response = await httpClient.sendRequest<{ parties: Party[] }>(
-      request
+    return fetchCapsulePaged<Party>(
+      isSearch
+        ? 'https://api.capsulecrm.com/api/v2/parties/search'
+        : 'https://api.capsulecrm.com/api/v2/parties',
+      'parties',
+      auth,
+      isSearch ? { q: searchTerm } : {}
     );
-    return response.body.parties;
   },
 
   async searchOrganisations(
@@ -181,45 +224,22 @@ export const capsuleCrmClient = {
     }
   },
 
-  async listTeams(auth: CapsuleCrmAuthType): Promise<Team[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/teams`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ teams: Team[] }>(request);
-    return response.body.teams;
+  async listTeams(auth: CapsuleCrmAuthType): Promise<{ items: Team[]; truncated: boolean }> {
+    return fetchCapsulePaged<Team>(`https://api.capsulecrm.com/api/v2/teams`, 'teams', auth);
   },
 
-  async listTags(auth: CapsuleCrmAuthType): Promise<Tag[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/parties/tags`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ tags: Tag[] }>(request);
-    return response.body.tags;
+  async listTags(auth: CapsuleCrmAuthType): Promise<{ items: Tag[]; truncated: boolean }> {
+    return fetchCapsulePaged<Tag>(`https://api.capsulecrm.com/api/v2/parties/tags`, 'tags', auth);
   },
 
-  async listCustomFields(auth: CapsuleCrmAuthType): Promise<CustomField[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/parties/fields/definitions`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{
-      definitions: CustomField[];
-    }>(request);
-    return response.body.definitions;
+  async listCustomFields(
+    auth: CapsuleCrmAuthType
+  ): Promise<{ items: CustomField[]; truncated: boolean }> {
+    return fetchCapsulePaged<CustomField>(
+      'https://api.capsulecrm.com/api/v2/parties/fields/definitions',
+      'definitions',
+      auth
+    );
   },
 
   async updateContact(
@@ -256,36 +276,12 @@ export const capsuleCrmClient = {
     return response.body;
   },
 
-  async listMilestones(auth: CapsuleCrmAuthType): Promise<Milestone[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/milestones`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ milestones: Milestone[] }>(
-      request
-    );
-    return response.body.milestones;
+  async listMilestones(auth: CapsuleCrmAuthType): Promise<{ items: Milestone[]; truncated: boolean }> {
+    return fetchCapsulePaged<Milestone>(`https://api.capsulecrm.com/api/v2/milestones`, 'milestones', auth);
   },
 
-  async searchOpportunities(
-    auth: CapsuleCrmAuthType
-  ): Promise<Opportunity[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/opportunities`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{
-      opportunities: Opportunity[];
-    }>(request);
-    return response.body.opportunities;
+  async searchOpportunities(auth: CapsuleCrmAuthType): Promise<{ items: Opportunity[]; truncated: boolean }> {
+    return fetchCapsulePaged<Opportunity>(`https://api.capsulecrm.com/api/v2/opportunities`, 'opportunities', auth);
   },
 
   async getOpportunity(
@@ -330,19 +326,8 @@ export const capsuleCrmClient = {
     return response.body.opportunity;
   },
 
-  async listOpportunities(auth: CapsuleCrmAuthType): Promise<Opportunity[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/opportunities`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{
-      opportunities: Opportunity[];
-    }>(request);
-    return response.body.opportunities;
+  async listOpportunities(auth: CapsuleCrmAuthType): Promise<{ items: Opportunity[]; truncated: boolean }> {
+    return fetchCapsulePaged<Opportunity>(`https://api.capsulecrm.com/api/v2/opportunities`, 'opportunities', auth);
   },
 
   async updateOpportunity(
@@ -431,40 +416,21 @@ export const capsuleCrmClient = {
     await httpClient.sendRequest(request);
   },
 
-  async listActivityTypes(auth: CapsuleCrmAuthType): Promise<ActivityType[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/activitytypes`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{
-      activityTypes: ActivityType[];
-    }>(request);
-    return response.body.activityTypes;
+  async listActivityTypes(auth: CapsuleCrmAuthType): Promise<{ items: ActivityType[]; truncated: boolean }> {
+    return fetchCapsulePaged<ActivityType>(`https://api.capsulecrm.com/api/v2/activitytypes`, 'activityTypes', auth);
   },
 
   async findContact(
     auth: CapsuleCrmAuthType,
     term: string
   ): Promise<Party[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/parties/search`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-      queryParams: {
-        q: term,
-      },
-    };
-    const response = await httpClient.sendRequest<{ parties: Party[] }>(
-      request
+    const { items } = await fetchCapsulePaged<Party>(
+      'https://api.capsulecrm.com/api/v2/parties/search',
+      'parties',
+      auth,
+      { q: term }
     );
-    return response.body.parties;
+    return items;
   },
 
   async filterOpportunities(
@@ -509,17 +475,8 @@ export const capsuleCrmClient = {
     return response.body.kases;
   },
 
-  async listStages(auth: CapsuleCrmAuthType): Promise<Stage[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/stages`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ stages: Stage[] }>(request);
-    return response.body.stages;
+  async listStages(auth: CapsuleCrmAuthType): Promise<{ items: Stage[]; truncated: boolean }> {
+    return fetchCapsulePaged<Stage>(`https://api.capsulecrm.com/api/v2/stages`, 'stages', auth);
   },
 
   async createProject(
@@ -541,45 +498,16 @@ export const capsuleCrmClient = {
     return response.body.kase;
   },
 
-  async listProjects(auth: CapsuleCrmAuthType): Promise<Project[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/kases`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ kases: Project[] }>(
-      request
-    );
-    return response.body.kases;
+  async listProjects(auth: CapsuleCrmAuthType): Promise<{ items: Project[]; truncated: boolean }> {
+    return fetchCapsulePaged<Project>(`https://api.capsulecrm.com/api/v2/kases`, 'kases', auth);
   },
 
-  async listCases(auth: CapsuleCrmAuthType): Promise<Case[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/kases`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ kases: Case[] }>(request);
-    return response.body.kases;
+  async listCases(auth: CapsuleCrmAuthType): Promise<{ items: Case[]; truncated: boolean }> {
+    return fetchCapsulePaged<Case>(`https://api.capsulecrm.com/api/v2/kases`, 'kases', auth);
   },
 
-  async listUsers(auth: CapsuleCrmAuthType): Promise<User[]> {
-    const request: HttpRequest = {
-      method: HttpMethod.GET,
-      url: `https://api.capsulecrm.com/api/v2/users`,
-      authentication: {
-        type: AuthenticationType.BEARER_TOKEN,
-        token: auth.access_token,
-      },
-    };
-    const response = await httpClient.sendRequest<{ users: User[] }>(request);
-    return response.body.users;
+  async listUsers(auth: CapsuleCrmAuthType): Promise<{ items: User[]; truncated: boolean }> {
+    return fetchCapsulePaged<User>(`https://api.capsulecrm.com/api/v2/users`, 'users', auth);
   },
 
   async createEntry(

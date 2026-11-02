@@ -4,7 +4,7 @@ import {
   DynamicPropsValue,
 } from '@inboxfm-connect/pieces-framework';
 import { capsuleCrmAuth, CapsuleCrmAuthType } from '../common/auth';
-import { capsuleCrmClient } from '../common/client';
+import { capsuleCrmClient, capsuleOptions } from '../common/client';
 import {
   CreateOpportunityParams,
   OpportunityCustomField,
@@ -35,7 +35,7 @@ export const createOpportunityAction = createAction({
           ''
         );
         return {
-          options: contacts.map((contact) => ({
+          options: capsuleOptions(contacts, 'contacts', (contact) => ({
             label:
               contact.type === 'person'
                 ? `${contact.firstName} ${contact.lastName}`
@@ -66,7 +66,7 @@ export const createOpportunityAction = createAction({
           auth
         );
         return {
-          options: milestones.map((milestone) => ({
+          options: capsuleOptions(milestones, 'milestones', (milestone) => ({
             label: milestone.name,
             value: milestone.id,
           })),
@@ -126,7 +126,7 @@ export const createOpportunityAction = createAction({
           auth
         );
         return {
-          options: users.map((user) => ({
+          options: capsuleOptions(users, 'users', (user) => ({
             label: user.name,
             value: user.id,
           })),
@@ -145,7 +145,7 @@ export const createOpportunityAction = createAction({
           auth
         );
         return {
-          options: teams.map((team) => ({
+          options: capsuleOptions(teams, 'teams', (team) => ({
             label: team.name,
             value: team.id,
           })),
@@ -161,7 +161,7 @@ export const createOpportunityAction = createAction({
         if (!auth) return { options: [], disabled: true, placeholder: "Please connect your Capsule CRM account first" };
         const tags = await capsuleCrmClient.listTags(auth);
         return {
-          options: tags.map((tag) => ({
+          options: capsuleOptions(tags, 'tags', (tag) => ({
             label: tag.name,
             value: tag.name,
           })),
@@ -179,7 +179,7 @@ export const createOpportunityAction = createAction({
         const customFields = await capsuleCrmClient.listCustomFields(
           auth
         );
-        for (const field of customFields) {
+        for (const field of customFields.items) {
           switch (field.type) {
             case 'list':
               fields[field.id] = Property.StaticDropdown({
