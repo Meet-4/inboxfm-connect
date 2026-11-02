@@ -85,7 +85,7 @@ export function McpClientConfigCard({ serverUrl, bearerToken }: McpClientConfigC
           </select>
           <p id="mcp-auth-mode-hint" className="text-[11px] leading-relaxed text-muted-foreground">
             {authMode === 'bearer' && !bearerToken
-              ? 'Generate a token first — the configuration below uses a placeholder until you do.'
+              ? 'Generate a token first — the configuration below has no Authorization header until you do.'
               : AUTH_MODES.find((mode) => mode.value === authMode)?.hint}
           </p>
         </div>
