@@ -1,5 +1,5 @@
-import { Property } from '@inboxfm-connect/pieces-framework';
-import { HttpMethod } from '@inboxfm-connect/pieces-common';
+import { DropdownOption, Property } from '@inboxfm-connect/pieces-framework';
+import { HttpMethod, HttpResponse } from '@inboxfm-connect/pieces-common';
 import { freshserviceAuth } from '../../';
 import { freshserviceApiCall } from './client';
 
@@ -32,6 +32,61 @@ interface FreshserviceTicket {
   subject: string;
 }
 
+// Freshservice paginates every list endpoint with page/per_page (default 30
+// per page, maximum 100) and advertises the next page in the `link` response
+// header (rel="next"), which is absent on the last page. A single
+// per_page=100 request silently dropped everything past the first 100
+// records, so walk pages with a bounded budget and surface a truncation
+// notice.
+// https://api.freshservice.com/v2/#pagination
+const FRESHSERVICE_PAGE_SIZE = 100;
+const FRESHSERVICE_MAX_PAGES = 10;
+
+async function fetchAllFreshserviceListItems<TItem>(
+  fetchPage: (page: number) => Promise<HttpResponse<Record<string, unknown>>>
+): Promise<{ items: TItem[]; truncated: boolean }> {
+  const items: TItem[] = [];
+  let truncated = false;
+  let page = 1;
+
+  while (page <= FRESHSERVICE_MAX_PAGES) {
+    const response = await fetchPage(page);
+    const body = response.body ?? {};
+    const collectionKey = Object.keys(body).find((key) =>
+      Array.isArray(body[key])
+    );
+    if (!collectionKey) {
+      break;
+    }
+    items.push(...(body[collectionKey] as TItem[]));
+
+    const linkHeader = response.headers?.['link'];
+    const link =
+      typeof linkHeader === 'string'
+        ? linkHeader
+        : Array.isArray(linkHeader)
+          ? linkHeader.join(',')
+          : '';
+    if (!link.includes('rel="next"')) {
+      break;
+    }
+    if (page === FRESHSERVICE_MAX_PAGES) {
+      truncated = true;
+      break;
+    }
+    page++;
+  }
+
+  return { items, truncated };
+}
+
+function addTruncatedNotice<TValue>(options: DropdownOption<TValue>[]) {
+  options.push({
+    label: '⚠️ Could not load all records (partial list)',
+    value: '__truncated_notice__' as TValue,
+  });
+}
+
 export const freshserviceCommon = {
   change: (required = true) =>
     Property.Dropdown({
@@ -47,20 +102,32 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          changes: FreshserviceChange[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'changes',
-          auth,
-          queryParams: { per_page: '100', order_by: 'created_at', order_type: 'desc' },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceChange>((page) =>
+            freshserviceApiCall<{
+              changes: FreshserviceChange[];
+            }>({
+              method: HttpMethod.GET,
+              endpoint: 'changes',
+              auth,
+              queryParams: {
+                per_page: String(FRESHSERVICE_PAGE_SIZE),
+                order_by: 'created_at',
+                order_type: 'desc',
+                page: String(page),
+              },
+            })
+          );
+        const options: DropdownOption<number>[] = items.map((change) => ({
+          label: `#${change.id} — ${change.subject}`,
+          value: change.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.changes.map((change) => ({
-            label: `#${change.id} — ${change.subject}`,
-            value: change.id,
-          })),
+          options,
         };
       },
     }),
@@ -79,24 +146,32 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          tickets: FreshserviceTicket[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'tickets',
-          auth,
-          queryParams: {
-            order_by: 'created_at',
-            order_type: 'desc',
-            per_page: '100',
-          },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceTicket>((page) =>
+            freshserviceApiCall<{
+              tickets: FreshserviceTicket[];
+            }>({
+              method: HttpMethod.GET,
+              endpoint: 'tickets',
+              auth,
+              queryParams: {
+                order_by: 'created_at',
+                order_type: 'desc',
+                per_page: String(FRESHSERVICE_PAGE_SIZE),
+                page: String(page),
+              },
+            })
+          );
+        const options: DropdownOption<number>[] = items.map((ticket) => ({
+          label: `#${ticket.id} — ${ticket.subject}`,
+          value: ticket.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.tickets.map((ticket) => ({
-            label: `#${ticket.id} — ${ticket.subject}`,
-            value: ticket.id,
-          })),
+          options,
         };
       },
     }),
@@ -115,20 +190,31 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          requesters: FreshserviceRequester[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'requesters',
-          auth,
-          queryParams: { per_page: '100' },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceRequester>(
+            (page) =>
+              freshserviceApiCall<{
+                requesters: FreshserviceRequester[];
+              }>({
+                method: HttpMethod.GET,
+                endpoint: 'requesters',
+                auth,
+                queryParams: {
+                  per_page: String(FRESHSERVICE_PAGE_SIZE),
+                  page: String(page),
+                },
+              })
+          );
+        const options: DropdownOption<number>[] = items.map((r) => ({
+          label: `${r.first_name} ${r.last_name} (${r.primary_email})`,
+          value: r.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.requesters.map((r) => ({
-            label: `${r.first_name} ${r.last_name} (${r.primary_email})`,
-            value: r.id,
-          })),
+          options,
         };
       },
     }),
@@ -147,20 +233,30 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          agents: FreshserviceAgent[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'agents',
-          auth,
-          queryParams: { per_page: '100' },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceAgent>((page) =>
+            freshserviceApiCall<{
+              agents: FreshserviceAgent[];
+            }>({
+              method: HttpMethod.GET,
+              endpoint: 'agents',
+              auth,
+              queryParams: {
+                per_page: String(FRESHSERVICE_PAGE_SIZE),
+                page: String(page),
+              },
+            })
+          );
+        const options: DropdownOption<number>[] = items.map((a) => ({
+          label: `${a.first_name} ${a.last_name} (${a.email})`,
+          value: a.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.agents.map((a) => ({
-            label: `${a.first_name} ${a.last_name} (${a.email})`,
-            value: a.id,
-          })),
+          options,
         };
       },
     }),
@@ -179,20 +275,31 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          departments: FreshserviceDepartment[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'departments',
-          auth,
-          queryParams: { per_page: '100' },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceDepartment>(
+            (page) =>
+              freshserviceApiCall<{
+                departments: FreshserviceDepartment[];
+              }>({
+                method: HttpMethod.GET,
+                endpoint: 'departments',
+                auth,
+                queryParams: {
+                  per_page: String(FRESHSERVICE_PAGE_SIZE),
+                  page: String(page),
+                },
+              })
+          );
+        const options: DropdownOption<number>[] = items.map((d) => ({
+          label: d.name,
+          value: d.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.departments.map((d) => ({
-            label: d.name,
-            value: d.id,
-          })),
+          options,
         };
       },
     }),
@@ -211,20 +318,30 @@ export const freshserviceCommon = {
             options: [],
           };
         }
-        const response = await freshserviceApiCall<{
-          groups: FreshserviceGroup[];
-        }>({
-          method: HttpMethod.GET,
-          endpoint: 'groups',
-          auth,
-          queryParams: { per_page: '100' },
-        });
+        const { items, truncated } =
+          await fetchAllFreshserviceListItems<FreshserviceGroup>((page) =>
+            freshserviceApiCall<{
+              groups: FreshserviceGroup[];
+            }>({
+              method: HttpMethod.GET,
+              endpoint: 'groups',
+              auth,
+              queryParams: {
+                per_page: String(FRESHSERVICE_PAGE_SIZE),
+                page: String(page),
+              },
+            })
+          );
+        const options: DropdownOption<number>[] = items.map((g) => ({
+          label: g.name,
+          value: g.id,
+        }));
+        if (truncated) {
+          addTruncatedNotice(options);
+        }
         return {
           disabled: false,
-          options: response.body.groups.map((g) => ({
-            label: g.name,
-            value: g.id,
-          })),
+          options,
         };
       },
     }),
@@ -379,4 +496,3 @@ export interface FreshserviceChangeTask {
   created_at: string;
   updated_at: string;
 }
-
