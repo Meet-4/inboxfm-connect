@@ -6,9 +6,10 @@ export const getAllTicketsByStatus = createAction({
   auth: freshdeskAuth,
   name: 'get_all_tickets_by_status',
   displayName: 'Get All Tickets By Status',
-  description: 'Get All Tickets by selected status from Freshdesk.',
+  description:
+    'Get All Tickets by selected status from Freshdesk. Follows Freshdesk search pagination (30 tickets per page, up to 10 pages) and returns up to 300 matching tickets.',
   audience: 'both',
-  aiMetadata: { description: 'Search Freshdesk tickets filtered to one or more selected workflow states (Open, Pending, Resolved, Closed), combining the chosen statuses with OR. Use when you want tickets matching specific statuses rather than the full unfiltered list from Get Tickets. At least one status must be selected. Read-only and idempotent.', idempotent: true },
+  aiMetadata: { description: 'Search Freshdesk tickets filtered to one or more selected workflow states (Open, Pending, Resolved, Closed), combining the chosen statuses with OR. Follows Freshdesk search pagination (30 per page, up to 10 pages) and returns up to 300 matching tickets. Use when you want tickets matching specific statuses rather than the full unfiltered list from Get Tickets. At least one status must be selected. Read-only and idempotent.', idempotent: true },
 
   props: {
     status_filter: Property.StaticMultiSelectDropdown({
@@ -57,14 +58,44 @@ export const getAllTicketsByStatus = createAction({
 
     const url = `${baseUrl}/api/v2/search/tickets/?${queryParams.toString()}`;
 
-    const httprequestdata = {
-      method: HttpMethod.GET,
-      url,
-      headers,
-    };
-    const response = await httpClient.sendRequest(httprequestdata);
+    // Freshdesk search endpoints return a fixed 30 results per page and only
+    // support the `page` parameter (per_page is rejected). Walk pages so
+    // matching tickets beyond the first page are not silently dropped.
+    const MAX_PAGES = 10; // provider caps search at 10 pages -> up to 300 tickets
+    const PER_PAGE = 30;
 
-    if (response.status == 200) {
+    const mergedResults: Array<Record<string, any>> = [];
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const response = await httpClient.sendRequest({
+        method: HttpMethod.GET,
+        url: `${url}&page=${page}`,
+        headers,
+      });
+
+      if (page === 1 && response.status !== 200) {
+        // Preserve the original error behavior on the first request
+        return response.status;
+      }
+
+      if (response.status !== 200) {
+        throw new Error(
+          `Failed to search tickets page ${page}: HTTP ${response.status}`
+        );
+      }
+
+      const pageResults = Array.isArray(response.body?.results)
+        ? response.body.results
+        : [];
+
+      mergedResults.push(...pageResults);
+
+      if (pageResults.length < PER_PAGE) {
+        break; // last page reached
+      }
+    }
+
+    if (mergedResults.length > 0) {
       // Define an interface for the ticket structure
       interface Ticket {
         id: number;
@@ -81,7 +112,7 @@ export const getAllTicketsByStatus = createAction({
       }
 
       // response.body.results is an array of ticket objects
-      const ticketResults: Ticket[] = response.body.results;
+      const ticketResults: Ticket[] = mergedResults as Ticket[];
 
       // Sort the ticketResults array by requester_id
       ticketResults.sort((a, b) => a.requester_id - b.requester_id);
@@ -129,7 +160,7 @@ export const getAllTicketsByStatus = createAction({
       // Return the tickets array
       return tickets;
     } else {
-      return response.status;
+      return [];
     }
   },
 });
