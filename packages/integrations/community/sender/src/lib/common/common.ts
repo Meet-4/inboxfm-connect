@@ -30,6 +30,38 @@ export async function makeSenderRequest(
     body,
   });
 }
+// Sender paginates every list endpoint with `page` and `limit`
+// (limit of 10 by default, up to 100) and reports whether more pages
+// remain via `has_more_resources` in the response body — a single call
+// silently capped every dropdown at the first small page.
+// https://api.sender.net/
+const SENDER_PAGE_SIZE = 100;
+const SENDER_MAX_PAGES = 10;
+
+async function fetchSenderPaged(
+  auth: string,
+  baseEndpoint: string
+): Promise<{ items: any[]; truncated: boolean }> {
+  const items: any[] = [];
+  const joiner = baseEndpoint.includes('?') ? '&' : '?';
+
+  for (let page = 1; page <= SENDER_MAX_PAGES; page++) {
+    const response: any = await makeSenderRequest(
+      auth,
+      `${baseEndpoint}${joiner}page=${page}&limit=${SENDER_PAGE_SIZE}`,
+      HttpMethod.GET
+    );
+    const batch = response.body?.data || [];
+    items.push(...batch);
+
+    if (!response.body?.has_more_resources || batch.length < SENDER_PAGE_SIZE) {
+      return { items, truncated: false };
+    }
+  }
+
+  return { items, truncated: true };
+}
+
 export const groupIdDropdown = Property.Dropdown({
   auth: senderAuth,
   displayName: 'Groups',
@@ -46,19 +78,24 @@ export const groupIdDropdown = Property.Dropdown({
     }
 
     try {
-      const response: any = await makeSenderRequest(
+      const { items: groups, truncated } = await fetchSenderPaged(
         auth.secret_text,
-        '/groups',
-        HttpMethod.GET
+        '/groups'
       );
-      const groups = response.body.data || [];
+      const options = groups.map((group: any) => ({
+        label: group.title,
+        value: group.id,
+      }));
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all groups (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
-        options: groups.map((group: any) => ({
-          label: group.title,
-          value: group.id,
-        })),
+        options,
       };
     } catch (error) {
       return {
@@ -86,19 +123,24 @@ export const groupIdsDropdown = Property.MultiSelectDropdown({
     }
 
     try {
-      const response: any = await makeSenderRequest(
+      const { items: groups, truncated } = await fetchSenderPaged(
         auth.secret_text,
-        '/groups',
-        HttpMethod.GET
+        '/groups'
       );
-      const groups = response.body.data || [];
+      const options = groups.map((group: any) => ({
+        label: group.title,
+        value: group.id,
+      }));
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all groups (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
-        options: groups.map((group: any) => ({
-          label: group.title,
-          value: group.id,
-        })),
+        options,
       };
     } catch (error) {
       return {
@@ -126,19 +168,24 @@ export const subscribersDropdown = Property.MultiSelectDropdown<string, true, ty
     }
 
     try {
-      const response: any = await makeSenderRequest(
+      const { items: subscribers, truncated } = await fetchSenderPaged(
         auth.secret_text,
-        '/subscribers?limit=50',
-        HttpMethod.GET
+        '/subscribers'
       );
-      const subscribers = response.body.data || [];
+      const options = subscribers.map((sub: any) => ({
+        label: sub.email,
+        value: sub.email,
+      }));
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all subscribers (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
-        options: subscribers.map((sub: any) => ({
-          label: sub.email,
-          value: sub.email,
-        })),
+        options,
       };
     } catch (error) {
       return {
@@ -166,19 +213,24 @@ export const subscriberDropdownSingle = Property.Dropdown<string, true, typeof s
     }
 
     try {
-      const response: any = await makeSenderRequest(
+      const { items: subscribers, truncated } = await fetchSenderPaged(
         auth.secret_text,
-        '/subscribers?limit=50',
-        HttpMethod.GET
+        '/subscribers'
       );
-      const subscribers = response.body.data || [];
+      const options = subscribers.map((sub: any) => ({
+        label: sub.email,
+        value: sub.email,
+      }));
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all subscribers (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
-        options: subscribers.map((sub: any) => ({
-          label: sub.email,
-          value: sub.email,
-        })),
+        options,
       };
     } catch (error) {
       return {
@@ -206,19 +258,24 @@ export const campaignDropdown = Property.Dropdown({
     }
 
     try {
-      const response: any = await makeSenderRequest(
+      const { items: campaigns, truncated } = await fetchSenderPaged(
         auth.secret_text,
-        `/campaigns?limit=50&status=DRAFT`,
-        HttpMethod.GET
+        '/campaigns?status=DRAFT'
       );
-      const campaigns = response.body.data || [];
+      const options = campaigns.map((c: any) => ({
+        label: c.title || c.subject || c.id,
+        value: c.id,
+      }));
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all draft campaigns (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
-        options: campaigns.map((c: any) => ({
-          label: c.title || c.subject || c.id,
-          value: c.id,
-        })),
+        options,
       };
     } catch (error) {
       return {
