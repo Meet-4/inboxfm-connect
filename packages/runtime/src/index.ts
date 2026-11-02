@@ -40,7 +40,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
             operation: {
                 projectId: params.projectId,
                 platformId: params.platformId,
-                engineToken: 'headless',
+                engineToken: params.engineToken ?? 'headless',
                 internalApiUrl: params.internalApiUrl || 'http://localhost:3000',
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
                 timeoutInSeconds: 60,
@@ -56,7 +56,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
                 pieces: [piecePackage],
                 codes: [],
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
-                engineToken: 'headless',
+                engineToken: params.engineToken ?? 'headless',
             },
         })
 
@@ -167,6 +167,15 @@ export type ExecuteParams = {
     platformId: string
     internalApiUrl?: string
     publicApiUrl?: string
+    /**
+     * Engine principal token the executed tool's context presents to
+     * securityAccess.engine() routes (/v1/store-entries, /v1/files) and the
+     * sandbox presents when downloading piece bundles. Callers that mint a real
+     * engine JWT must pass it here — the legacy 'headless' placeholder fallback
+     * is rejected with 401 by those routes' JWT verification, so any piece using
+     * context.store or context.files fails through this runtime without it (#544).
+     */
+    engineToken?: string
 }
 
 export type RefreshParams = {
