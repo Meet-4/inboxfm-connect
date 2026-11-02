@@ -2,6 +2,7 @@ import { getAccessTokenOrThrow } from '@inboxfm-connect/pieces-common';
 import { IntercomClient } from 'intercom-client';
 import {
   AppConnectionValueForAuthProperty,
+  DropdownOption,
   Property,
 } from '@inboxfm-connect/pieces-framework';
 import { AppConnectionType } from '@inboxfm-connect/pieces-framework';
@@ -83,20 +84,44 @@ export const commonProps = {
           };
         }
         const client = intercomClient(auth);
-        const contactsResponse = await client.contacts.list({});
+
+        // Intercom paginates GET /contacts (default 10 per page, per_page max
+        // 150, starting_after cursor). Reading only `.data` returns the first
+        // page, so walk the SDK's async iterable (which follows the
+        // pages.next.starting_after cursor) with a bounded budget.
+        // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/contacts/listcontacts
+        const PAGE_SIZE = 150;
+        const MAX_ITEMS = PAGE_SIZE * 10;
+
+        const response = await client.contacts.list({
+          per_page: PAGE_SIZE,
+        });
+
+        const options: DropdownOption<string>[] = [];
+        let truncated = false;
+        let loaded = 0;
+
+        for await (const c of response) {
+          options.push({
+            value: c.id,
+            label: c.name || c.email || c.id,
+          });
+          loaded++;
+          if (loaded >= MAX_ITEMS) {
+            truncated = true;
+            break;
+          }
+        }
+
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all contacts (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
 
         return {
-          options: contactsResponse.data.map((c) => {
-            const res = { value: c.id, label: '' };
-            if (c.name) {
-              res.label = c.name;
-            } else if (c.email) {
-              res.label = c.email;
-            } else {
-              res.label = c.id;
-            }
-            return res;
-          }),
+          options,
         };
       },
       refreshers: [],
