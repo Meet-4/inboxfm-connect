@@ -1,3 +1,41 @@
+// Shared selection for board items with their column values. Used by both
+// getBoardItemValues (initial page) and getNextBoardItemValues (cursor pages).
+const boardItemsFields = `
+        items{
+          id
+          name
+          column_values(ids: $columnIds){
+            id
+            type
+            value
+            text
+            ... on ButtonValue{
+              label
+            }
+            ... on StatusValue{
+              label
+            }
+            ... on VoteValue{
+              vote_count
+            }
+            ... on TagsValue{
+              tags{
+                  name
+              }
+          }
+          ... on BoardRelationValue {
+            linked_item_ids
+          }
+          ... on DependencyValue {
+            linked_item_ids
+          }
+          ... on WeekValue {
+            start_date
+            end_date
+          }
+          }
+        }`;
+
 export const mondayGraphQLQueries = {
   listWorkspaces: `
     query listWorkspaces($limit: Int)
@@ -116,43 +154,20 @@ export const mondayGraphQLQueries = {
   {
     boards(ids: [$boardId])
     {
-      items_page(query_params: {order_by: {column_id: "__last_updated__",direction: desc}})
+      items_page(limit: 500, query_params: {order_by: {column_id: "__last_updated__",direction: desc}})
       {
-        items{
-          id
-          name
-          column_values(ids: $columnIds){
-            id
-            type
-            value
-            text
-            ... on ButtonValue{
-              label
-            }
-            ... on StatusValue{
-              label
-            }
-            ... on VoteValue{
-              vote_count
-            }
-            ... on TagsValue{
-              tags{
-                  name
-              }
-          }
-          ... on BoardRelationValue {
-            linked_item_ids
-          }
-          ... on DependencyValue {
-            linked_item_ids
-          }
-          ... on WeekValue {
-            start_date
-            end_date
-          }
-          }
-        }
+        cursor
+${boardItemsFields}
       }
+    }
+  }`,
+  getNextBoardItemValues: `
+  query getNextItemColumnValues($limit: Int!,$cursor: String!,$columnIds: [String!])
+  {
+    next_items_page(limit: $limit, cursor: $cursor)
+    {
+      cursor
+${boardItemsFields}
     }
   }`,
 };

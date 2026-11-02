@@ -1,6 +1,6 @@
 import mondaySdk from 'monday-sdk-js';
 import { MondayClientSdk } from 'monday-sdk-js/types/client-sdk.interface';
-import { Board, MondayColumn, User } from './models';
+import { Board, Item, MondayColumn, User } from './models';
 import { mondayGraphQLMutations } from './mutations';
 import { mondayGraphQLQueries } from './queries';
 export class mondayClient {
@@ -71,6 +71,13 @@ export class mondayClient {
       mondayGraphQLQueries.getBoardItemValues,
       { variables: variables }
     );
+  }
+  async getNextBoardItemValues(variables: object) {
+    return await this.client.api<{
+      next_items_page: { cursor: string | null; items: Item[] };
+    }>(mondayGraphQLQueries.getNextBoardItemValues, {
+      variables: variables,
+    });
   }
   async getItemColumnValues(variables: object) {
     return await this.client.api<{ boards: Board[] }>(
