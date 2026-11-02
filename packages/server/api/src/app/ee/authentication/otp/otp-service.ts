@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
-import { apId, PlatformId } from '@inboxfm-connect/core-utils'
+import { apId, isNil, PlatformId } from '@inboxfm-connect/core-utils'
 import { OtpModel, OtpState, OtpType } from '@inboxfm-connect/shared'
 import dayjs from 'dayjs'
 import { FastifyBaseLogger } from 'fastify'
@@ -49,10 +49,18 @@ export const otpService = (log: FastifyBaseLogger) => ({
     },
 
     async confirm({ identityId, type, value }: ConfirmParams): Promise<boolean> {
-        const otp = await repo().findOneByOrFail({
+        // A missing row is a client-state outcome (code never requested /
+        // unknown identity), not a server error: findOneByOrFail surfaced it as
+        // a raw EntityNotFoundError -> HTTP 500 on the public verify-email and
+        // reset-password routes, diverging from the wrong-code / expired-code
+        // INVALID_OTP (410) contract. Fail closed like every other bad input.
+        const otp = await repo().findOneBy({
             identityId,
             type,
         })
+        if (isNil(otp)) {
+            return false
+        }
         const otpIsPending = otp.state === OtpState.PENDING
         const otpIsNotExpired = dayjs().diff(otp.updated, 'milliseconds') < TEN_MINUTES
         const otpMatches = matchesOtpValue(otp.value, value)
