@@ -3,6 +3,7 @@ import {
   createTask,
   getContacts,
   getUsers,
+  getAllContacts,
 } from '../common';
 import { leadConnectorAuth } from '../..';
 
@@ -27,15 +28,22 @@ export const createTaskAction = createAction({
             options: [],
           };
 
-        const contacts = await getContacts(auth as OAuth2PropertyValue);
+        const contacts = await getAllContacts(auth as OAuth2PropertyValue);
+        const options = contacts.items.map((contact) => {
+          return {
+            label: contact.contactName,
+            value: contact.id,
+          };
+        });
+        if (contacts.truncated) {
+          options.push({
+            label: '⚠️ Could not load all contacts (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
 
         return {
-          options: contacts.map((contact) => {
-            return {
-              label: contact.contactName,
-              value: contact.id,
-            };
-          }),
+          options,
         };
       },
     }),

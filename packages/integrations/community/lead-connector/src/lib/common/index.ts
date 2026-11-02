@@ -321,6 +321,57 @@ export async function getOpportunities(
   return result;
 }
 
+// GoHighLevel caps every contacts / opportunities search at 100 records
+// per page and pages forward with the `startAfterId` cursor (the id of
+// the last item on the previous page). The dropdowns issued a single
+// page, so anything past the first 100 records was invisible.
+// https://services.leadconnectorhq.com/documents/overview
+const LC_PAGE_SIZE = 100;
+const LC_MAX_PAGES = 10;
+
+export async function getAllContacts(
+  auth: OAuth2PropertyValue
+): Promise<{ items: LeadConnectorContact[]; truncated: boolean }> {
+  const items: LeadConnectorContact[] = [];
+  let startAfterId: string | undefined = undefined;
+
+  for (let page = 0; page < LC_MAX_PAGES; page++) {
+    const batch = await getContacts(auth, { startAfterId });
+    items.push(...batch);
+    if (batch.length < LC_PAGE_SIZE) {
+      return { items, truncated: false };
+    }
+    const lastId = batch[batch.length - 1]?.id;
+    if (!lastId) {
+      return { items, truncated: false };
+    }
+    startAfterId = lastId;
+  }
+  return { items, truncated: true };
+}
+
+export async function getAllOpportunities(
+  auth: OAuth2PropertyValue,
+  pipeline: string
+): Promise<{ items: any[]; truncated: boolean }> {
+  const items: any[] = [];
+  let startAfterId: string | undefined = undefined;
+
+  for (let page = 0; page < LC_MAX_PAGES; page++) {
+    const batch = await getOpportunities(auth, pipeline, { startAfterId });
+    items.push(...batch);
+    if (batch.length < LC_PAGE_SIZE) {
+      return { items, truncated: false };
+    }
+    const lastId = batch[batch.length - 1]?.id;
+    if (!lastId) {
+      return { items, truncated: false };
+    }
+    startAfterId = lastId;
+  }
+  return { items, truncated: true };
+}
+
 export async function getOpportunity(
   auth: string,
   pipeline: string,

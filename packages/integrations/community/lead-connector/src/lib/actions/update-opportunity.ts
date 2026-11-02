@@ -11,7 +11,8 @@ import {
   getPipelines,
   getUsers,
   LeadConnectorOpportunityStatus,
-  updateOpportunity,
+  updateOpportunity, getAllContacts,
+  getAllOpportunities,
 } from '../common';
 import { leadConnectorAuth } from '../..';
 import * as z from 'zod/mini'
@@ -63,17 +64,24 @@ export const updateOpportunityAction = createAction({
           };
         }
 
-        const opportunities = await getOpportunities(
+        const opportunities = await getAllOpportunities(
           auth as OAuth2PropertyValue,
           pipeline as string
         );
+        const options = opportunities.items.map((opportunity: any) => {
+          return {
+            label: opportunity.name,
+            value: opportunity.id,
+          };
+        });
+        if (opportunities.truncated) {
+          options.push({
+            label: '⚠️ Could not load all opportunities (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
-          options: opportunities.map((opportunity: any) => {
-            return {
-              label: opportunity.name,
-              value: opportunity.id,
-            };
-          }),
+          options,
         };
       },
     }),
@@ -124,14 +132,21 @@ export const updateOpportunityAction = createAction({
             options: [],
           };
 
-        const contacts = await getContacts(auth as OAuth2PropertyValue);
+        const contacts = await getAllContacts(auth as OAuth2PropertyValue);
+        const options = contacts.items.map((contact) => {
+          return {
+            label: contact.contactName,
+            value: contact.id,
+          };
+        });
+        if (contacts.truncated) {
+          options.push({
+            label: '⚠️ Could not load all contacts (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
-          options: contacts.map((contact) => {
-            return {
-              label: contact.contactName,
-              value: contact.id,
-            };
-          }),
+          options,
         };
       },
     }),
