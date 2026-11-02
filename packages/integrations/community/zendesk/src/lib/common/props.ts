@@ -3,6 +3,7 @@ import {
   HttpMethod,
   AuthenticationType,
   httpClient,
+  HttpResponse,
 } from '@inboxfm-connect/pieces-common';
 import { zendeskAuth } from '../..';
 
@@ -92,6 +93,68 @@ interface ZendeskGroupsResponse {
   groups: ZendeskGroup[];
 }
 
+// Zendesk paginates every list endpoint; responses carry an absolute
+// `next_page` URL while more records exist (per_page is capped at 100)
+// https://developer.zendesk.com/api-reference/introduction/pagination
+const ZENDESK_MAX_PAGES = 50;
+
+export const ZENDESK_TRUNCATED_WARNING =
+  '⚠️ Could not load all options (partial list)';
+
+async function fetchAllZendeskList<T>({
+  auth,
+  initialUrl,
+  collectionKey,
+}: {
+  auth: AuthProps;
+  initialUrl: string;
+  collectionKey: string;
+}): Promise<{ items: T[]; truncated: boolean }> {
+  const items: T[] = [];
+  let truncated = false;
+  let url: string | undefined = initialUrl;
+  let pageCount = 0;
+
+  while (url && pageCount < ZENDESK_MAX_PAGES) {
+    pageCount++;
+    const response: HttpResponse<Record<string, unknown>> =
+      await httpClient.sendRequest<Record<string, unknown>>({
+        url,
+        method: HttpMethod.GET,
+        authentication: {
+          type: AuthenticationType.BASIC,
+          username: auth.email + '/token',
+          password: auth.token,
+        },
+      });
+    const body: Record<string, unknown> = response.body ?? {};
+    const pageItems = (body as Record<string, unknown[]>)[collectionKey];
+    if (Array.isArray(pageItems)) {
+      items.push(...(pageItems as T[]));
+    }
+    url = (body['next_page'] as string | null) ?? undefined;
+    if (pageCount >= ZENDESK_MAX_PAGES && url) {
+      truncated = true;
+    }
+  }
+
+  return { items, truncated };
+}
+
+function withTruncationWarning(
+  options: Array<{ label: string; value: string }>,
+  truncated: boolean
+): Array<{ label: string; value: string }> {
+  if (truncated) {
+    options.push({
+      label: ZENDESK_TRUNCATED_WARNING,
+      value: '__truncated_notice__',
+    });
+  }
+  return options;
+}
+
+
 export const ticketIdDropdown =  Property.Dropdown({
   auth: zendeskAuth,
   displayName: 'Ticket',
@@ -110,24 +173,23 @@ export const ticketIdDropdown =  Property.Dropdown({
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskTicketsResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/tickets.json?per_page=100`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: tickets, truncated } = await fetchAllZendeskList<ZendeskTicket>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/tickets.json?per_page=100`,
+        collectionKey: 'tickets',
       });
 
-      const tickets = response.body.tickets;
-
-      return {
-        disabled: false,
-        options: tickets.map((ticket) => ({
+      const options = withTruncationWarning(
+        tickets.map((ticket) => ({
           label: `#${ticket.id} - ${ticket.subject} (${ticket.status})`,
           value: ticket.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           tickets.length === 0 ? 'No tickets available' : 'Select a ticket',
       };
@@ -162,25 +224,24 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response =
-        await httpClient.sendRequest<ZendeskOrganizationsResponse>({
-          url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/organizations.json?per_page=100`,
-          method: HttpMethod.GET,
-          authentication: {
-            type: AuthenticationType.BASIC,
-            username: authentication.props.email + '/token',
-            password: authentication.props.token,
-          },
+      const { items: organizations, truncated } =
+        await fetchAllZendeskList<ZendeskOrganization>({
+          auth: authentication.props,
+          initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/organizations.json?per_page=100`,
+          collectionKey: 'organizations',
         });
 
-      const organizations = response.body.organizations;
-
-      return {
-        disabled: false,
-        options: organizations.map((org) => ({
+      const options = withTruncationWarning(
+        organizations.map((org) => ({
           label: `${org.name} (ID: ${org.id})`,
           value: org.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           organizations.length === 0
             ? 'No organizations available'
@@ -217,26 +278,25 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskUsersResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/users.json?per_page=100`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: users, truncated } = await fetchAllZendeskList<ZendeskUser>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/users.json?per_page=100`,
+        collectionKey: 'users',
       });
 
-      const users = response.body.users;
-
-      return {
-        disabled: false,
-        options: users.map((user) => ({
+      const options = withTruncationWarning(
+        users.map((user) => ({
           label: `${user.name}${user.email ? ` (${user.email})` : ''} - ID: ${
             user.id
           }${user.role ? ` [${user.role}]` : ''}`,
           value: user.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           users.length === 0 ? 'No users available' : 'Select a user',
       };
@@ -271,21 +331,14 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskBrandsResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/brands.json`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: brands, truncated } = await fetchAllZendeskList<ZendeskBrand>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/brands.json?per_page=100`,
+        collectionKey: 'brands',
       });
 
-      const brands = response.body.brands;
-
-      return {
-        disabled: false,
-        options: brands
+      const options = withTruncationWarning(
+        brands
           .filter((brand) => brand.active)
           .map((brand) => ({
             label: `${brand.name}${brand.default ? ' (Default)' : ''} - ${
@@ -293,6 +346,12 @@ auth: zendeskAuth,
             }`,
             value: brand.id.toString(),
           })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           brands.length === 0 ? 'No brands available' : 'Select a brand',
       };
@@ -327,28 +386,27 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskTicketsResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/tickets.json?per_page=100`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: tickets, truncated } = await fetchAllZendeskList<ZendeskTicket>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/tickets.json?per_page=100`,
+        collectionKey: 'tickets',
       });
-
-      const tickets = response.body.tickets;
 
       const problemTickets = tickets.filter(
         (ticket) => ticket.type === 'problem'
       );
 
-      return {
-        disabled: false,
-        options: problemTickets.map((ticket) => ({
+      const options = withTruncationWarning(
+        problemTickets.map((ticket) => ({
           label: `#${ticket.id} - ${ticket.subject} (${ticket.status})`,
           value: ticket.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           problemTickets.length === 0
             ? 'No problem tickets available'
@@ -385,24 +443,24 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskCustomRolesResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/custom_roles.json`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
-      });
+      const { items: customRoles, truncated } =
+        await fetchAllZendeskList<ZendeskCustomRole>({
+          auth: authentication.props,
+          initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/custom_roles.json?per_page=100`,
+          collectionKey: 'custom_roles',
+        });
 
-      const customRoles = response.body.custom_roles;
-
-      return {
-        disabled: false,
-        options: customRoles.map((role) => ({
+      const options = withTruncationWarning(
+        customRoles.map((role) => ({
           label: `${role.name} - ${role.description} (${role.team_member_count} members)`,
           value: role.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           customRoles.length === 0 ? 'No custom roles available' : 'Select a custom role',
       };
@@ -436,26 +494,25 @@ export const agentBrandIdDropdown = Property.MultiSelectDropdown({
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskBrandsResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/brands.json`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: brands, truncated } = await fetchAllZendeskList<ZendeskBrand>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/brands.json?per_page=100`,
+        collectionKey: 'brands',
       });
 
-      const brands = response.body.brands;
-
-      return {
-        disabled: false,
-        options: brands
+      const options = withTruncationWarning(
+        brands
           .filter((brand) => brand.active) // Only show active brands
           .map((brand) => ({
             label: `${brand.name}${brand.default ? ' (Default)' : ''} - ${brand.subdomain}`,
             value: brand.id.toString(),
           })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           brands.length === 0 ? 'No brands available' : 'Select brands for agent access',
       };
@@ -482,27 +539,19 @@ export const userFieldsDynamicProp = Property.DynamicProperties({
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/user_fields.json`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: fields } = await fetchAllZendeskList<{
+        key: string;
+        title: string;
+        description?: string;
+        type: string;
+        active: boolean;
+        custom_field_options?: Array<{ name: string; value: string }>;
+        regexp_for_validation?: string;
+      }>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/user_fields.json?per_page=100`,
+        collectionKey: 'user_fields',
       });
-
-      const fields = (response.body as {
-        user_fields: Array<{
-          key: string;
-          title: string;
-          description?: string;
-          type: string;
-          active: boolean;
-          custom_field_options?: Array<{ name: string; value: string }>;
-          regexp_for_validation?: string;
-        }>;
-      }).user_fields;
 
       const dynamicProps: DynamicPropsValue = {};
 
@@ -618,24 +667,23 @@ auth: zendeskAuth,
 
     try {
       const authentication = auth;
-      const response = await httpClient.sendRequest<ZendeskGroupsResponse>({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/groups.json?per_page=100`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const { items: groups, truncated } = await fetchAllZendeskList<ZendeskGroup>({
+        auth: authentication.props,
+        initialUrl: `https://${authentication.props.subdomain}.zendesk.com/api/v2/groups.json?per_page=100`,
+        collectionKey: 'groups',
       });
 
-      const groups = response.body.groups;
-
-      return {
-        disabled: false,
-        options: groups.map((group) => ({
+      const options = withTruncationWarning(
+        groups.map((group) => ({
           label: `${group.name}${group.is_public ? ' (Public)' : ' (Private)'} - ID: ${group.id}`,
           value: group.id.toString(),
         })),
+        truncated
+      );
+
+      return {
+        disabled: false,
+        options,
         placeholder:
           groups.length === 0 ? 'No groups available' : 'Select a group',
       };
