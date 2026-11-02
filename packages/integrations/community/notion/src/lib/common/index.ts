@@ -83,6 +83,87 @@ export const fetchAllWorkspaceUsers = async (
   return { users, truncated };
 };
 
+export type NotionCursorListResponse = {
+  results: Array<Record<string, any>>;
+  has_more?: boolean | null;
+  next_cursor?: string | null;
+};
+
+const NOTION_DROPDOWN_MAX_PAGES = 50;
+
+/**
+ * Bounded page-walk shared by the Notion dropdowns whose list endpoints
+ * return `has_more`/`next_cursor` (search, databases.query). Mirrors
+ * fetchAllWorkspaceUsers: at most MAX_PAGES requests, then truncation.
+ */
+export async function walkNotionCursorPages(
+  fetchPage: (start_cursor: string | undefined) => Promise<NotionCursorListResponse>
+): Promise<{ results: Array<Record<string, any>>; truncated: boolean }> {
+  const results: Array<Record<string, any>> = [];
+  let cursor: string | undefined = undefined;
+  let truncated = false;
+  let pageCount = 0;
+
+  while (pageCount < NOTION_DROPDOWN_MAX_PAGES) {
+    pageCount++;
+    const response = await fetchPage(cursor);
+    if (Array.isArray(response.results)) {
+      results.push(...response.results);
+    }
+    const hasMore = response.has_more ?? false;
+    cursor = response.next_cursor ?? undefined;
+    if (hasMore && !cursor) {
+      truncated = true;
+      break;
+    }
+    if (!hasMore) {
+      break;
+    }
+    if (pageCount >= NOTION_DROPDOWN_MAX_PAGES) {
+      truncated = true;
+    }
+  }
+
+  return { results, truncated };
+}
+
+export const fetchAllNotionSearchResults = async (
+  client: { search: (args: Record<string, unknown>) => Promise<NotionCursorListResponse> },
+  searchArgs: Record<string, unknown> = {}
+): Promise<{ results: Array<Record<string, any>>; truncated: boolean }> => {
+  return walkNotionCursorPages((cursor) =>
+    client.search({
+      ...searchArgs,
+      page_size: 100,
+      start_cursor: cursor,
+    })
+  );
+};
+
+export const fetchAllDatabaseItems = async (
+  client: {
+    query: (args: {
+      database_id: string;
+      filter_properties?: string[];
+      archived?: boolean;
+      page_size?: number;
+      start_cursor?: string;
+    }) => Promise<NotionCursorListResponse>;
+  },
+  args: { database_id: string; archived?: boolean }
+): Promise<{ results: Array<Record<string, any>>; truncated: boolean }> => {
+  return walkNotionCursorPages((cursor) =>
+    client.query({
+      database_id: args.database_id,
+      filter_properties: ['title'],
+      archived: args.archived,
+      page_size: 100,
+      start_cursor: cursor,
+    })
+  );
+};
+
+
 export const notionCommon = {
   baseUrl: 'https://api.notion.com/v1',
   database_id: Property.Dropdown<string, true, typeof notionAuth>({
@@ -104,20 +185,30 @@ export const notionCommon = {
         auth: getNotionToken(auth as NotionAuthValue),
         notionVersion: '2022-02-22',
       });
-      const databases = await notion.search({
-        filter: {
-          property: 'object',
-          value: 'database',
-        },
-      });
+      const { results: databases, truncated } = await fetchAllNotionSearchResults(
+        notion,
+        {
+          filter: {
+            property: 'object',
+            value: 'database',
+          },
+        }
+      );
+      const databaseOptions = databases
+        .filter((f: any) => f.title?.length > 0)
+        .map((database: any) => ({
+          label: database.title?.[0]?.plain_text ?? 'Unknown title',
+          value: database.id,
+        }));
+      if (truncated) {
+        databaseOptions.push({
+          label: '⚠️ Could not load all databases (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
       return {
         placeholder: 'Select a database',
-        options: databases.results
-          .filter((f: any) => f.title.length > 0)
-          .map((database: any) => ({
-            label: database.title?.[0]?.plain_text ?? 'Unknown title',
-            value: database.id,
-          })),
+        options: databaseOptions,
       };
     },
   }),
@@ -140,19 +231,26 @@ export const notionCommon = {
         auth: getNotionToken(auth as NotionAuthValue),
         notionVersion: '2022-02-22',
       });
-      const { results } = await notion.databases.query({
-        database_id: database_id as string,
-        filter_properties: ['title'],
+      const { results: items, truncated } = await fetchAllDatabaseItems(
+        notion.databases,
+        { database_id: database_id as string }
+      );
+      const itemOptions = items.map((item: any) => {
+        const property: any = Object.values(item.properties)[0];
+        return {
+          label: property.title[0]?.plain_text ?? 'No Title',
+          value: item.id,
+        };
       });
+      if (truncated) {
+        itemOptions.push({
+          label: '⚠️ Could not load all database items (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
       return {
         disabled: false,
-        options: results.map((item: any) => {
-          const property: any = Object.values(item.properties)[0];
-          return {
-            label: property.title[0]?.plain_text ?? 'No Title',
-            value: item.id,
-          };
-        }),
+        options: itemOptions,
       };
     },
   }),
@@ -179,13 +277,12 @@ export const notionCommon = {
           notionVersion: '2022-02-22',
         });
 
-        const { results } = await notion.databases.query({
-          database_id: database_id as string,
-          filter_properties: ['title'],
-          archived: true, // Only fetch archived items
-        });
+        const { results: items, truncated } = await fetchAllDatabaseItems(
+          notion.databases,
+          { database_id: database_id as string, archived: true }
+        );
 
-        if (results.length === 0) {
+        if (items.length === 0) {
           return {
             disabled: false,
             options: [],
@@ -193,17 +290,25 @@ export const notionCommon = {
           };
         }
 
+        const itemOptions = items.map((item: any) => {
+          const property: any = Object.values(item.properties)[0];
+          const title = property?.title?.[0]?.plain_text || 'Untitled';
+          return {
+            label: `${title} (archived)`,
+            value: item.id,
+          };
+        });
+        if (truncated) {
+          itemOptions.push({
+            label: '⚠️ Could not load all archived items (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
         return {
           disabled: false,
           placeholder: 'Select an archived item to restore',
-          options: results.map((item: any) => {
-            const property: any = Object.values(item.properties)[0];
-            const title = property?.title?.[0]?.plain_text || 'Untitled';
-            return {
-              label: `${title} (archived)`,
-              value: item.id,
-            };
-          }),
+          options: itemOptions,
         };
       } catch (error: any) {
         return {
@@ -411,7 +516,7 @@ export const notionCommon = {
     displayName: 'Page',
     required: true,
     description:
-      'Choose the Notion page you want to work with. This list shows your 100 most recently edited pages for easy selection.',
+      'Choose the Notion page you want to work with. Lists your most recently edited pages.',
     refreshers: [],
     options: async ({ auth }) => {
       if (!auth) {
@@ -421,17 +526,24 @@ export const notionCommon = {
           options: [],
         };
       }
-      const pages = await getPages(auth as NotionAuthValue);
+      const { pages, truncated } = await getPages(auth as NotionAuthValue);
 
+      const pageOptions = pages.map((page: any) => ({
+        label:
+          page.properties.Name?.title[0]?.plain_text ??
+          page.properties.title?.title[0]?.text?.content ??
+          'No Title',
+        value: page.id,
+      }));
+      if (truncated) {
+        pageOptions.push({
+          label: '⚠️ Could not load all pages (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
       return {
         placeholder: 'Select a page',
-        options: pages.map((page: any) => ({
-          label:
-            page.properties.Name?.title[0]?.plain_text ??
-            page.properties.title?.title[0]?.text?.content ??
-            'No Title',
-          value: page.id,
-        })),
+        options: pageOptions,
       };
     },
   }),
@@ -447,7 +559,7 @@ export async function getPages(
     property: string;
     direction: 'ascending' | 'descending';
   }
-): Promise<any[]> {
+): Promise<{ pages: any[]; truncated: boolean }> {
   const notion = new Client({
     auth: getNotionToken(auth),
     notionVersion: '2022-02-22',
@@ -493,9 +605,9 @@ export async function getPages(
     timestamp: sort?.property ?? 'last_edited_time',
   };
 
-  const pages = await notion.search({
+  const { results, truncated } = await fetchAllNotionSearchResults(notion, {
     filter: filter,
     sort: sortObj,
   });
-  return pages.results as any[];
+  return { pages: results as any[], truncated };
 }

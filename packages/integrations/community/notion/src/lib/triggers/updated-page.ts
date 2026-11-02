@@ -145,6 +145,6 @@ const getUpdatedPages = async (
     direction: 'descending' as const,
   };
 
-  const pages = await getPages(authentication, searchOptions, sortOptions);
+  const { pages } = await getPages(authentication, searchOptions, sortOptions);
   return pages;
 };
