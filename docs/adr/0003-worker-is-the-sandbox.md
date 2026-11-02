@@ -46,3 +46,24 @@ isolate, resolver). It is imported and run by the worker, not shipped as its own
   boundary; it is explicitly out of scope.
 - **POC status:** verified locally via docker-compose (N worker replicas), not yet a published image or a
   hardened production deployment.
+
+## Review note (2026-11-02): historical — kept as a dated record
+
+The runtime half of this ADR held; the deployment half did not survive the worker removal.
+Verified against the current tree:
+
+- **Still true:** flows execute against the in-process sandbox box — no `/execute` HTTP hop,
+  no Docker socket, no pool; `RuntimeKind`, `cloud-run-runtime` and `local-pool-runtime` have
+  no references left; `@inboxfm-connect/sandbox` is still the in-process box
+  (`createSandboxRuntime`).
+- **Historical:** the worker this ADR describes no longer exists as a unit. There is no worker
+  package in the tree, no `Dockerfile.worker` (only the root `Dockerfile`), and no code reads
+  `AP_WORKER_CONCURRENCY` — a comment in `sandbox/src/lib/sandbox.ts` is its only mention. The
+  compose `worker` service runs the same app image in `AP_CONTAINER_TYPE=WORKER` mode and
+  registers no routes beyond health (open #727 removes it). `createSandboxRuntime` survives as
+  an in-process library whose callers are the user-interaction watcher and the execution
+  concurrency guard, and its signature default is `concurrency = 1`.
+- **Superseded by:** flows run in-process in the app (see the handbook stack page and
+  `docs/flowscript/`); the durable-queue worker that exists today is the separate FlowScript
+  service (`services/flowscript`), a Postgres-backed poll loop this ADR predates and does not
+  describe.

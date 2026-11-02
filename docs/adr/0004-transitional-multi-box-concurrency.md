@@ -33,3 +33,22 @@ when the default was 1.)
 - **Provision concurrency is already safe.** The on-disk cache layer (`integration-installer`,
   `engine-installer`, flow-bundle-store, code-cache) is the same code `main` ran with N boxes
   provisioning concurrently (`threadSafeMkdir`, `cache-state`), so no new per-key dedup is needed.
+
+## Review note (2026-11-02): historical — kept as a dated record
+
+The transitional mode this ADR describes no longer exists as a worker behavior; the library
+it shaped survives. Verified against the current tree:
+
+- **Still true:** `createSandboxRuntime({ concurrency })` holds its array of independent boxes
+  and routes by `workerIndex`; each box serializes its executes on a promise chain; the on-disk
+  caches stay concurrency-safe (`threadSafeMkdir` / `cache-state`); Cloud Run / `RuntimeKind`
+  remain deleted.
+- **Historical:** there is no worker poll loop to honor `AP_WORKER_CONCURRENCY` — no code reads
+  it (a `sandbox.ts` comment is its only mention), and the ADR's "default is restored to 5"
+  claim has no referent: the signature default is now `concurrency = 1`, and the compose
+  `worker` service's `replicas: 5` is an unrelated replica count for a container open #727
+  removes. The ADR's call for a "flipping the default to 1" removal PR was overtaken by the
+  removal of the worker itself.
+- **Superseded by:** the box array is now an in-process library surface — its callers are the
+  user-interaction watcher (`concurrency: 10`) and the execution concurrency guard — not N
+  worker poll loops; see the review note on ADR 0003.
