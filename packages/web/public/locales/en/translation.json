@@ -3082,5 +3082,15 @@
   "Sync your piece catalog to browse event triggers.": "Sync your piece catalog to browse event triggers.",
   "Integrations with triggers": "Integrations with triggers",
   "Select an integration": "Select an integration",
-  "Choose an integration on the left to browse its event triggers.": "Choose an integration on the left to browse its event triggers."
+  "Choose an integration on the left to browse its event triggers.": "Choose an integration on the left to browse its event triggers.",
+
+  "Signed in successfully": "Signed in successfully",
+  "Invalid credentials": "Invalid credentials",
+  "Sign in to your developer console": "Sign in to your developer console",
+  "developer@company.com": "developer@company.com",
+  "Local Development Mode": "Local Development Mode",
+  "1-Click Sign in as Dev (dev@ap.com)": "1-Click Sign in as Dev (dev@ap.com)",
+  "Signed in as Dev user": "Signed in as Dev user",
+  "Dev authentication failed": "Dev authentication failed",
+  "Invalid dev credentials": "Invalid dev credentials"
 }

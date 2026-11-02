@@ -1,5 +1,6 @@
 import { Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,6 +38,7 @@ export function resolvePostLoginTarget(returnUrlParam?: string | null, stateFrom
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const { signIn } = useAuth()
@@ -78,11 +80,11 @@ export default function LoginPage() {
 
       const { token, projectId, ...user } = res
       signIn(token, user, projectId)
-      toast.success('Signed in successfully')
+      toast.success(t('Signed in successfully'))
       navigateAfterLogin()
     } catch (err) {
-      toast.error('Authentication failed', {
-        description: err instanceof Error ? err.message : 'Invalid credentials',
+      toast.error(t('Authentication failed'), {
+        description: err instanceof Error ? err.message : t('Invalid credentials'),
       })
     } finally {
       setIsLoading(false)
@@ -106,11 +108,11 @@ export default function LoginPage() {
       })
       const { token, projectId, ...user } = res
       signIn(token, user, projectId)
-      toast.success('Signed in as Dev user')
+      toast.success(t('Signed in as Dev user'))
       navigateAfterLogin()
     } catch (err) {
-      toast.error('Dev authentication failed', {
-        description: err instanceof Error ? err.message : 'Invalid dev credentials',
+      toast.error(t('Dev authentication failed'), {
+        description: err instanceof Error ? err.message : t('Invalid dev credentials'),
       })
     } finally {
       setIsLoading(false)
@@ -128,17 +130,17 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-xl font-bold tracking-tight">InboxFM Connect</CardTitle>
           <CardDescription className="text-xs text-muted-foreground mt-1">
-            Sign in to your developer console
+            {t('Sign in to your developer console')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Email</label>
+              <label className="text-xs font-semibold text-foreground">{t('Email')}</label>
               <Input
                 type="email"
                 icon={<Mail className="h-4 w-4" />}
-                placeholder="developer@company.com"
+                placeholder={t('developer@company.com')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -146,7 +148,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Password</label>
+              <label className="text-xs font-semibold text-foreground">{t('Password')}</label>
               <Input
                 type="password"
                 icon={<Lock className="h-4 w-4" />}
@@ -158,14 +160,14 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" loading={isLoading} className="w-full mt-2 font-semibold shadow-xs">
-              Sign in
+              {t('Sign in')}
             </Button>
           </form>
 
           {import.meta.env.DEV && (
             <div className="pt-3 border-t border-border/80">
               <div className="text-center mb-2">
-                <span className="text-[11px] text-muted-foreground">Local Development Mode</span>
+                <span className="text-[11px] text-muted-foreground">{t('Local Development Mode')}</span>
               </div>
               <Button
                 type="button"
@@ -174,7 +176,7 @@ export default function LoginPage() {
                 onClick={handleDevSignIn}
                 className="w-full text-xs font-medium border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
               >
-                1-Click Sign in as Dev (dev@ap.com)
+                {t('1-Click Sign in as Dev (dev@ap.com)')}
               </Button>
             </div>
           )}
