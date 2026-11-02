@@ -320,6 +320,40 @@ describe('pieceInstaller', () => {
         expect((mockInstall.mock.calls[2]?.[0].filtersPath as string[]).map(toPosix))
             .toEqual([`pieces/${piece2.pieceName}-${piece2.pieceVersion}`])
     })
+
+    it('bounds a hung piece-bundle download instead of wedging the queue forever', async () => {
+        // The bundle fetch is the only unbounded network hop in provision: the sandbox execute
+        // timeout only arms once the child process runs, so a black-holed bundle download left
+        // the headless runtime's serialized queue stuck forever (every later call chains on the
+        // hung provision). Mimic undici here: the fetch never settles on its own and only rejects
+        // when its AbortSignal fires.
+        const fetchMock = vi.fn((_url: unknown, init?: RequestInit) => new Promise<never>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted due to timeout', 'TimeoutError')))
+        }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const piece = makePiece('@inboxfm-connect/piece-hung-bundle')
+        const installer = pieceInstaller(fakeLog, testWorkspace, () => ({
+            ...fakeGetSettings(),
+            PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS: 50,
+        }))
+
+        const result = await Promise.race([
+            captureError(installer.install({ pieces: [piece], includeFilters: true, ...bundleSource }))
+                .then((error) => ({ settled: true, error })),
+            new Promise<{ settled: boolean }>((resolve) => setTimeout(() => resolve({ settled: false }), 2000)),
+        ])
+
+        // RED before the fix: no signal is passed, the fetch never aborts and the install
+        // never settles — the queue is wedged behind it.
+        expect(result.settled).toBe(true)
+        const settled = result as { settled: boolean, error: Error }
+        expect(settled.error.message).toMatch(/timed out|aborted|timeout/i)
+        // The fetch was given an abort signal that actually fired.
+        expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
+        // Nothing was half-written to the piece folder.
+        expect(await pathExists(pieceDirPath(piece))).toBe(false)
+    })
 })
 
 describe('isValidPackageName', () => {

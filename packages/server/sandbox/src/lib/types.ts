@@ -113,6 +113,13 @@ export type SandboxSettings = {
     SSRF_ALLOW_LIST: string[]
     WORKER_GROUP_ID?: string | undefined
     PROJECT_WORKER?: boolean | undefined
+    /**
+     * Total deadline for downloading one piece bundle from the engine bundle endpoint during
+     * provision. Provision runs BEFORE the sandbox's per-operation timeout arms, so without this
+     * bound a black-holed download wedges every operation queued behind it. Defaults to
+     * DEFAULT_PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS when unset.
+     */
+    PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS?: number | undefined
 }
 
 export type SandboxDeps = {

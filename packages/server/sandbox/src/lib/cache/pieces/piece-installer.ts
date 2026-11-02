@@ -14,11 +14,21 @@ const VALID_UNSCOPED_NAME_REGEX = /^[^/]+$/
 const relativePiecePath = (piece: PiecePackage) => join('./', 'pieces', `${piece.pieceName}-${piece.pieceVersion}`)
 const piecePath = (rootWorkspace: string, piece: PiecePackage) => join(rootWorkspace, 'pieces', `${piece.pieceName}-${piece.pieceVersion}`)
 
+// The bundle download is the only unbounded network hop in provision: the sandbox's per-operation
+// timeout only arms once the child process runs, so a black-holed bundle endpoint otherwise leaves
+// the provision — and every operation queued behind it on the serialized runtime — stuck forever.
+export const DEFAULT_PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS = 60_000
+
 export const pieceInstaller = (log: ApLogger, basePath: string, getSettings: () => SandboxSettings) => ({
     async install({ pieces, includeFilters, publicApiUrl, engineToken }: InstallParams): Promise<void> {
         const groupedPieces = groupPiecesByPackagePath(pieces, basePath, getSettings)
+        const bundleSource: BundleSource = {
+            publicApiUrl,
+            engineToken,
+            downloadTimeoutMs: getSettings().PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS ?? DEFAULT_PIECE_BUNDLE_DOWNLOAD_TIMEOUT_MS,
+        }
         const installPromises = Object.entries(groupedPieces).map(async ([packagePath, piecesInGroup]) => {
-            await installPieces(packagePath, piecesInGroup, includeFilters, log, { publicApiUrl, engineToken }, getSettings)
+            await installPieces(packagePath, piecesInGroup, includeFilters, log, bundleSource, getSettings)
         })
         await Promise.all(installPromises)
     },
@@ -261,14 +271,27 @@ function bundleTgzPath(rootWorkspace: string, piece: PiecePackage): string {
 // `fetch` follows the redirect and carries the engine token in the Authorization header.
 // ARCHIVE pieces are fetched by archiveId (they may not be registered in metadata yet, e.g. during
 // EXTRACT_PIECE_METADATA); REGISTRY pieces by name@version.
-async function saveBundlesToDiskIfNotCached(rootWorkspace: string, pieces: PiecePackage[], { publicApiUrl, engineToken }: BundleSource): Promise<void> {
+async function saveBundlesToDiskIfNotCached(rootWorkspace: string, pieces: PiecePackage[], { publicApiUrl, engineToken, downloadTimeoutMs }: BundleSource): Promise<void> {
     await Promise.all(pieces.map(async (piece) => {
         const bundlePath = bundleTgzPath(rootWorkspace, piece)
         if (await fileSystemUtils.fileExists(bundlePath)) {
             return
         }
         const url = pieceBundleEndpointUrl(publicApiUrl, piece)
-        const response = await fetch(url, { headers: { Authorization: `Bearer ${engineToken}` } })
+        let response: Response
+        try {
+            response = await fetch(url, {
+                headers: { Authorization: `Bearer ${engineToken}` },
+                signal: AbortSignal.timeout(downloadTimeoutMs),
+            })
+        }
+        catch (error) {
+            const name = (error as { name?: string } | null)?.name
+            if (name === 'TimeoutError' || name === 'AbortError') {
+                throw new Error(`Timed out after ${downloadTimeoutMs}ms downloading piece bundle ${piece.pieceName}@${piece.pieceVersion} from ${url}`)
+            }
+            throw error
+        }
         if (!response.ok) {
             throw new Error(`Failed to fetch piece bundle ${piece.pieceName}@${piece.pieceVersion}: ${response.status} ${response.statusText}`)
         }
@@ -340,6 +363,7 @@ type InstallParams = {
 type BundleSource = {
     publicApiUrl: string
     engineToken: string
+    downloadTimeoutMs: number
 }
 
 type PieceInstallationResult = {
