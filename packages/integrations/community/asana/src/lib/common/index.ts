@@ -1,4 +1,4 @@
-import { Property, OAuth2PropertyValue } from '@inboxfm-connect/pieces-framework';
+import { Property, OAuth2PropertyValue, DropdownOption } from '@inboxfm-connect/pieces-framework';
 import {
   getAccessTokenOrThrow,
   HttpMethod,
@@ -8,6 +8,64 @@ import {
   AuthenticationType,
 } from '@inboxfm-connect/pieces-common';
 import { asanaAuth } from '../auth';
+
+// Asana paginates collections with `limit` (1-100) + `next_page.offset`
+// (https://developers.asana.com/docs/pagination). Bound the walk so a huge
+// workspace can never hang the dropdown refresh, and surface truncation.
+const MAX_PAGES = 50;
+
+export const TRUNCATED_DROPDOWN_WARNING =
+  '⚠️ Could not load all options (partial list)';
+
+function addTruncationWarning(
+  options: DropdownOption<string>[],
+  truncated: boolean
+): DropdownOption<string>[] {
+  if (truncated) {
+    options.push({
+      label: TRUNCATED_DROPDOWN_WARNING,
+      value: '__truncated_notice__',
+    });
+  }
+  return options;
+}
+
+export async function fetchAllAsanaPages<T>(
+  accessToken: string,
+  apiUrl: string
+): Promise<{ data: T[]; truncated: boolean }> {
+  const results: T[] = [];
+  let offset: string | undefined = undefined;
+  let truncated = false;
+  let pageCount = 0;
+
+  // Asana only paginates an endpoint when a `limit` is provided, so always
+  // request the maximum page size and walk `next_page.offset` while present.
+  do {
+    const separator = apiUrl.includes('?') ? '&' : '?';
+    const requestUrl: string = `${apiUrl}${separator}limit=100${
+      offset ? `&offset=${encodeURIComponent(offset)}` : ''
+    }`;
+    const response: HttpResponse<{
+      data: T[];
+      next_page?: { offset?: string } | null;
+    }> = await callAsanaApi<{
+      data: T[];
+      next_page?: { offset?: string } | null;
+    }>(HttpMethod.GET, requestUrl, accessToken, undefined);
+    if (Array.isArray(response.body.data)) {
+      results.push(...response.body.data);
+    }
+    offset = response.body.next_page?.offset ?? undefined;
+    pageCount++;
+    if (pageCount >= MAX_PAGES && offset) {
+      truncated = true;
+      break;
+    }
+  } while (offset);
+
+  return { data: results, truncated };
+}
 
 export const asanaCommon = {
   workspace: Property.Dropdown({
@@ -25,22 +83,20 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const response = (
-        await callAsanaApi<{
-          data: {
-            gid: string;
-            name: string;
-          }[];
-        }>(HttpMethod.GET, 'workspaces', accessToken, undefined)
-      ).body;
+      const { data, truncated } = await fetchAllAsanaPages<
+        { gid: string; name: string }
+      >(accessToken, 'workspaces');
       return {
         disabled: false,
-        options: response.data.map((workspace) => {
-          return {
-            label: workspace.name,
-            value: workspace.gid,
-          };
-        }),
+        options: addTruncationWarning(
+          data.map((workspace) => {
+            return {
+              label: workspace.name,
+              value: workspace.gid,
+            };
+          }),
+          truncated
+        ),
       };
     },
   }),
@@ -66,27 +122,20 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const response = (
-        await callAsanaApi<{
-          data: {
-            gid: string;
-            name: string;
-          }[];
-        }>(
-          HttpMethod.GET,
-          'projects?workspace=' + workspace,
-          accessToken,
-          undefined
-        )
-      ).body;
+      const { data, truncated } = await fetchAllAsanaPages<
+        { gid: string; name: string }
+      >(accessToken, 'projects?workspace=' + workspace);
       return {
         disabled: false,
-        options: response.data.map((project) => {
-          return {
-            label: project.name,
-            value: project.gid,
-          };
-        }),
+        options: addTruncationWarning(
+          data.map((project) => {
+            return {
+              label: project.name,
+              value: project.gid,
+            };
+          }),
+          truncated
+        ),
       };
     },
   }),
@@ -112,15 +161,21 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const users = await getUsers(accessToken, workspace as string);
+      const { users, truncated } = await getUsers(
+        accessToken,
+        workspace as string
+      );
       return {
         disabled: false,
-        options: users.map((user) => {
-          return {
-            label: user.name,
-            value: user.gid,
-          };
-        }),
+        options: addTruncationWarning(
+          users.map((user) => {
+            return {
+              label: user.name,
+              value: user.gid,
+            };
+          }),
+          truncated
+        ),
       };
     },
   }),
@@ -146,15 +201,21 @@ export const asanaCommon = {
         };
       }
       const accessToken = getAccessTokenOrThrow(auth as OAuth2PropertyValue);
-      const response = await getTags(accessToken, workspace as string);
+      const { tags, truncated } = await getTags(
+        accessToken,
+        workspace as string
+      );
       return {
         disabled: false,
-        options: response.map((project) => {
-          return {
-            label: project.name,
-            value: project.gid,
-          };
-        }),
+        options: addTruncationWarning(
+          tags.map((tag) => {
+            return {
+              label: tag.name,
+              value: tag.gid,
+            };
+          }),
+          truncated
+        ),
       };
     },
   }),
@@ -163,46 +224,33 @@ export const asanaCommon = {
 export async function getUsers(
   accessToken: string,
   workspace: string
-): Promise<
-  {
+): Promise<{
+  users: {
     gid: string;
     name: string;
-  }[]
-> {
-  const response = (
-    await callAsanaApi<{
-      data: {
-        gid: string;
-        name: string;
-      }[];
-    }>(HttpMethod.GET, 'users?workspace=' + workspace, accessToken, undefined)
-  ).body;
-  return response.data;
+  }[];
+  truncated: boolean;
+}> {
+  const { data, truncated } = await fetchAllAsanaPages<
+    { gid: string; name: string }
+  >(accessToken, 'users?workspace=' + workspace);
+  return { users: data, truncated };
 }
 
 export async function getTags(
   accessToken: string,
   workspace: string
-): Promise<
-  {
+): Promise<{
+  tags: {
     gid: string;
     name: string;
-  }[]
-> {
-  const response = (
-    await callAsanaApi<{
-      data: {
-        gid: string;
-        name: string;
-      }[];
-    }>(
-      HttpMethod.GET,
-      'workspaces/' + workspace + '/tags',
-      accessToken,
-      undefined
-    )
-  ).body;
-  return response.data;
+  }[];
+  truncated: boolean;
+}> {
+  const { data, truncated } = await fetchAllAsanaPages<
+    { gid: string; name: string }
+  >(accessToken, 'workspaces/' + workspace + '/tags');
+  return { tags: data, truncated };
 }
 
 export async function callAsanaApi<T extends HttpMessageBody = any>(
@@ -221,4 +269,3 @@ export async function callAsanaApi<T extends HttpMessageBody = any>(
     body: body,
   });
 }
-

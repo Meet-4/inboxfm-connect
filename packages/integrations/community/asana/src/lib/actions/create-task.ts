@@ -43,7 +43,10 @@ export const asanaCreateTaskAction = createAction({
 
     // User can provide tags name as dynamic value, we need to convert them to tags gids
     const userTags = tags ?? [];
-    const convertedTags = await getTags(auth.access_token, workspace);
+    const { tags: convertedTags } = await getTags(
+      auth.access_token,
+      workspace
+    );
     const tagsGids = userTags
       .map((tag: string) => {
         const foundTagById = convertedTags.find(
