@@ -47,7 +47,7 @@ export const findFreeBusy = createAction({
           };
         }
         const authProp = auth as GoogleCalendarAuthValue;
-        const calendars = await getCalendars(authProp);
+        const { calendars } = await getCalendars(authProp);
         return {
           disabled: false,
           options: calendars.map((calendar) => {

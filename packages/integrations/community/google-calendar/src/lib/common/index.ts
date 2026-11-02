@@ -21,15 +21,25 @@ export const googleCalendarCommon = {
           };
         }
         const authValue = auth as GoogleCalendarAuthValue;
-        const calendars = await getCalendars(authValue, minAccessRole);
+        const { calendars, truncated } = await getCalendars(
+          authValue,
+          minAccessRole
+        );
+        const options = calendars.map((calendar) => {
+          return {
+            label: calendar.summary,
+            value: calendar.id,
+          };
+        });
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all calendars (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: calendars.map((calendar) => {
-            return {
-              label: calendar.summary,
-              value: calendar.id,
-            };
-          }),
+          options,
         };
       },
     });

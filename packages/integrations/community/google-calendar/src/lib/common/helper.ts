@@ -155,25 +155,51 @@ export async function listEventsWithSyncToken({
 export async function getCalendars(
   authProp: GoogleCalendarAuthValue,
   minAccessRole?: 'writer'
-): Promise<CalendarObject[]> {
+): Promise<{ calendars: CalendarObject[]; truncated: boolean }> {
   // docs: https://developers.google.com/calendar/api/v3/reference/calendarList/list
-  const queryParams: Record<string, string> = {
-    showDeleted: 'false',
-  };
-  if (minAccessRole) {
-    queryParams['minAccessRole'] = minAccessRole;
-  }
-  const request: HttpRequest = {
-    method: HttpMethod.GET,
-    url: `${googleCalendarCommon.baseUrl}/users/me/calendarList`,
-    queryParams: queryParams,
-    authentication: {
-      type: AuthenticationType.BEARER_TOKEN,
-      token: await getAccessToken(authProp),
-    },
-  };
-  const response = await httpClient.sendRequest<CalendarList>(request);
-  return response.body.items;
+  // calendarList returns at most maxResults calendars (default 100, max 250)
+  // per page and exposes nextPageToken while more pages exist.
+  const accessToken = await getAccessToken(authProp);
+  const MAX_PAGES = 20;
+  const calendars: CalendarObject[] = [];
+  let truncated = false;
+  let pageToken: string | undefined = undefined;
+  let pageCount = 0;
+
+  do {
+    const queryParams: Record<string, string> = {
+      showDeleted: 'false',
+      maxResults: '250',
+    };
+    if (minAccessRole) {
+      queryParams['minAccessRole'] = minAccessRole;
+    }
+    if (pageToken) {
+      queryParams['pageToken'] = pageToken;
+    }
+    const request: HttpRequest = {
+      method: HttpMethod.GET,
+      url: `${googleCalendarCommon.baseUrl}/users/me/calendarList`,
+      queryParams: queryParams,
+      authentication: {
+        type: AuthenticationType.BEARER_TOKEN,
+        token: accessToken,
+      },
+    };
+    const response = await httpClient.sendRequest<CalendarList & {
+      nextPageToken?: string;
+    }>(request);
+    if (Array.isArray(response.body.items)) {
+      calendars.push(...response.body.items);
+    }
+    pageToken = response.body.nextPageToken;
+    pageCount++;
+    if (pageCount >= MAX_PAGES && pageToken) {
+      truncated = true;
+    }
+  } while (pageToken && pageCount < MAX_PAGES);
+
+  return { calendars, truncated };
 }
 
 export async function getColors(

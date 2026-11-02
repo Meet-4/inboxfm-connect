@@ -27,7 +27,7 @@ const polling: Polling<
     const { access_role_filter, calendar_name_filter, exclude_shared } =
       propsValue;
 
-    const currentCalendars = await getCalendars(auth);
+    const { calendars: currentCalendars } = await getCalendars(auth);
 
     let filteredCalendars = currentCalendars;
 
@@ -132,7 +132,7 @@ export const newCalendar = createTrigger({
   },
 
   async onEnable(context) {
-    const calendars = await getCalendars(context.auth);
+    const { calendars } = await getCalendars(context.auth);
 
     const { access_role_filter, calendar_name_filter, exclude_shared } =
       context.propsValue;
@@ -189,7 +189,7 @@ export const newCalendar = createTrigger({
   },
 
   async test(context) {
-    const calendars = await getCalendars(context.auth);
+    const { calendars } = await getCalendars(context.auth);
     const recentCalendars = calendars.slice(-1);
     return recentCalendars.map((cal: CalendarObject) => ({
       id: cal.id,
