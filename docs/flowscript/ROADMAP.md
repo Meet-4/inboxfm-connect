@@ -34,11 +34,22 @@ Acceptance: test flow invokes a real test integration through existing runtime w
 
 ## Phase 3: durable orchestration
 
-- Move CREATE TABLE IF NOT EXISTS into versioned migrations.
+- Move CREATE TABLE IF NOT EXISTS into versioned migrations. **Still open** — the store still
+  applies its DDL inline (`initializeStore` in `services/flowscript/src/store.ts`).
 - Evaluate existing Connect queue abstractions against the current Postgres polling queue.
 - Add leases/visibility timeout, stale-running recovery, bounded retries, dead-lettering and cancellation.
-- Add dedupe keys for manual requests, webhook event IDs and scheduled instants.
-- Add worker concurrency and backpressure.
+  **Done** — leases with heartbeat renewal and `FOR UPDATE … SKIP LOCKED` claiming, bounded
+  retries, dead-lettering and cancellation landed with #657 via PR #664 (schedule hardening in
+  #663, webhook/trigger lifecycle in #662); the open hardening passes #676, #679 and #730 add
+  race-free run finalization, bounded stale-lease recovery, orphaned-step-attempt finalization
+  and dead-letter status listing.
+- Add dedupe keys for manual requests, webhook event IDs and scheduled instants. **Done** — run
+  idempotency keys (unique per project), the `flowscript_webhook_idempotency` ledger and
+  `flowscript_schedule_occurrences` landed via #662/#663; open #679 scopes keys to
+  flow+environment and #730 prunes the ledgers on retention.
+- Add worker concurrency and backpressure. **Done** — `FLOWSCRIPT_MAX_CONCURRENT_RUNS`
+  (default 5) caps in-flight runs, the poll loop backs off while full and drains on stop;
+  open #676 and #683 harden the env parsing and pool config around it.
 
 Acceptance: concurrent workers do not double-claim; restart/retry tests prove safe behavior; side-effect semantics documented.
 
