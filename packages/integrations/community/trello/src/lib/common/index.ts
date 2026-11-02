@@ -273,6 +273,12 @@ async function listBoardLists(apikey: string, token: string, board_id: string) {
 
 /**
  * Gets all the labels of a board
+ *
+ * Trello caps the labels endpoint at its default page size (50) unless a
+ * `limit` is passed; the documented maximum is 1000 and no cursor exists
+ * for labels, so request the full documented maximum in one call.
+ * https://developer.atlassian.com/cloud/trello/rest/api-group-boards/#api-boards-id-labels-get
+ *
  * @param apikey API Key
  * @param token  API Token
  * @param board_id Board to fetch labels from
@@ -281,7 +287,13 @@ async function listBoardLists(apikey: string, token: string, board_id: string) {
 async function listBoardLabels(apikey: string, token: string, board_id: string) {
 	const request: HttpRequest = {
 		method: HttpMethod.GET,
-		url: `${trelloCommon.baseUrl}boards/${board_id}/labels` + `?key=` + apikey + `&token=` + token,
+		url:
+			`${trelloCommon.baseUrl}boards/${board_id}/labels` +
+			`?key=` +
+			apikey +
+			`&token=` +
+			token +
+			`&limit=1000`,
 		headers: {
 			Accept: 'application/json',
 		},
