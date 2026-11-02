@@ -48,12 +48,25 @@ export const mondayGraphQLQueries = {
     {
         boards(ids: [$boardId])
         {
-            items_page
+            items_page(limit: 100)
             {
+                cursor
                 items{
                     id
                     name
                 }
+            }
+        }
+    }`,
+  listBoardItemsNextPage: `
+    query listBoardItemsNextPage($cursor: String!)
+    {
+        next_items_page(cursor: $cursor, limit: 100)
+        {
+            cursor
+            items{
+                id
+                name
             }
         }
     }`,

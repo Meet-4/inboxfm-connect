@@ -123,15 +123,40 @@ auth: mondayAuth,
           boardId: board_id as string,
         });
 
-        const items = res.data.boards[0]?.items_page.items;
+        const itemsPage = res.data.boards[0]?.items_page;
+        const items = [...(itemsPage?.items ?? [])];
+        // monday's items_page returns at most 500 items and a cursor for the
+        // next page; walk it (bounded) so big boards are not truncated
+        // https://developer.monday.com/api-reference/reference/items-page
+        let cursor: string | null = itemsPage?.cursor ?? null;
+        const MAX_PAGES = 50;
+        let truncated = false;
+        let page = 0;
+        while (cursor && page < MAX_PAGES) {
+          page++;
+          const next = await client.listBoardItemsNextPage({ cursor });
+          items.push(...(next.data.next_items_page?.items ?? []));
+          cursor = next.data.next_items_page?.cursor ?? null;
+          if (page >= MAX_PAGES && cursor) {
+            truncated = true;
+          }
+        }
+
+        const options = items.map((item) => {
+          return {
+            label: item.name,
+            value: item.id,
+          };
+        });
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all items (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: items.map((item) => {
-            return {
-              label: item.name,
-              value: item.id,
-            };
-          }),
+          options,
         };
       },
     }),

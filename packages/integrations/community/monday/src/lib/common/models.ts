@@ -52,7 +52,7 @@ export interface Board {
   name: string;
   groups: Group[];
   type: BoardType;
-  items_page: { items: Item[] };
+  items_page: { items: Item[]; cursor?: string | null };
 }
 
 export interface Update {
