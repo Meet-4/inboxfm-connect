@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils/cn'
 
 export interface McpToolPermissionToggleProps {
@@ -16,14 +17,15 @@ export function McpToolPermissionToggle({
   pending = false,
   onToggle,
 }: McpToolPermissionToggleProps) {
+  const { t } = useTranslation()
   if (locked) {
     return (
       <span
         className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground"
-        title={`${toolName} is always exposed to AI agents`}
+        title={t('{{toolName}} is always exposed to AI agents', { toolName })}
       >
         <Lock className="h-3 w-3" aria-hidden="true" />
-        <span className="sr-only">{toolName} is always exposed and cannot be disabled</span>
+        <span className="sr-only">{t('{{toolName}} is always exposed and cannot be disabled', { toolName })}</span>
       </span>
     )
   }
@@ -33,7 +35,7 @@ export function McpToolPermissionToggle({
       type="button"
       role="switch"
       aria-checked={enabled}
-      aria-label={`Expose ${toolName} to AI agents`}
+      aria-label={t('Expose {{toolName}} to AI agents', { toolName })}
       aria-describedby={`mcp-tool-status-${toolName}`}
       disabled={pending}
       data-testid={`mcp-tool-toggle-${toolName}`}

@@ -1,4 +1,5 @@
 import { Wrench } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { McpToolPermissionToggle } from '@/components/mcp/mcp-tool-permission-toggle'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,30 +14,13 @@ export interface McpToolTableProps {
   onSelect: (tool: McpToolInfo) => void
 }
 
-function annotationBadges(tool: McpToolInfo) {
-  const badges = []
-  if (tool.annotations.readOnly) {
-    badges.push(
-      <Badge key="read-only" variant="outline" className="text-[9px] text-muted-foreground">
-        Read-only
-      </Badge>
-    )
-  }
-  if (tool.annotations.destructive) {
-    badges.push(
-      <Badge key="destructive" variant="warning" className="text-[9px]">
-        Destructive
-      </Badge>
-    )
-  }
-  return badges
-}
-
 export function McpToolTable({ tools, disabledTools, pendingTools, onToggle, onSelect }: McpToolTableProps) {
+  const { t } = useTranslation()
+
   if (tools.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-card/50 p-4 text-center text-xs text-muted-foreground" data-testid="mcp-tool-empty">
-        No tools match the current search or filters.
+        {t('No tools match the current search or filters.')}
       </p>
     )
   }
@@ -47,10 +31,10 @@ export function McpToolTable({ tools, disabledTools, pendingTools, onToggle, onS
         <thead>
           <tr className="border-b border-border">
             <th scope="col" className="pb-2 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Tool
+              {t('Tool')}
             </th>
             <th scope="col" className="pb-2 pl-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Exposed
+              {t('Exposed')}
             </th>
           </tr>
         </thead>
@@ -74,7 +58,7 @@ export function McpToolTable({ tools, disabledTools, pendingTools, onToggle, onS
                         type="button"
                         onClick={() => onSelect(tool)}
                         className="block rounded font-mono text-xs font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                        aria-label={`Inspect ${tool.name}`}
+                        aria-label={t('Inspect {{toolName}}', { toolName: tool.name })}
                         data-testid={`mcp-tool-name-${tool.name}`}
                       >
                         {tool.name}
@@ -83,14 +67,23 @@ export function McpToolTable({ tools, disabledTools, pendingTools, onToggle, onS
                         {tool.description}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1">
-                        {annotationBadges(tool)}
+                        {tool.annotations.readOnly && (
+                          <Badge variant="outline" className="text-[9px] text-muted-foreground">
+                            {t('Read-only')}
+                          </Badge>
+                        )}
+                        {tool.annotations.destructive && (
+                          <Badge variant="warning" className="text-[9px]">
+                            {t('Destructive')}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
                 </td>
                 <td className="py-2.5 pl-3 text-right align-top">
                   <span id={`mcp-tool-status-${tool.name}`} className="sr-only">
-                    {enabled ? 'Exposed to AI agents' : 'Hidden from AI agents'}
+                    {enabled ? t('Exposed to AI agents') : t('Hidden from AI agents')}
                   </span>
                   <McpToolPermissionToggle
                     toolName={tool.name}
