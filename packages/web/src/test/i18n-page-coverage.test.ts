@@ -59,7 +59,6 @@ const PAGE_ALLOWLIST: Record<string, string> = {
   'integrations/index.tsx': LEGACY,
   'mcp/index.tsx': 'owned by open PR #738 - extraction deferred to that PR',
   'settings/index.tsx': LEGACY,
-  'triggers/index.tsx': LEGACY,
   'welcome/logo-mark.tsx': 'no user-facing strings (pure SVG logo)',
 }
 
