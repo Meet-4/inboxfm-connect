@@ -1,4 +1,4 @@
-FROM node:24.14.0-bullseye-slim AS base
+FROM node:24.14.0-bookworm-slim AS base
 
 # Set environment variables early for better layer caching
 ENV LANG=en_US.UTF-8 \
@@ -63,6 +63,10 @@ WORKDIR /usr/src/app
 # Copy dependency files and workspace package.json files for resolution
 COPY .npmrc package.json bun.lock bunfig.toml ./
 COPY packages/ ./packages/
+# services/flowscript is a root workspace member (package.json "workspaces"):
+# bun install --frozen-lockfile resolves the whole workspace graph, so it must
+# be present before install or bun fails with `Workspace not found`.
+COPY services/ ./services/
 
 # Install all dependencies with frozen lockfile
 RUN --mount=type=cache,target=/root/.bun/install/cache \

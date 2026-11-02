@@ -4,7 +4,7 @@ services:
     # (removed upstream in chore(dev): remove docker-compose dev), so this
     # service cannot extend it. Run the api test suite in the same Node image
     # the Dockerfile builds from, against the repository mounted from the host.
-    image: node:24.14.0-bullseye-slim
+    image: node:24.14.0-bookworm-slim
     user: "${UID}:${GID}"
     working_dir: /usr/src/app
     volumes:
