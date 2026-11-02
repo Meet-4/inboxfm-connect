@@ -1,10 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
-import {
-  AuthenticationType,
-  HttpMethod,
-  httpClient,
-} from '@inboxfm-connect/pieces-common';
 import { zendeskAuth } from '../..';
+import { zendeskPaginatedSearch } from '../common/search';
 
 type AuthProps = {
   email: string;
@@ -16,9 +12,10 @@ export const findUserAction = createAction({
   auth: zendeskAuth,
   name: 'find-user',
   displayName: 'Find User(s)',
-  description: 'Search users by email, name, role, or other criteria.',
+  description:
+    'Search users by email, name, role, or other criteria. Follows Zendesk search pagination (100 results per page, up to 1000 results) and merges the pages.',
   audience: 'both',
-  aiMetadata: { description: 'Searches Zendesk users and returns matching records. A required search-type selector chooses the mode: match by email, name, role, organization, tag, or external ID, or pass a raw Zendesk search-syntax string via the Custom Query mode. Use to look up a user or resolve their ID before assigning tickets or adding comments; no matches returns an empty result set rather than an error. Read-only and idempotent.', idempotent: true },
+  aiMetadata: { description: 'Searches Zendesk users and returns matching records. A required search-type selector chooses the mode: match by email, name, role, organization, tag, or external ID, or pass a raw Zendesk search-syntax string via the Custom Query mode. Follows Zendesk search pagination (100 per page, up to 1000 results total) and merges the pages. Use to look up a user or resolve their ID before assigning tickets or adding comments; no matches returns an empty result set rather than an error. Read-only and idempotent.', idempotent: true },
   props: {
     search_type: Property.StaticDropdown({
       displayName: 'Search Type',
@@ -187,25 +184,12 @@ export const findUserAction = createAction({
     }
 
     try {
-      const response = await httpClient.sendRequest({
-        url: `https://${
-          authentication.props.subdomain
-        }.zendesk.com/api/v2/search.json?${searchParams.toString()}`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const responseBody = await zendeskPaginatedSearch({
+        subdomain: authentication.props.subdomain,
+        email: authentication.props.email,
+        token: authentication.props.token,
+        searchParams,
       });
-
-      const responseBody = response.body as {
-        results: Array<Record<string, unknown>>;
-        count: number;
-        next_page?: string;
-        previous_page?: string;
-        facets?: unknown;
-      };
 
       const users = responseBody.results.filter(
         (result) => result.result_type === 'user'
@@ -214,7 +198,7 @@ export const findUserAction = createAction({
       return {
         success: true,
         message: `Found ${users.length} user(s) matching the search criteria`,
-        data: response.body,
+        data: responseBody,
         users,
         search_criteria: {
           type: search_type,

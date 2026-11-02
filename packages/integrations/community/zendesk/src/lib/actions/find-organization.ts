@@ -2,12 +2,8 @@ import {
   createAction,
   Property,
 } from '@inboxfm-connect/pieces-framework';
-import {
-  AuthenticationType,
-  HttpMethod,
-  httpClient,
-} from '@inboxfm-connect/pieces-common';
 import { zendeskAuth } from '../..';
+import { zendeskPaginatedSearch } from '../common/search';
 
 type AuthProps = {
   email: string;
@@ -19,9 +15,10 @@ export const findOrganizationAction = createAction({
   auth: zendeskAuth,
   name: 'find-organization',
   displayName: 'Find Organization(s)',
-  description: 'Search organizations by name, domain, external ID, or other criteria.',
+  description:
+    'Search organizations by name, domain, external ID, or other criteria. Follows Zendesk search pagination (100 results per page, up to 1000 results) and merges the pages.',
   audience: 'both',
-  aiMetadata: { description: 'Searches Zendesk organizations and returns matching records. A required search-type selector chooses the mode: match by name, domain, external ID, tag, or details, or pass a raw Zendesk search-syntax string via the Custom Query mode for arbitrary filters. Use to look up an organization or its ID before creating/updating tickets or users; results can be sorted by relevance, created, or updated date. Read-only and idempotent.', idempotent: true },
+  aiMetadata: { description: 'Searches Zendesk organizations and returns matching records. A required search-type selector chooses the mode: match by name, domain, external ID, tag, or details, or pass a raw Zendesk search-syntax string via the Custom Query mode for arbitrary filters. Follows Zendesk search pagination (100 per page, up to 1000 results total) and merges the pages. Use to look up an organization or its ID before creating/updating tickets or users; results can be sorted by relevance, created, or updated date. Read-only and idempotent.', idempotent: true },
   props: {
     search_type: Property.StaticDropdown({
       displayName: 'Search Type',
@@ -164,30 +161,19 @@ export const findOrganizationAction = createAction({
     }
 
     try {
-      const response = await httpClient.sendRequest({
-        url: `https://${authentication.props.subdomain}.zendesk.com/api/v2/search.json?${searchParams.toString()}`,
-        method: HttpMethod.GET,
-        authentication: {
-          type: AuthenticationType.BASIC,
-          username: authentication.props.email + '/token',
-          password: authentication.props.token,
-        },
+      const responseBody = await zendeskPaginatedSearch({
+        subdomain: authentication.props.subdomain,
+        email: authentication.props.email,
+        token: authentication.props.token,
+        searchParams,
       });
-
-      const responseBody = response.body as {
-        results: Array<Record<string, unknown>>;
-        count: number;
-        next_page?: string;
-        previous_page?: string;
-        facets?: unknown;
-      };
 
       const organizations = responseBody.results.filter(result => result.result_type === 'organization');
 
       return {
         success: true,
         message: `Found ${organizations.length} organization(s) matching the search criteria`,
-        data: response.body,
+        data: responseBody,
         organizations,
         search_criteria: {
           type: search_type,
