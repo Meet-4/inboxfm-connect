@@ -1,15 +1,16 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
 import { zohoDeskAuth } from '../common/auth';
-import { zohoDeskApiCall } from '../common';
+import { zohoDeskPaginatedApiCall } from '../common';
 import { organizationId } from '../common/props';
 
 export const listTicketsAction = createAction({
 	auth: zohoDeskAuth,
 	name: 'list_tickets',
-	description: 'List tickets',
+	description:
+		'List tickets. Follows Zoho Desk pagination (100 tickets per page) and returns up to 1000 tickets.',
 	audience: 'both',
-	aiMetadata: { description: 'Retrieves tickets from a Zoho Desk organization, optionally expanding related data (contacts, products, departments, team, isRead, assignee) via the include option. Use to browse or page through existing tickets when you do not have a specific ticket ID; requires the organization ID. Read-only and idempotent.', idempotent: true },
+	aiMetadata: { description: 'Retrieves tickets from a Zoho Desk organization, optionally expanding related data (contacts, products, departments, team, isRead, assignee) via the include option. Follows Zoho Desk pagination (100 per page) and returns up to 1000 tickets. Use to browse or page through existing tickets when you do not have a specific ticket ID; requires the organization ID. Read-only and idempotent.', idempotent: true },
 	displayName: 'List tickets.',
 	props: {
 		orgId: organizationId({ displayName: 'Organization', required: true }),
@@ -35,7 +36,7 @@ export const listTicketsAction = createAction({
 
 		if (propsValue.include) queryParams['include'] = propsValue.include.join(',');
 
-		const response = await zohoDeskApiCall({
+		const tickets = await zohoDeskPaginatedApiCall({
 			auth,
 			method: HttpMethod.GET,
 			resourceUri: '/tickets',
@@ -43,6 +44,8 @@ export const listTicketsAction = createAction({
 			query: queryParams,
 		});
 
-		return response;
+		return {
+			data: tickets,
+		};
 	},
 });
