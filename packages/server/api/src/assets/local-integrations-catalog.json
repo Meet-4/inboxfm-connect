@@ -150,7 +150,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/new-core/crypto.svg",
     "description": "Generate random passwords and hash existing text",
     "version": "0.0.22",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "CORE"
@@ -165,54 +165,340 @@
       "prasanna2000-max"
     ],
     "actions": {
-      "hashText": {
-        "name": "hashText",
-        "displayName": "Hash Text",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "hash-text": {
+        "name": "hash-text",
+        "displayName": "Text to Hash",
+        "description": "Converts text to a hash value using various hashing algorithms",
+        "props": {
+          "method": {
+            "displayName": "Method",
+            "description": "The hashing algorithm to use",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "MD5",
+                  "value": "md5"
+                },
+                {
+                  "label": "SHA256",
+                  "value": "sha256"
+                },
+                {
+                  "label": "SHA512",
+                  "value": "sha512"
+                },
+                {
+                  "label": "SHA3-512",
+                  "value": "sha3-512"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "text": {
+            "displayName": "Text",
+            "description": "The text to be hashed",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "hmacSignature": {
-        "name": "hmacSignature",
-        "displayName": "Hmac Signature",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "hmac-signature": {
+        "name": "hmac-signature",
+        "displayName": "Generate HMAC Signature",
+        "description": "Converts text to a HMAC signed hash value using various hashing algorithms",
+        "props": {
+          "secretKey": {
+            "displayName": "Secret key",
+            "description": "The secret key to encrypt",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "secretKeyEncoding": {
+            "displayName": "Secret key encoding",
+            "description": "The secret key encoding to use",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "UTF-8",
+                  "value": "utf-8"
+                },
+                {
+                  "label": "Hex",
+                  "value": "hex"
+                },
+                {
+                  "label": "Base64",
+                  "value": "base64"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "method": {
+            "displayName": "Method",
+            "description": "The hashing algorithm to use",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "MD5",
+                  "value": "md5"
+                },
+                {
+                  "label": "SHA256",
+                  "value": "sha256"
+                },
+                {
+                  "label": "SHA512",
+                  "value": "sha512"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "text": {
+            "displayName": "Text",
+            "description": "The text to be hashed and encrypted",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "outputEncoding": {
+            "displayName": "Output Encoding",
+            "description": "The encoding of the output signature",
+            "required": false,
+            "defaultValue": "hex",
+            "options": {
+              "options": [
+                {
+                  "label": "Hex",
+                  "value": "hex"
+                },
+                {
+                  "label": "Base64",
+                  "value": "base64"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "rsaSignature": {
-        "name": "rsaSignature",
-        "displayName": "Rsa Signature",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "rsa-signature": {
+        "name": "rsa-signature",
+        "displayName": "Generate RSA Signature",
+        "description": "Signs text with an RSA private key using SHA-256, SHA-384, or SHA-512 (RSA-SHA256 by default)",
+        "props": {
+          "privateKey": {
+            "displayName": "Private Key",
+            "description": "The RSA private key in PEM format (PKCS#1 or PKCS#8)",
+            "required": true,
+            "type": "LONG_TEXT"
+          },
+          "passphrase": {
+            "displayName": "Passphrase",
+            "description": "The passphrase protecting the private key, leave empty if it is not encrypted",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "method": {
+            "displayName": "Method",
+            "description": "The hashing algorithm to use",
+            "required": true,
+            "defaultValue": "sha256",
+            "options": {
+              "options": [
+                {
+                  "label": "SHA256",
+                  "value": "sha256"
+                },
+                {
+                  "label": "SHA384",
+                  "value": "sha384"
+                },
+                {
+                  "label": "SHA512",
+                  "value": "sha512"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "text": {
+            "displayName": "Text",
+            "description": "The text to be signed",
+            "required": true,
+            "type": "LONG_TEXT"
+          },
+          "outputEncoding": {
+            "displayName": "Output Encoding",
+            "description": "The encoding of the output signature",
+            "required": false,
+            "defaultValue": "base64",
+            "options": {
+              "options": [
+                {
+                  "label": "Base64",
+                  "value": "base64"
+                },
+                {
+                  "label": "Hex",
+                  "value": "hex"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "generatePassword": {
-        "name": "generatePassword",
+      "generate-password": {
+        "name": "generate-password",
         "displayName": "Generate Password",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+        "description": "Generates a random password with the specified length",
+        "props": {
+          "length": {
+            "displayName": "Password Length",
+            "description": "The length of the password (maximum 256)",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "characterSet": {
+            "displayName": "Character Set",
+            "description": "The character set to use when generating the password",
+            "required": true,
+            "defaultValue": "alphanumeric",
+            "options": {
+              "options": [
+                {
+                  "label": "Alphanumeric",
+                  "value": "alphanumeric"
+                },
+                {
+                  "label": "Alphanumeric + Symbols",
+                  "value": "alphanumeric-symbols"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "base64Decode": {
-        "name": "base64Decode",
+      "base64-decode": {
+        "name": "base64-decode",
         "displayName": "Base64 Decode",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+        "description": "Converts base64 text back to plain text.",
+        "props": {
+          "text": {
+            "displayName": "Text",
+            "description": "The text to be decoded.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "base64Encode": {
-        "name": "base64Encode",
+      "base64-encode": {
+        "name": "base64-encode",
         "displayName": "Base64 Encode",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+        "description": "Converts plain text into base64 format.",
+        "props": {
+          "text": {
+            "displayName": "Text",
+            "description": "The text to be encoded.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
       "openpgpEncrypt": {
         "name": "openpgpEncrypt",
-        "displayName": "Openpgp Encrypt",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+        "displayName": "OpenPGP Encrypt",
+        "description": "Encrypt a file using OpenPGP public key",
+        "props": {
+          "file": {
+            "displayName": "File",
+            "description": "The file to encrypt",
+            "required": true,
+            "type": "FILE"
+          },
+          "publicKey": {
+            "displayName": "Public Key",
+            "description": "The PGP public key in ASCII armor format",
+            "required": true,
+            "type": "LONG_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       }
     },
     "triggers": {},
@@ -222,7 +508,11 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "crypto",
-    "isCore": true
+    "isCore": true,
+    "auth": {
+      "type": "SECRET_TEXT"
+    },
+    "updated": "2026-11-02T09:13:19.716Z"
   },
   {
     "id": "piece_csv",
@@ -16932,7 +17222,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/new-core/image-helper.svg",
     "description": "Tools for image manipulations",
     "version": "0.1.14",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "CORE"
@@ -16943,54 +17233,326 @@
       "abuaboud"
     ],
     "actions": {
-      "imageToBase64": {
-        "name": "imageToBase64",
-        "displayName": "Image To Base64",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "image_to_base64": {
+        "name": "image_to_base64",
+        "displayName": "Image to Base64",
+        "description": "Converts an image to an url-like Base64 string",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "description": "The image to convert",
+            "required": true,
+            "type": "FILE"
+          },
+          "override_mime_type": {
+            "displayName": "Override mime type",
+            "description": "The mime type to use when converting the image. In case you want to override the default mime type. Example image/png",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "getMetaData": {
-        "name": "getMetaData",
-        "displayName": "Get Meta Data",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "get_meta_data": {
+        "name": "get_meta_data",
+        "displayName": "Get image metadata",
+        "description": "Gets metadata from an image",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "cropImage": {
-        "name": "cropImage",
-        "displayName": "Crop Image",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "crop_image": {
+        "name": "crop_image",
+        "displayName": "Crop an image",
+        "description": "Crops an image",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          },
+          "left": {
+            "displayName": "Left",
+            "description": "Specifies the horizontal position, indicating where the cropping starts from the left side of the image.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "top": {
+            "displayName": "Top",
+            "description": "Represents the vertical position, indicating the starting point from the top of the image.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "width": {
+            "displayName": "Width",
+            "description": "Determines the horizontal size of the cropped area.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "height": {
+            "displayName": "Height",
+            "description": "Determines the vertical size of the cropped area.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "resultFileName": {
+            "displayName": "Result File Name",
+            "description": "Specifies the output file name for the cropped image (without extension).",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "rotateImage": {
-        "name": "rotateImage",
-        "displayName": "Rotate Image",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "rotate_image": {
+        "name": "rotate_image",
+        "displayName": "Rotate an image",
+        "description": "Rotates an image",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          },
+          "degree": {
+            "displayName": "Degree",
+            "description": "Specifies the degree of clockwise rotation applied to the image.",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "value": 90,
+                  "label": "90°"
+                },
+                {
+                  "value": 180,
+                  "label": "180°"
+                },
+                {
+                  "value": 270,
+                  "label": "270°"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "resultFileName": {
+            "displayName": "Result File Name",
+            "description": "Specifies the output file name for the result image (without extension).",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "resizeImage": {
-        "name": "resizeImage",
-        "displayName": "Resize Image",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "resize_image": {
+        "name": "resize_image",
+        "displayName": "Resize an image",
+        "description": "Resizes an image",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          },
+          "width": {
+            "displayName": "Width",
+            "description": "Specifies the width of the image.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "height": {
+            "displayName": "Height",
+            "description": "Specifies the height of the image.",
+            "required": true,
+            "type": "NUMBER"
+          },
+          "aspectRatio": {
+            "displayName": "Maintain aspect ratio for height",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          },
+          "resultFileName": {
+            "displayName": "Result File Name",
+            "description": "Specifies the output file name for the result image (without extension).",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "compressImage": {
-        "name": "compressImage",
-        "displayName": "Compress Image",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "compress_image": {
+        "name": "compress_image",
+        "displayName": "Compresses an image",
+        "description": "Compresses an image",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          },
+          "quality": {
+            "displayName": "Quality",
+            "description": "Specifies the quality of the image after compression (0-100).",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "High Quality",
+                  "value": 90
+                },
+                {
+                  "label": "Lossy Quality",
+                  "value": 60
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "format": {
+            "displayName": "Format",
+            "description": "Specifies the format of the image after compression.",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "JPG",
+                  "value": "jpg"
+                },
+                {
+                  "label": "PNG",
+                  "value": "png"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "resultFileName": {
+            "displayName": "Result File Name",
+            "description": "Specifies the output file name for the result image (without extension).",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       },
-      "convertImageFormat": {
-        "name": "convertImageFormat",
-        "displayName": "Convert Image Format",
-        "description": "",
-        "props": {},
-        "requireAuth": false
+      "convert_image_format": {
+        "name": "convert_image_format",
+        "displayName": "Image Conversion Helper",
+        "description": "Converts a image to supported formats",
+        "props": {
+          "image": {
+            "displayName": "Image",
+            "required": true,
+            "type": "FILE"
+          },
+          "outputFormat": {
+            "displayName": "Output Format",
+            "description": "The format to convert the image to.",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "JPEG",
+                  "value": "JPEG"
+                },
+                {
+                  "label": "PNG",
+                  "value": "PNG"
+                },
+                {
+                  "label": "TIFF",
+                  "value": "TIFF"
+                },
+                {
+                  "label": "BMP",
+                  "value": "BMP"
+                },
+                {
+                  "label": "AVIF",
+                  "value": "AVIF"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "resultFileName": {
+            "displayName": "Result File Name",
+            "description": "Specifies the output file name for the result image (without extension).",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       }
     },
     "triggers": {},
@@ -17000,7 +17562,11 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "image-helper",
-    "isCore": true
+    "isCore": true,
+    "auth": {
+      "type": "SECRET_TEXT"
+    },
+    "updated": "2026-11-02T09:13:22.519Z"
   },
   {
     "id": "piece_manual_trigger",
@@ -28890,7 +29456,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/actualbudget.png",
     "description": "Personal finance app",
     "version": "0.1.6",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "ACCOUNTING"
@@ -28899,43 +29465,322 @@
       "hugh-codes"
     ],
     "auth": {
-      "type": "SECRET_TEXT"
+      "type": "CUSTOM_AUTH"
     },
     "actions": {
-      "getBudget": {
-        "name": "getBudget",
+      "get_budget": {
+        "name": "get_budget",
         "displayName": "Get Budget",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Get your monthly budget",
+        "props": {
+          "month": {
+            "displayName": "Month",
+            "description": "The month of the budget you want to get",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "January",
+                  "value": "01"
+                },
+                {
+                  "label": "February",
+                  "value": "02"
+                },
+                {
+                  "label": "March",
+                  "value": "03"
+                },
+                {
+                  "label": "April",
+                  "value": "04"
+                },
+                {
+                  "label": "May",
+                  "value": "05"
+                },
+                {
+                  "label": "June",
+                  "value": "06"
+                },
+                {
+                  "label": "July",
+                  "value": "07"
+                },
+                {
+                  "label": "August",
+                  "value": "08"
+                },
+                {
+                  "label": "September",
+                  "value": "09"
+                },
+                {
+                  "label": "October",
+                  "value": "10"
+                },
+                {
+                  "label": "November",
+                  "value": "11"
+                },
+                {
+                  "label": "December",
+                  "value": "12"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "year": {
+            "displayName": "Year",
+            "description": "The year of the budget you want to get",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "2016",
+                  "value": "2016"
+                },
+                {
+                  "label": "2017",
+                  "value": "2017"
+                },
+                {
+                  "label": "2018",
+                  "value": "2018"
+                },
+                {
+                  "label": "2019",
+                  "value": "2019"
+                },
+                {
+                  "label": "2020",
+                  "value": "2020"
+                },
+                {
+                  "label": "2021",
+                  "value": "2021"
+                },
+                {
+                  "label": "2022",
+                  "value": "2022"
+                },
+                {
+                  "label": "2023",
+                  "value": "2023"
+                },
+                {
+                  "label": "2024",
+                  "value": "2024"
+                },
+                {
+                  "label": "2025",
+                  "value": "2025"
+                },
+                {
+                  "label": "2026",
+                  "value": "2026"
+                },
+                {
+                  "label": "2027",
+                  "value": "2027"
+                },
+                {
+                  "label": "2028",
+                  "value": "2028"
+                },
+                {
+                  "label": "2029",
+                  "value": "2029"
+                },
+                {
+                  "label": "2030",
+                  "value": "2030"
+                },
+                {
+                  "label": "2031",
+                  "value": "2031"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Retrieves the budget for a single month from an Actual Budget server, including each category group and category for that month. Use it to read budgeted, spent, and balance figures for a specific period; the month and year must be supplied as separate inputs. Read-only and idempotent.",
+          "idempotent": true
+        }
       },
-      "importTransaction": {
-        "name": "importTransaction",
+      "import_transaction": {
+        "name": "import_transaction",
         "displayName": "Import Transaction",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Add a transaction",
+        "props": {
+          "account_id": {
+            "displayName": "Account ID",
+            "description": "ID of the account you want to import a transaction to",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "date": {
+            "displayName": "Date",
+            "description": "Date the transaction took place",
+            "required": true,
+            "type": "DATE_TIME"
+          },
+          "payee_name": {
+            "displayName": "Payee Name",
+            "description": "Name of the payee",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "amount": {
+            "displayName": "Amount",
+            "description": "The dollar value of the transaction",
+            "required": false,
+            "type": "NUMBER"
+          },
+          "category": {
+            "displayName": "Category ID",
+            "description": "ID of the transaction category",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "notes": {
+            "displayName": "Notes",
+            "description": "Additional notes about the transaction",
+            "required": false,
+            "type": "LONG_TEXT"
+          },
+          "imported_id": {
+            "displayName": "Imported ID",
+            "description": "Unique ID given by the bank for importing",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "transfer_id": {
+            "displayName": "Transfer ID",
+            "description": "ID of the transaction in the other account for the transfer",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "cleared": {
+            "displayName": "Cleared",
+            "description": "Flag indicating if the transaction has cleared or not",
+            "required": false,
+            "type": "CHECKBOX"
+          },
+          "imported_payee": {
+            "displayName": "Imported Payee",
+            "description": "Raw description when importing, representing the original value",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Adds a single transaction to a specified account in Actual Budget. Use it to record one transaction with fields such as date, amount, payee, category, and notes; the target account ID is required. Not idempotent — each call appends another transaction unless an Imported ID is supplied, which Actual uses to deduplicate against prior imports.",
+          "idempotent": false
+        }
       },
-      "importTransactions": {
-        "name": "importTransactions",
+      "import_transactions": {
+        "name": "import_transactions",
         "displayName": "Import Transactions",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Import Transactions",
+        "props": {
+          "account_id": {
+            "displayName": "Account ID",
+            "description": "ID of the account you want to import a transaction to",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "transactions": {
+            "displayName": "Transactions",
+            "description": "A json array of the transaction object",
+            "required": true,
+            "defaultValue": [
+              {
+                "payee_name": "Kroger",
+                "date": "2026-12-25",
+                "amount": 1200
+              }
+            ],
+            "type": "JSON"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Bulk-imports an array of transaction objects into a specified account in Actual Budget. Use it to add many transactions at once rather than one at a time; requires the target account ID and a JSON array of transactions (errors if not an array). Not idempotent — each call appends the transactions unless individual entries carry an Imported ID, which Actual uses to deduplicate against prior imports.",
+          "idempotent": false
+        }
       },
-      "getCategories": {
-        "name": "getCategories",
+      "get_categories": {
+        "name": "get_categories",
         "displayName": "Get Categories",
-        "description": "",
+        "description": "Get your categories",
         "props": {},
-        "requireAuth": true
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Lists all budget categories from an Actual Budget server. Use it to discover available categories and their IDs, typically to resolve a category ID before importing a transaction. Takes no input; read-only and idempotent.",
+          "idempotent": true
+        }
       },
-      "getAccounts": {
-        "name": "getAccounts",
+      "get_accounts": {
+        "name": "get_accounts",
         "displayName": "Get Accounts",
-        "description": "",
+        "description": "Get your accounts",
         "props": {},
-        "requireAuth": true
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Lists all accounts from an Actual Budget server. Use it to discover available accounts and their IDs, typically to resolve the account ID required by the import-transaction actions. Takes no input; read-only and idempotent.",
+          "idempotent": true
+        }
       }
     },
     "triggers": {},
@@ -28945,7 +29790,8 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "actualbudget",
-    "isCore": false
+    "isCore": false,
+    "updated": "2026-11-02T09:13:23.343Z"
   },
   {
     "id": "piece_acuity_scheduling",
@@ -41607,7 +42453,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/amazon-s3.png",
     "description": "Scalable storage in the cloud",
     "version": "0.6.1",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "DEVELOPER_TOOLS"
@@ -41623,75 +42469,373 @@
       "hugh-codes"
     ],
     "auth": {
-      "type": "CUSTOM_AUTH"
+      "type": "SECRET_TEXT"
     },
     "actions": {
-      "amazons3UploadFile": {
-        "name": "amazons3UploadFile",
-        "displayName": "Amazons3 Upload File",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "upload-file": {
+        "name": "upload-file",
+        "displayName": "Upload File",
+        "description": "Upload an File to S3",
+        "props": {
+          "file": {
+            "displayName": "File",
+            "description": "The file to upload to S3.",
+            "required": true,
+            "type": "FILE"
+          },
+          "fileName": {
+            "displayName": "File Name (Optional)",
+            "required": false,
+            "description": "The name to save the file as in S3 (e.g. \"report-2024.csv\"). If left blank, a unique name is generated automatically.",
+            "type": "SHORT_TEXT"
+          },
+          "acl": {
+            "displayName": "Access Control (ACL)",
+            "description": "Who can access this file after upload. Use \"Private\" for internal files, \"Public Read\" to make the file publicly accessible via URL.",
+            "required": false,
+            "options": {
+              "options": [
+                {
+                  "label": "Private (only your account)",
+                  "value": "private"
+                },
+                {
+                  "label": "Public Read (anyone can view)",
+                  "value": "public-read"
+                },
+                {
+                  "label": "Public Read/Write (anyone can view and upload)",
+                  "value": "public-read-write"
+                },
+                {
+                  "label": "Authenticated AWS Users Read",
+                  "value": "authenticated-read"
+                },
+                {
+                  "label": "AWS EC2 Read (aws-exec-read)",
+                  "value": "aws-exec-read"
+                },
+                {
+                  "label": "Bucket Owner Read",
+                  "value": "bucket-owner-read"
+                },
+                {
+                  "label": "Bucket Owner Full Control",
+                  "value": "bucket-owner-full-control"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "type": {
+            "displayName": "Content Type",
+            "description": "Content Type of the uploaded file, if not set the API will try to figure out the content type.",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Uploads a file to the configured S3 bucket, optionally setting a destination filename, content type, and canned ACL (e.g. private vs. public-read). Use to store new content in S3. Not idempotent: when no filename is given a unique timestamp-based key is generated, so each call writes a new object.",
+          "idempotent": false
+        }
       },
-      "readFile": {
-        "name": "readFile",
+      "read-file": {
+        "name": "read-file",
         "displayName": "Read File",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Read a file from S3 to use it in other steps",
+        "props": {
+          "key": {
+            "displayName": "File Path",
+            "description": "The full path to the file within your S3 bucket (e.g. \"documents/report.csv\" or \"myfile.txt\"). This is also called the S3 \"key\".",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Downloads a single object from the configured S3 bucket by its full key (path) and makes its contents available as a file for later steps. Use to fetch a known file when you have its exact key. Reading the same key repeatedly returns the same content with no side effect (idempotent).",
+          "idempotent": true
+        }
       },
-      "generateSignedUrl": {
-        "name": "generateSignedUrl",
-        "displayName": "Generate Signed Url",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "generate-signed-url": {
+        "name": "generate-signed-url",
+        "displayName": "Generate signed URL",
+        "description": "Generate a signed URL for a file in a s3 bucket",
+        "props": {
+          "key": {
+            "displayName": "File Path",
+            "description": "The full path to the file within your S3 bucket (e.g. \"documents/report.csv\" or \"myfile.txt\"). This is also called the S3 \"key\".",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "expiresIn": {
+            "displayName": "Expires In (minutes)",
+            "description": "How long the URL should remain valid (in minutes).",
+            "required": true,
+            "defaultValue": 10,
+            "type": "NUMBER"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Generates a time-limited pre-signed download (GET) URL for an existing object in the configured S3 bucket, letting anyone with the link fetch the file without AWS credentials until it expires. Use when you need to share read access to a stored file. Read-only and idempotent (no object is modified), though each call returns a freshly signed URL.",
+          "idempotent": true
+        }
       },
-      "generateSignedUploadUrl": {
-        "name": "generateSignedUploadUrl",
-        "displayName": "Generate Signed Upload Url",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "generate-signed-upload-url": {
+        "name": "generate-signed-upload-url",
+        "displayName": "Generate Signed Upload URL",
+        "description": "Generate a pre-signed URL that allows anyone with the link to upload a file directly to S3 without needing AWS credentials.",
+        "props": {
+          "key": {
+            "displayName": "File Key",
+            "description": "The destination path and filename inside the bucket, e.g. \"uploads/photo.jpg\".",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "expiresIn": {
+            "displayName": "Expires In (minutes)",
+            "description": "How long the upload URL should remain valid (in minutes).",
+            "required": true,
+            "defaultValue": 10,
+            "type": "NUMBER"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Generates a time-limited pre-signed upload (PUT) URL for a target key in the configured S3 bucket, letting anyone with the link upload a file directly to S3 without AWS credentials until it expires. Use to delegate an upload to an external client. Generating the URL does not itself create or modify any object and is idempotent (each call returns a freshly signed URL).",
+          "idempotent": true
+        }
       },
       "moveFile": {
         "name": "moveFile",
         "displayName": "Move File",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Move a File to Another Folder",
+        "props": {
+          "fileKey": {
+            "displayName": "File Path",
+            "description": "The full path to the file you want to move (e.g. \"old-folder/report.csv\").",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "folderKey": {
+            "displayName": "Destination Folder",
+            "description": "The folder path to move the file into (e.g. \"archive/\" or \"new-folder\"). The file name is kept the same.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Moves an object within the configured S3 bucket by copying it to a new key under the destination folder (keeping the same filename) and then deleting the original. Use to relocate or archive a file. Not idempotent — the source object is deleted on the first successful run, so a repeat call errors because the source key no longer exists.",
+          "idempotent": false
+        }
       },
       "deleteFile": {
         "name": "deleteFile",
         "displayName": "Delete File",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Deletes an existing file.",
+        "props": {
+          "key": {
+            "displayName": "File Path",
+            "description": "The full path to the file within your S3 bucket (e.g. \"documents/report.csv\" or \"myfile.txt\"). This is also called the S3 \"key\".",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Deletes a single object from the configured S3 bucket by its full key (path). Use to remove a known file. Idempotent: deleting an already-absent key succeeds without error, so repeating the call has no further effect.",
+          "idempotent": true
+        }
       },
-      "listFiles": {
-        "name": "listFiles",
+      "list-files": {
+        "name": "list-files",
         "displayName": "List Files",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "List all files from an S3 bucket folder/prefix.",
+        "props": {
+          "prefix": {
+            "displayName": "Folder Path (Optional)",
+            "description": "Filter results to a specific folder. Enter the folder path including the trailing slash (e.g. \"invoices/\" or \"reports/2024/\"). Leave empty to list all files in the bucket.",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "maxKeys": {
+            "displayName": "Maximum Files",
+            "description": "Maximum number of files to return (1–1000). Defaults to 1000. Use a lower number if you only need the most recent files.",
+            "required": false,
+            "defaultValue": 1000,
+            "type": "NUMBER"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Lists objects in the configured S3 bucket, optionally filtered to a folder prefix (empty prefix lists the whole bucket), capped at a maximum count (1-1000, default 1000) and sorted newest-first. Use to discover files or look up an object key before reading, moving, or deleting it. Read-only and idempotent.",
+          "idempotent": true
+        }
       },
-      "decryptPgpFile": {
-        "name": "decryptPgpFile",
-        "displayName": "Decrypt Pgp File",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "decrypt-pgp-file": {
+        "name": "decrypt-pgp-file",
+        "displayName": "Decrypt PGP File",
+        "description": "Decrypt a PGP encrypted file from S3 using a private key stored in AWS Secrets Manager",
+        "props": {
+          "key": {
+            "displayName": "S3 File Key",
+            "description": "The key (path) of the encrypted file in S3",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "secretArn": {
+            "displayName": "Secret ARN",
+            "description": "The ARN of the secret in AWS Secrets Manager containing the PGP private key",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "passphraseArn": {
+            "displayName": "Passphrase ARN",
+            "description": "Optional ARN of the secret in AWS Secrets Manager containing the passphrase for the private key (if the key is encrypted)",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "secretsManagerRegion": {
+            "displayName": "Secrets Manager Region",
+            "description": "The AWS region where the Secrets Manager secret is stored (defaults to S3 region if not provided)",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "allowUnauthenticatedMessages": {
+            "displayName": "Allow Unauthenticated Messages",
+            "description": "Allow decryption of messages without integrity protection (no MDC). WARNING: Without MDC, a malicious actor can silently modify the ciphertext, so the decrypted output may have been tampered with. Only enable this when working with legacy files where integrity protection was never used.",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          },
+          "allowInsecureDecryptionWithSigningKeys": {
+            "displayName": "Allow Decryption With Signing Keys",
+            "description": "Allow decryption using a key not marked for encryption (e.g. a signing-only key). Enable this if your PGP key was not flagged for encryption use.",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Downloads a PGP-encrypted object from the configured S3 bucket and decrypts it using a private key (and optional passphrase) retrieved from AWS Secrets Manager by ARN, returning the decrypted contents as a file. Use when an S3 file is PGP-encrypted and you have the key stored in Secrets Manager. Requires the secret ARN for the private key; idempotent since it only reads and decrypts without modifying anything.",
+          "idempotent": true
+        }
       }
     },
     "triggers": {
-      "newFile": {
-        "name": "newFile",
-        "displayName": "New File",
-        "description": "",
-        "props": {},
+      "new_file": {
+        "name": "new_file",
+        "displayName": "New or Updated File",
+        "description": "Triggers when you add or update a file in your bucket. The bucket/folder you choose must not contain more than 10,000 files.",
+        "requireAuth": true,
+        "props": {
+          "markdown": {
+            "displayName": "Markdown",
+            "required": false,
+            "description": "Triggers when you add or update a file in your bucket. The bucket/folder you choose must not contain more than 10,000 files.",
+            "type": "MARKDOWN",
+            "variant": "INFO"
+          },
+          "folderPath": {
+            "displayName": "Folder Path",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
         "type": "POLLING",
-        "sampleData": {},
-        "testStrategy": "SIMULATION"
+        "handshakeConfiguration": {
+          "strategy": "NONE"
+        },
+        "renewConfiguration": {
+          "strategy": "NONE"
+        },
+        "sampleData": {
+          "Key": "myfolder/100-3.png",
+          "LastModified": "2023-08-04T13:51:26.000Z",
+          "ETag": "\"e9f16cce12352322272525f5af65a2e\"",
+          "Size": 40239,
+          "StorageClass": "STANDARD"
+        },
+        "testStrategy": "TEST_FUNCTION",
+        "aiMetadata": {
+          "description": "Fires when an object is added or modified in the configured S3 bucket, optionally scoped to a folder prefix. Polls the bucket and emits each new or updated file based on its last-modified time. The watched bucket/folder must contain no more than 10,000 files."
+        }
       }
     },
     "actionsCount": 8,
@@ -41700,7 +42844,8 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "amazon-s3",
-    "isCore": false
+    "isCore": false,
+    "updated": "2026-11-02T09:13:26.773Z"
   },
   {
     "id": "piece_amazon_secrets_manager",
@@ -151501,7 +152646,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/clarifai.png",
     "description": "AI-powered visual recognition",
     "version": "0.3.6",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "ARTIFICIAL_INTELLIGENCE"
@@ -151515,99 +152660,468 @@
       "abuaboud"
     ],
     "auth": {
-      "type": "CUSTOM_AUTH"
+      "type": "SECRET_TEXT"
     },
     "actions": {
-      "clarifaiAskLLM": {
-        "name": "clarifaiAskLLM",
-        "displayName": "Clarifai Ask L L M",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "ask-llm": {
+        "name": "ask-llm",
+        "displayName": "Ask LLM",
+        "description": "Send a prompt to any large language models (LLM) supported by clarifai.",
+        "props": {
+          "models": {
+            "auth": {
+              "displayName": "PAT Key",
+              "description": "\nFollow these instructions to get your Clarifai (Personal Access Token) PAT Key:\n1. Go to the [security tab](https://clarifai.com/settings/security) in your Clarifai account and generate a new PAT token.\n2. Copy the PAT token and paste it in the PAT Key field.\n",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "displayName": "Model Id",
+            "description": "The model which will generate the response. If the model is not listed, get the model id from the clarifai website. Example : 'GPT-4' you can get the model id from here [https://clarifai.com/openai/chat-completion/models/GPT-4](https://clarifai.com/openai/chat-completion/models/GPT-4)",
+            "refreshers": [
+              "auth"
+            ],
+            "required": true,
+            "defaultValue": "GPT-4",
+            "type": "DROPDOWN"
+          },
+          "prompt": {
+            "displayName": "Prompt",
+            "description": "The prompt to send to the model.",
+            "required": true,
+            "type": "LONG_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Sends a text prompt to a Clarifai-hosted LLM (e.g. GPT-4) and returns the generated text completion. Use to generate or transform text via Clarifai rather than calling the provider directly; supply the Clarifai model id (looked up by name) and the prompt. Generative and non-deterministic, so repeated calls may return different text.",
+          "idempotent": false
+        }
       },
-      "clarifaiGenerateIGM": {
-        "name": "clarifaiGenerateIGM",
-        "displayName": "Clarifai Generate I G M",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "generate-igm": {
+        "name": "generate-igm",
+        "displayName": "Ask IGM",
+        "description": "Generate an image using the Image generating models supported by clarifai.",
+        "props": {
+          "models": {
+            "displayName": "Model Id",
+            "description": "The model which will generate the response. If the model is not listed, get the model id from the clarifai website. Example : 'GPT-4' you can get the model id from here [https://clarifai.com/openai/chat-completion/models/GPT-4](https://clarifai.com/openai/chat-completion/models/GPT-4)",
+            "refreshers": [
+              "auth"
+            ],
+            "required": true,
+            "auth": {
+              "displayName": "PAT Key",
+              "description": "\nFollow these instructions to get your Clarifai (Personal Access Token) PAT Key:\n1. Go to the [security tab](https://clarifai.com/settings/security) in your Clarifai account and generate a new PAT token.\n2. Copy the PAT token and paste it in the PAT Key field.\n",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "defaultValue": "general-image-generator-dalle-mini",
+            "type": "DROPDOWN"
+          },
+          "prompt": {
+            "displayName": "Prompt",
+            "description": "The prompt to send to the model.",
+            "required": true,
+            "type": "LONG_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Generates an image from a text prompt using a Clarifai text-to-image model (e.g. DALL-E mini) and returns it as a written file. Use when an agent needs to create a picture from a description; supply the Clarifai model id (looked up by name) and the prompt. Generative, so each call produces a new image.",
+          "idempotent": false
+        }
       },
-      "visualClassifierModelPredictAction": {
-        "name": "visualClassifierModelPredictAction",
-        "displayName": "Visual Classifier Model Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "visual_classifier_model": {
+        "name": "visual_classifier_model",
+        "displayName": "Classify Images or Videos",
+        "description": "Call an visual classifier AI model to recognize concepts",
+        "props": {
+          "modelUrl": {
+            "description": "URL of the Clarifai model. For example https://clarifai.com/clarifai/main/models/general-image-recognition OR a specific version such as https://clarifai.com/clarifai/main/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40. Find more models at https://clarifai.com/explore/models",
+            "displayName": "Model URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "file": {
+            "description": "URL or base64 bytes of the image or video to classify",
+            "displayName": "Input URL or bytes",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs an image or video through a Clarifai visual classification model and returns the recognized concepts with confidence scores. Use to tag, categorize, or detect content in visual media; supply the model URL and the file as a URL or base64 bytes. Read-only inference, safe to repeat.",
+          "idempotent": true
+        }
       },
-      "textClassifierModelPredictAction": {
-        "name": "textClassifierModelPredictAction",
-        "displayName": "Text Classifier Model Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "text_classifier_model": {
+        "name": "text_classifier_model",
+        "displayName": "Classify Text",
+        "description": "Call a text classifier AI model to recognize concepts",
+        "props": {
+          "modelUrl": {
+            "description": "URL of the Clarifai model. For example https://clarifai.com/clarifai/main/models/general-image-recognition OR a specific version such as https://clarifai.com/clarifai/main/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40. Find more models at https://clarifai.com/explore/models",
+            "displayName": "Model URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "txt": {
+            "description": "Text to classify",
+            "displayName": "Input Text",
+            "required": true,
+            "type": "LONG_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs input text through a Clarifai text classification model and returns the recognized concepts with confidence scores (e.g. sentiment or topic labels). Use to categorize or score text; supply the model URL and the text. Read-only inference, safe to repeat.",
+          "idempotent": true
+        }
       },
-      "imageToTextModelPredictAction": {
-        "name": "imageToTextModelPredictAction",
-        "displayName": "Image To Text Model Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "image_text_model": {
+        "name": "image_text_model",
+        "displayName": "Image to Text",
+        "description": "Call an image to text AI model",
+        "props": {
+          "modelUrl": {
+            "description": "URL of the Clarifai model. For example https://clarifai.com/clarifai/main/models/general-image-recognition OR a specific version such as https://clarifai.com/clarifai/main/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40. Find more models at https://clarifai.com/explore/models",
+            "displayName": "Model URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "file": {
+            "description": "URL or base64 bytes of the image to classify",
+            "displayName": "Input URL or bytes",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs an image through a Clarifai image-to-text model and returns the generated text (e.g. a caption or description). Use to describe or extract text from an image; supply the model URL and the file as a URL or base64 bytes. Read-only inference, safe to repeat.",
+          "idempotent": true
+        }
       },
-      "textToTextModelPredictAction": {
-        "name": "textToTextModelPredictAction",
-        "displayName": "Text To Text Model Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "text_text_model": {
+        "name": "text_text_model",
+        "displayName": "Text to Text",
+        "description": "Call a text to text AI model",
+        "props": {
+          "modelUrl": {
+            "description": "URL of the Clarifai model. For example https://clarifai.com/clarifai/main/models/general-image-recognition OR a specific version such as https://clarifai.com/clarifai/main/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40. Find more models at https://clarifai.com/explore/models",
+            "displayName": "Model URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "txt": {
+            "description": "Text to classify",
+            "displayName": "Input Text",
+            "required": true,
+            "type": "LONG_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs input text through a Clarifai text-to-text model and returns the generated text (e.g. translation, summarization, or rewriting). Use to transform text via a specific Clarifai model; supply the model URL and the input text. Generative, so repeated calls may return different output.",
+          "idempotent": false
+        }
       },
-      "audioToTextModelPredictAction": {
-        "name": "audioToTextModelPredictAction",
-        "displayName": "Audio To Text Model Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "audio_text_model": {
+        "name": "audio_text_model",
+        "displayName": "Audio to Text",
+        "description": "Call a audio to text AI model",
+        "props": {
+          "modelUrl": {
+            "description": "URL of the Clarifai model. For example https://clarifai.com/clarifai/main/models/general-image-recognition OR a specific version such as https://clarifai.com/clarifai/main/models/general-image-recognition/versions/aa7f35c01e0642fda5cf400f543e7c40. Find more models at https://clarifai.com/explore/models",
+            "displayName": "Model URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "file": {
+            "description": "URL or base64 bytes of the audio to classify",
+            "displayName": "Input URL or bytes",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs an audio file through a Clarifai audio-to-text model and returns the transcribed text. Use to transcribe speech or audio; supply the model URL and the file as a URL or base64 bytes. Read-only inference, safe to repeat.",
+          "idempotent": true
+        }
       },
-      "postInputsAction": {
-        "name": "postInputsAction",
-        "displayName": "Post Inputs Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "post_inputs": {
+        "name": "post_inputs",
+        "displayName": "Add Inputs",
+        "description": "Add inputs to your clarifai app",
+        "props": {
+          "userId": {
+            "description": "User ID to associate with the input",
+            "displayName": "User ID",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "appId": {
+            "description": "App ID (project) to associate with the input",
+            "displayName": "App ID",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "file": {
+            "description": "URL or base64 bytes of the audio to classify",
+            "displayName": "Input URL or bytes",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Uploads a file (image, video, audio, or text) as a new input into a specific Clarifai app, where it is stored for indexing, search, or training. Use to add data to a Clarifai dataset; requires the target user ID, app ID, and the file as a URL or base64 bytes. Each call appends a new input, so it is not idempotent.",
+          "idempotent": false
+        }
       },
-      "workflowPredictAction": {
-        "name": "workflowPredictAction",
-        "displayName": "Workflow Predict Action",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "workflow_predict": {
+        "name": "workflow_predict",
+        "displayName": "Run Workflow",
+        "description": "Call a Clarifai workflow",
+        "props": {
+          "workflowUrl": {
+            "description": "URL of the Clarifai workflow. For example https://clarifai.com/clarifai/main/workflows/Demographics. Find more workflows at https://clarifai.com/explore/workflows",
+            "displayName": "Workflow URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "file": {
+            "description": "URL or base64 bytes of the incoming image/video/text/audio to run through the workflow. Note: must be appropriate first step of the workflow to handle that data type.",
+            "displayName": "Input URL or bytes",
+            "required": true,
+            "type": "FILE"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs a single input (image, video, text, or audio) through a multi-model Clarifai workflow and returns the per-model results. Use to apply a chained pipeline of Clarifai models in one call; supply the workflow URL and a file as a URL or base64 bytes, matching the data type the workflow expects. Read-only prediction that stores nothing, so repeating the call yields the same results.",
+          "idempotent": true
+        }
       },
-      "createCustomApiCallActionhttpsapiclarifaicomv2": {
-        "name": "createCustomApiCallActionhttpsapiclarifaicomv2",
-        "displayName": "Create Custom Api Call Actionhttpsapiclarifaicomv2",
-        "description": "",
-        "props": {},
-        "requireAuth": true
-      },
-      "authMappingasyncAuthorizationKeyauthsecret_text": {
-        "name": "authMappingasyncAuthorizationKeyauthsecret_text",
-        "displayName": "Auth Mappingasync Authorization Keyauthsecret text",
-        "description": "",
-        "props": {},
-        "requireAuth": true
-      },
-      "custom_api_call_11": {
-        "name": "custom_api_call_11",
-        "displayName": "Custom api call 11",
-        "description": "",
-        "props": {},
-        "requireAuth": true
-      },
-      "custom_api_call_12": {
-        "name": "custom_api_call_12",
-        "displayName": "Custom api call 12",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "custom_api_call": {
+        "name": "custom_api_call",
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "props": {
+          "url": {
+            "auth": {
+              "displayName": "PAT Key",
+              "description": "\nFollow these instructions to get your Clarifai (Personal Access Token) PAT Key:\n1. Go to the [security tab](https://clarifai.com/settings/security) in your Clarifai account and generate a new PAT token.\n2. Copy the PAT token and paste it in the PAT Key field.\n",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "displayName": "",
+            "required": true,
+            "refreshers": [],
+            "type": "DYNAMIC"
+          },
+          "method": {
+            "displayName": "Method",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "headers": {
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true,
+            "type": "OBJECT"
+          },
+          "queryParams": {
+            "displayName": "Query Parameters",
+            "required": true,
+            "type": "OBJECT"
+          },
+          "body_type": {
+            "displayName": "Body Type",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "body": {
+            "auth": {
+              "displayName": "PAT Key",
+              "description": "\nFollow these instructions to get your Clarifai (Personal Access Token) PAT Key:\n1. Go to the [security tab](https://clarifai.com/settings/security) in your Clarifai account and generate a new PAT token.\n2. Copy the PAT token and paste it in the PAT Key field.\n",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "displayName": "Body",
+            "refreshers": [
+              "body_type"
+            ],
+            "required": false,
+            "type": "DYNAMIC"
+          },
+          "response_is_binary": {
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          },
+          "failsafe": {
+            "displayName": "No Error on Failure",
+            "required": false,
+            "type": "CHECKBOX"
+          },
+          "timeout": {
+            "displayName": "Timeout (in seconds)",
+            "required": false,
+            "type": "NUMBER"
+          },
+          "followRedirects": {
+            "displayName": "Follow redirects",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       }
     },
     "triggers": {},
@@ -151617,7 +153131,8 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "clarifai",
-    "isCore": false
+    "isCore": false,
+    "updated": "2026-11-02T09:13:28.635Z"
   },
   {
     "id": "piece_claude",
@@ -460312,9 +461827,9 @@
     "name": "@inboxfm-connect/piece-postgres",
     "displayName": "Postgres",
     "logoUrl": "https://cdn.activepieces.com/pieces/postgres.png",
-    "description": "The world",
+    "description": "The world's most advanced open-source relational database",
     "version": "0.2.5",
-    "minimumSupportedRelease": "0.30.0",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "DEVELOPER_TOOLS"
@@ -460329,26 +461844,135 @@
       "abuaboud"
     ],
     "auth": {
-      "type": "SECRET_TEXT"
+      "type": "CUSTOM_AUTH"
     },
     "actions": {
-      "runQuery": {
-        "name": "runQuery",
+      "run-query": {
+        "name": "run-query",
         "displayName": "Run Query",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+        "description": "Run Query",
+        "props": {
+          "markdown": {
+            "displayName": "Markdown",
+            "required": false,
+            "description": "\n      **DO NOT** insert dynamic input directly into the query string. Instead, use $1, $2, $3 and add them in args for parameterized queries to prevent **SQL injection.**",
+            "type": "MARKDOWN",
+            "variant": "INFO"
+          },
+          "query": {
+            "displayName": "Query",
+            "description": "Please use $1, $2, etc. for parameterized queries to avoid SQL injection.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "args": {
+            "displayName": "Arguments",
+            "description": "Arguments to be used in the query",
+            "required": false,
+            "type": "ARRAY"
+          },
+          "query_timeout": {
+            "displayName": "Query Timeout",
+            "description": "An integer indicating the maximum number of milliseconds to wait for a query to complete before timing out.",
+            "required": false,
+            "defaultValue": 30000,
+            "type": "NUMBER"
+          },
+          "connection_timeout_ms": {
+            "displayName": "Connection Timeout (ms)",
+            "description": "An integer indicating the maximum number of milliseconds to wait for a connection to be established before timing out.",
+            "required": false,
+            "defaultValue": 30000,
+            "type": "NUMBER"
+          },
+          "application_name": {
+            "displayName": "Application Name",
+            "description": "A string indicating the name of the client application connecting to the server.",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Executes an arbitrary SQL statement against the connected PostgreSQL database and returns the resulting rows. Use this to read, write, or otherwise operate on a Postgres database when no more specific tool fits. Always pass dynamic values via the args array with $1/$2 placeholders (never string-interpolate them) to avoid SQL injection. Not idempotent: the statement can be a mutation (INSERT/UPDATE/DELETE/DDL), so repeating the same call may change data or have side effects each time.",
+          "idempotent": false
+        }
       }
     },
     "triggers": {
-      "newRow": {
-        "name": "newRow",
+      "new-row": {
+        "name": "new-row",
         "displayName": "New Row",
-        "description": "",
-        "props": {},
+        "description": "triggered when a new row is added",
+        "requireAuth": true,
+        "props": {
+          "description": {
+            "displayName": "Markdown",
+            "required": false,
+            "description": "**NOTE:** The trigger fetches the latest rows using the provided order by column (newest first), and then will keep polling until the previous last row is reached.",
+            "type": "MARKDOWN",
+            "variant": "INFO"
+          },
+          "table": {
+            "displayName": "Table name",
+            "required": true,
+            "refreshers": [
+              "auth"
+            ],
+            "refreshOnSearch": false,
+            "type": "DROPDOWN"
+          },
+          "order_by": {
+            "displayName": "Column to order by",
+            "description": "Use something like a created timestamp or an auto-incrementing ID.",
+            "required": true,
+            "refreshers": [
+              "table"
+            ],
+            "refreshOnSearch": false,
+            "type": "DROPDOWN"
+          },
+          "order_direction": {
+            "displayName": "Order Direction",
+            "description": "The direction to sort by such that the newest rows are fetched first.",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "Ascending",
+                  "value": "ASC"
+                },
+                {
+                  "label": "Descending",
+                  "value": "DESC"
+                }
+              ]
+            },
+            "defaultValue": "DESC",
+            "type": "STATIC_DROPDOWN"
+          }
+        },
         "type": "POLLING",
+        "handshakeConfiguration": {
+          "strategy": "NONE"
+        },
+        "renewConfiguration": {
+          "strategy": "NONE"
+        },
         "sampleData": {},
-        "testStrategy": "SIMULATION"
+        "testStrategy": "TEST_FUNCTION",
+        "aiMetadata": {
+          "description": "Fires when a new row appears in a selected PostgreSQL table, detected by polling and ordering on a chosen column (such as a created timestamp or auto-incrementing ID). Each event represents one newly inserted row and carries that row's data."
+        }
       }
     },
     "actionsCount": 1,
@@ -460357,7 +461981,8 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "postgres",
-    "isCore": false
+    "isCore": false,
+    "updated": "2026-11-02T09:13:29.624Z"
   },
   {
     "id": "piece_posthog",
@@ -482024,16 +483649,7 @@
             "displayName": "To",
             "description": "Emails of the recipients",
             "required": true,
-            "type": "ARRAY",
-            "properties": {
-              "item": {
-                "displayName": "Item",
-                "description": "Array item",
-                "required": false,
-                "type": "SHORT_TEXT"
-              }
-            },
-            "valueSchema": []
+            "type": "ARRAY"
           },
           "from_name": {
             "displayName": "Sender Name",
@@ -482051,31 +483667,13 @@
             "displayName": "BCC",
             "description": "List of emails in bcc",
             "required": false,
-            "type": "ARRAY",
-            "properties": {
-              "item": {
-                "displayName": "Item",
-                "description": "Array item",
-                "required": false,
-                "type": "SHORT_TEXT"
-              }
-            },
-            "valueSchema": []
+            "type": "ARRAY"
           },
           "cc": {
             "displayName": "CC",
             "description": "List of emails in cc",
             "required": false,
-            "type": "ARRAY",
-            "properties": {
-              "item": {
-                "displayName": "Item",
-                "description": "Array item",
-                "required": false,
-                "type": "SHORT_TEXT"
-              }
-            },
-            "valueSchema": []
+            "type": "ARRAY"
           },
           "reply_to": {
             "displayName": "Reply To",
@@ -482183,8 +483781,7 @@
                 "type": "SHORT_TEXT"
               }
             },
-            "type": "ARRAY",
-            "valueSchema": []
+            "type": "ARRAY"
           },
           "idempotency_key": {
             "displayName": "Idempotency Key",
@@ -483105,7 +484702,7 @@
     "projectUsage": 0,
     "folder": "resend",
     "isCore": false,
-    "updated": "2026-10-16T03:12:05.991Z"
+    "updated": "2026-11-02T09:13:18.782Z"
   },
   {
     "id": "piece_respaid",
@@ -494032,7 +495629,7 @@
     "logoUrl": "https://cdn.activepieces.com/pieces/scrapeless.png",
     "description": "Scrapeless is an all-in-one and highly scalable web scraping toolkit for enterprises and developers.",
     "version": "0.1.6",
-    "minimumSupportedRelease": "0.36.1",
+    "minimumSupportedRelease": "0.82.0",
     "maximumSupportedRelease": "999.999.999",
     "categories": [
       "PRODUCTIVITY"
@@ -494041,64 +495638,1045 @@
       "sunorains"
     ],
     "auth": {
-      "type": "CUSTOM_AUTH"
+      "type": "SECRET_TEXT"
     },
     "actions": {
-      "googleSearchApi": {
-        "name": "googleSearchApi",
-        "displayName": "Google Search Api",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "google_search_api": {
+        "name": "google_search_api",
+        "displayName": "Google Search",
+        "description": "Retrieves search result data for any query.",
+        "props": {
+          "q": {
+            "displayName": "Search Query",
+            "description": "Parameter defines the query you want to search. You can use anything that you would use in a regular Google search. e.g. inurl:, site:, intitle:. We also support advanced search query parameters such as as_dt and as_eq.",
+            "defaultValue": "coffee",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "hl": {
+            "displayName": "Language",
+            "description": "Parameter defines the language to use for the Google search. It's a two-letter language code. (e.g., en for English, es for Spanish, or fr for French).",
+            "defaultValue": "en",
+            "required": false,
+            "type": "SHORT_TEXT"
+          },
+          "gl": {
+            "displayName": "Country",
+            "description": "Parameter defines the country to use for the Google search. It's a two-letter country code. (e.g., us for the United States, uk for United Kingdom, or fr for France).",
+            "defaultValue": "us",
+            "required": false,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Runs a Google web search through Scrapeless and returns the structured results (organic listings, etc.) for a given query. Choose this to programmatically fetch live Google search results when you need ranked web matches rather than scraping a specific page; supports Google advanced operators (site:, inurl:, intitle:) inside the query and optional language/country localization. Read-only and idempotent: the same query returns the same results with no side effects.",
+          "idempotent": true
+        }
       },
-      "crawlScrapeApi": {
-        "name": "crawlScrapeApi",
-        "displayName": "Crawl Scrape Api",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "crawl_scrape": {
+        "name": "crawl_scrape",
+        "displayName": "Scrape Webpage Data",
+        "description": "Extracts data from a single webpage.",
+        "props": {
+          "url": {
+            "displayName": "URL to Crawl",
+            "description": "The URL of the webpage to scrape.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Scrapes a single webpage at the given URL via Scrapeless and returns its extracted content. Choose this when you need the data from one specific page; for following links across a whole site use the crawl action instead. Requires a target URL; read-only and idempotent (no side effects, though live page content may change between calls).",
+          "idempotent": true
+        }
       },
-      "crawlCrawlApi": {
-        "name": "crawlCrawlApi",
-        "displayName": "Crawl Crawl Api",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "crawl_crawl": {
+        "name": "crawl_crawl",
+        "displayName": "Crawl Data from All Pages",
+        "description": "Crawls a website and its linked pages to extract comprehensive data.",
+        "props": {
+          "url": {
+            "displayName": "URL to Crawl",
+            "description": "The URL of the webpage to crawl.",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "limit": {
+            "displayName": "Limit",
+            "description": "Number Of Subpages",
+            "required": true,
+            "defaultValue": 5,
+            "type": "NUMBER"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Crawls a website starting from the given URL, following linked subpages up to a configurable page limit, and returns the extracted content from all visited pages. Choose this when you need data across multiple pages of a site rather than a single page (use the scrape action for one page). Requires a starting URL and a subpage limit; read-only and idempotent with no side effects.",
+          "idempotent": true
+        }
       },
-      "googleTrendsApi": {
-        "name": "googleTrendsApi",
-        "displayName": "Google Trends Api",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "google_trends_api": {
+        "name": "google_trends_api",
+        "displayName": "Google Trends",
+        "description": "Access popular keyword and interest data from Google Trends.",
+        "props": {
+          "q": {
+            "displayName": "Search Query",
+            "description": "Parameter defines the query or queries you want to search. You can use anything that you would use in a regular Google Trends search. The maximum number of queries per search is 5 (this only applies to `interest_over_time` and `compared_breakdown_by_region` data_type, other types of data will only accept 1 query per search).",
+            "defaultValue": "Mercedes-Benz,BMW X5",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "data_type": {
+            "displayName": "Data Type",
+            "description": "Parameter defines the type of data you want to search. You can use anything that you would use in a regular Google Trends search. The maximum number of queries per search is 5 (this only applies to `interest_over_time` and `compared_breakdown_by_region` data_type, other types of data will only accept 1 query per search).",
+            "required": true,
+            "defaultValue": "interest_over_time",
+            "options": {
+              "options": [
+                {
+                  "label": "Auto complete",
+                  "value": "autocomplete"
+                },
+                {
+                  "label": "Interest over time",
+                  "value": "interest_over_time"
+                },
+                {
+                  "label": "Compared breakdown by region",
+                  "value": "compared_breakdown_by_region"
+                },
+                {
+                  "label": "Interest by region",
+                  "value": "interest_by_subregion"
+                },
+                {
+                  "label": "Related queries",
+                  "value": "related_queries"
+                },
+                {
+                  "label": "Related topics",
+                  "value": "related_topics"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "date": {
+            "displayName": "Date",
+            "description": "The supported dates are: `now 1-H`, `now 4-H`, `now 1-d`, `now 7-d`, `today 1-m`, `today 3-m`, `today 12-m`, `today 5-y`, `all`.You can also pass custom values:Dates from 2004 to present: `yyyy-mm-dd yyyy-mm-dd` (e.g. `2021-10-15 2022-05-25`)\nDates with hours within a week range: `yyyy-mm-ddThh yyyy-mm-ddThh` (e.g. `2022-05-19T10 2022-05-24T22`). Hours will be calculated depending on the tz (time zone) parameter.",
+            "required": true,
+            "defaultValue": "today 1-m",
+            "type": "SHORT_TEXT"
+          },
+          "hl": {
+            "displayName": "Language",
+            "description": "Parameter defines the language to use for the Google Trends search. It's a two-letter language code. (e.g., `en` for English, `es` for Spanish, or `fr` for French).",
+            "required": false,
+            "defaultValue": "en",
+            "type": "SHORT_TEXT"
+          },
+          "tz": {
+            "displayName": "Time zone",
+            "description": "time zone offset. default is `420`.",
+            "required": false,
+            "defaultValue": "420",
+            "type": "SHORT_TEXT"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Fetches Google Trends data for one or more keywords via Scrapeless, with the data type selecting what to return (e.g. interest over time, compared breakdown by region, related queries). Choose this to analyze keyword popularity or interest trends over a date range. Note that interest_over_time and compared_breakdown_by_region accept up to 5 comma-separated queries while other data types accept only one. Read-only and idempotent with no side effects.",
+          "idempotent": true
+        }
       },
-      "universalScrapingApi": {
-        "name": "universalScrapingApi",
-        "displayName": "Universal Scraping Api",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "universal_scraping_api": {
+        "name": "universal_scraping_api",
+        "displayName": "Universal Scraping",
+        "description": "Seamlessly accesses protected or dynamic pages by handling anti-scraping systems automatically.",
+        "props": {
+          "url": {
+            "displayName": "Target URL",
+            "required": true,
+            "type": "SHORT_TEXT"
+          },
+          "js_render": {
+            "displayName": "Js Render",
+            "required": false,
+            "defaultValue": true,
+            "type": "CHECKBOX"
+          },
+          "headless": {
+            "displayName": "Headless",
+            "required": false,
+            "defaultValue": true,
+            "type": "CHECKBOX"
+          },
+          "country": {
+            "displayName": "Country",
+            "required": false,
+            "defaultValue": "ANY",
+            "options": {
+              "options": [
+                {
+                  "label": "World Wide",
+                  "value": "ANY"
+                },
+                {
+                  "label": "Albania",
+                  "value": "AL"
+                },
+                {
+                  "label": "Algeria",
+                  "value": "DZ"
+                },
+                {
+                  "label": "Bhutan",
+                  "value": "BT"
+                },
+                {
+                  "label": "Bolivia",
+                  "value": "BO"
+                },
+                {
+                  "label": "Austria",
+                  "value": "AT"
+                },
+                {
+                  "label": "Bahrain",
+                  "value": "BH"
+                },
+                {
+                  "label": "Argentina",
+                  "value": "AR"
+                },
+                {
+                  "label": "Azerbaijan",
+                  "value": "AZ"
+                },
+                {
+                  "label": "Cyprus",
+                  "value": "CY"
+                },
+                {
+                  "label": "Burundi",
+                  "value": "BI"
+                },
+                {
+                  "label": "Cameroon",
+                  "value": "CM"
+                },
+                {
+                  "label": "Croatia",
+                  "value": "HR"
+                },
+                {
+                  "label": "Dominican Republic",
+                  "value": "DO"
+                },
+                {
+                  "label": "Australia",
+                  "value": "AU"
+                },
+                {
+                  "label": "Belarus",
+                  "value": "BY"
+                },
+                {
+                  "label": "Angola",
+                  "value": "AO"
+                },
+                {
+                  "label": "Bulgaria",
+                  "value": "BG"
+                },
+                {
+                  "label": "Democratic Republic of the Congo",
+                  "value": "CD"
+                },
+                {
+                  "label": "Aruba",
+                  "value": "AW"
+                },
+                {
+                  "label": "Armenia",
+                  "value": "AM"
+                },
+                {
+                  "label": "Bangladesh",
+                  "value": "BD"
+                },
+                {
+                  "label": "Belgium",
+                  "value": "BE"
+                },
+                {
+                  "label": "Cambodia",
+                  "value": "KH"
+                },
+                {
+                  "label": "Czech Republic",
+                  "value": "CZ"
+                },
+                {
+                  "label": "Denmark",
+                  "value": "DK"
+                },
+                {
+                  "label": "Burkina Faso",
+                  "value": "BF"
+                },
+                {
+                  "label": "Canada",
+                  "value": "CA"
+                },
+                {
+                  "label": "Cuba",
+                  "value": "CU"
+                },
+                {
+                  "label": "China",
+                  "value": "CN"
+                },
+                {
+                  "label": "Gambia The",
+                  "value": "GM"
+                },
+                {
+                  "label": "Georgia",
+                  "value": "GE"
+                },
+                {
+                  "label": "Chile",
+                  "value": "CL"
+                },
+                {
+                  "label": "Congo",
+                  "value": "CG"
+                },
+                {
+                  "label": "Cote D'Ivoire (Ivory Coast)",
+                  "value": "CI"
+                },
+                {
+                  "label": "Gabon",
+                  "value": "GA"
+                },
+                {
+                  "label": "Colombia",
+                  "value": "CO"
+                },
+                {
+                  "label": "Costa Rica",
+                  "value": "CR"
+                },
+                {
+                  "label": "Indonesia",
+                  "value": "ID"
+                },
+                {
+                  "label": "French Polynesia",
+                  "value": "PF"
+                },
+                {
+                  "label": "Luxembourg",
+                  "value": "LU"
+                },
+                {
+                  "label": "Malta",
+                  "value": "MT"
+                },
+                {
+                  "label": "Mali",
+                  "value": "ML"
+                },
+                {
+                  "label": "Mexico",
+                  "value": "MX"
+                },
+                {
+                  "label": "Mauritius",
+                  "value": "MU"
+                },
+                {
+                  "label": "Madagascar",
+                  "value": "MG"
+                },
+                {
+                  "label": "Malawi",
+                  "value": "MW"
+                },
+                {
+                  "label": "Montenegro",
+                  "value": "ME"
+                },
+                {
+                  "label": "Netherlands",
+                  "value": "NL"
+                },
+                {
+                  "label": "Macau S.A.R.",
+                  "value": "MO"
+                },
+                {
+                  "label": "Moldova",
+                  "value": "MD"
+                },
+                {
+                  "label": "Malaysia",
+                  "value": "MY"
+                },
+                {
+                  "label": "Mongolia",
+                  "value": "MN"
+                },
+                {
+                  "label": "Man (Isle of)",
+                  "value": "IM"
+                },
+                {
+                  "label": "Fiji Islands",
+                  "value": "FJ"
+                },
+                {
+                  "label": "Finland",
+                  "value": "FI"
+                },
+                {
+                  "label": "France",
+                  "value": "FR"
+                },
+                {
+                  "label": "India",
+                  "value": "IN"
+                },
+                {
+                  "label": "Iceland",
+                  "value": "IS"
+                },
+                {
+                  "label": "North Macedonia",
+                  "value": "MK"
+                },
+                {
+                  "label": "New Zealand",
+                  "value": "NZ"
+                },
+                {
+                  "label": "Nicaragua",
+                  "value": "NI"
+                },
+                {
+                  "label": "Norway",
+                  "value": "NO"
+                },
+                {
+                  "label": "Haiti",
+                  "value": "HT"
+                },
+                {
+                  "label": "Honduras",
+                  "value": "HN"
+                },
+                {
+                  "label": "Hungary",
+                  "value": "HU"
+                },
+                {
+                  "label": "Guyana",
+                  "value": "GY"
+                },
+                {
+                  "label": "Hong Kong S.A.R.",
+                  "value": "HK"
+                },
+                {
+                  "label": "Nigeria",
+                  "value": "NG"
+                },
+                {
+                  "label": "Oman",
+                  "value": "OM"
+                },
+                {
+                  "label": "Peru",
+                  "value": "PE"
+                },
+                {
+                  "label": "Pakistan",
+                  "value": "PK"
+                },
+                {
+                  "label": "Palestinian Territory Occupied",
+                  "value": "PS"
+                },
+                {
+                  "label": "Papua new Guinea",
+                  "value": "PG"
+                },
+                {
+                  "label": "Poland",
+                  "value": "PL"
+                },
+                {
+                  "label": "Paraguay",
+                  "value": "PY"
+                },
+                {
+                  "label": "Panama",
+                  "value": "PA"
+                },
+                {
+                  "label": "Philippines",
+                  "value": "PH"
+                },
+                {
+                  "label": "Ethiopia",
+                  "value": "ET"
+                },
+                {
+                  "label": "Guatemala",
+                  "value": "GT"
+                },
+                {
+                  "label": "Greece",
+                  "value": "GR"
+                },
+                {
+                  "label": "Guinea-Bissau",
+                  "value": "GW"
+                },
+                {
+                  "label": "Estonia",
+                  "value": "EE"
+                },
+                {
+                  "label": "Guinea",
+                  "value": "GN"
+                },
+                {
+                  "label": "Saudi Arabia",
+                  "value": "SA"
+                },
+                {
+                  "label": "Serbia",
+                  "value": "RS"
+                },
+                {
+                  "label": "The Bahamas",
+                  "value": "BS"
+                },
+                {
+                  "label": "Ecuador",
+                  "value": "EC"
+                },
+                {
+                  "label": "Grenada",
+                  "value": "GD"
+                },
+                {
+                  "label": "Bosnia and Herzegovina",
+                  "value": "BA"
+                },
+                {
+                  "label": "Brazil",
+                  "value": "BR"
+                },
+                {
+                  "label": "Germany",
+                  "value": "DE"
+                },
+                {
+                  "label": "Ghana",
+                  "value": "GH"
+                },
+                {
+                  "label": "Rwanda",
+                  "value": "RW"
+                },
+                {
+                  "label": "Senegal",
+                  "value": "SN"
+                },
+                {
+                  "label": "Thailand",
+                  "value": "TH"
+                },
+                {
+                  "label": "Tajikistan",
+                  "value": "TJ"
+                },
+                {
+                  "label": "Tanzania",
+                  "value": "TZ"
+                },
+                {
+                  "label": "Egypt",
+                  "value": "EG"
+                },
+                {
+                  "label": "El Salvador",
+                  "value": "SV"
+                },
+                {
+                  "label": "Gibraltar",
+                  "value": "GI"
+                },
+                {
+                  "label": "Saint Vincent And The Grenadines",
+                  "value": "VC"
+                },
+                {
+                  "label": "Slovakia",
+                  "value": "SK"
+                },
+                {
+                  "label": "Slovenia",
+                  "value": "SI"
+                },
+                {
+                  "label": "Trinidad And Tobago",
+                  "value": "TT"
+                },
+                {
+                  "label": "Tunisia",
+                  "value": "TN"
+                },
+                {
+                  "label": "Turkey",
+                  "value": "TR"
+                },
+                {
+                  "label": "Uganda",
+                  "value": "UG"
+                },
+                {
+                  "label": "Turks And Caicos Islands",
+                  "value": "TC"
+                },
+                {
+                  "label": "Ukraine",
+                  "value": "UA"
+                },
+                {
+                  "label": "Togo",
+                  "value": "TG"
+                },
+                {
+                  "label": "United States",
+                  "value": "US"
+                },
+                {
+                  "label": "Portugal",
+                  "value": "PT"
+                },
+                {
+                  "label": "Puerto Rico",
+                  "value": "PR"
+                },
+                {
+                  "label": "United Arab Emirates",
+                  "value": "AE"
+                },
+                {
+                  "label": "United Kingdom",
+                  "value": "GB"
+                },
+                {
+                  "label": "Vietnam",
+                  "value": "VN"
+                },
+                {
+                  "label": "Kazakhstan",
+                  "value": "KZ"
+                },
+                {
+                  "label": "Israel",
+                  "value": "IL"
+                },
+                {
+                  "label": "Jamaica",
+                  "value": "JM"
+                },
+                {
+                  "label": "Virgin Islands (US)",
+                  "value": "VI"
+                },
+                {
+                  "label": "Kyrgyzstan",
+                  "value": "KG"
+                },
+                {
+                  "label": "Latvia",
+                  "value": "LV"
+                },
+                {
+                  "label": "Nepal",
+                  "value": "NP"
+                },
+                {
+                  "label": "Zambia",
+                  "value": "ZM"
+                },
+                {
+                  "label": "Libya",
+                  "value": "LY"
+                },
+                {
+                  "label": "Namibia",
+                  "value": "NA"
+                },
+                {
+                  "label": "Reunion",
+                  "value": "RE"
+                },
+                {
+                  "label": "Qatar",
+                  "value": "QA"
+                },
+                {
+                  "label": "Russia",
+                  "value": "RU"
+                },
+                {
+                  "label": "Jersey",
+                  "value": "JE"
+                },
+                {
+                  "label": "Kuwait",
+                  "value": "KW"
+                },
+                {
+                  "label": "Lithuania",
+                  "value": "LT"
+                },
+                {
+                  "label": "Morocco",
+                  "value": "MA"
+                },
+                {
+                  "label": "Ireland",
+                  "value": "IE"
+                },
+                {
+                  "label": "Italy",
+                  "value": "IT"
+                },
+                {
+                  "label": "Myanmar",
+                  "value": "MM"
+                },
+                {
+                  "label": "Zimbabwe",
+                  "value": "ZW"
+                },
+                {
+                  "label": "Lesotho",
+                  "value": "LS"
+                },
+                {
+                  "label": "Yemen",
+                  "value": "YE"
+                },
+                {
+                  "label": "Romania",
+                  "value": "RO"
+                },
+                {
+                  "label": "Mozambique",
+                  "value": "MZ"
+                },
+                {
+                  "label": "Japan",
+                  "value": "JP"
+                },
+                {
+                  "label": "Jordan",
+                  "value": "JO"
+                },
+                {
+                  "label": "Kenya",
+                  "value": "KE"
+                },
+                {
+                  "label": "Venezuela",
+                  "value": "VE"
+                },
+                {
+                  "label": "Uzbekistan",
+                  "value": "UZ"
+                },
+                {
+                  "label": "Uruguay",
+                  "value": "UY"
+                },
+                {
+                  "label": "Sri Lanka",
+                  "value": "LK"
+                },
+                {
+                  "label": "Sudan",
+                  "value": "SD"
+                },
+                {
+                  "label": "Switzerland",
+                  "value": "CH"
+                },
+                {
+                  "label": "South Korea",
+                  "value": "KR"
+                },
+                {
+                  "label": "Suriname",
+                  "value": "SR"
+                },
+                {
+                  "label": "South Africa",
+                  "value": "ZA"
+                },
+                {
+                  "label": "Spain",
+                  "value": "ES"
+                },
+                {
+                  "label": "Taiwan",
+                  "value": "TW"
+                },
+                {
+                  "label": "Sweden",
+                  "value": "SE"
+                },
+                {
+                  "label": "Somalia",
+                  "value": "SO"
+                },
+                {
+                  "label": "Lebanon",
+                  "value": "LB"
+                },
+                {
+                  "label": "Singapore",
+                  "value": "SG"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "js_instructions": {
+            "displayName": "Js Instructions",
+            "required": false,
+            "defaultValue": [
+              {
+                "wait": 1000
+              }
+            ],
+            "type": "JSON"
+          },
+          "block": {
+            "displayName": "Block",
+            "required": false,
+            "defaultValue": {
+              "resources": [
+                "image",
+                "font",
+                "script"
+              ],
+              "urls": [
+                "https://example.com"
+              ]
+            },
+            "type": "JSON"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "both",
+        "aiMetadata": {
+          "description": "Scrapes a target URL through Scrapeless's web unlocker, which automatically bypasses anti-bot/anti-scraping protections and can render JavaScript-heavy pages headlessly via a chosen proxy country. Choose this over the basic scrape action when the page is protected, dynamic, or blocks ordinary scrapers; optional JS instructions and resource-blocking rules tune the render. Requires a target URL; read-only and idempotent with no side effects.",
+          "idempotent": true
+        }
       },
-      "createCustomApiCallActionauthscrapelessApiAuth": {
-        "name": "createCustomApiCallActionauthscrapelessApiAuth",
-        "displayName": "Create Custom Api Call Actionauthscrapeless Api Auth",
-        "description": "",
-        "props": {},
-        "requireAuth": true
-      },
-      "baseUrlhttpsapiscrapelesscomapiv1": {
-        "name": "baseUrlhttpsapiscrapelesscomapiv1",
-        "displayName": "Base Urlhttpsapiscrapelesscomapiv1",
-        "description": "",
-        "props": {},
-        "requireAuth": true
-      },
-      "authMappingasync": {
-        "name": "authMappingasync",
-        "displayName": "Auth Mappingasync",
-        "description": "",
-        "props": {},
-        "requireAuth": true
+      "custom_api_call": {
+        "name": "custom_api_call",
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "props": {
+          "url": {
+            "auth": {
+              "displayName": "API Key",
+              "description": "You can obtain your API key from [Dashboard](https://app.scrapeless.com).",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "displayName": "",
+            "required": true,
+            "refreshers": [],
+            "type": "DYNAMIC"
+          },
+          "method": {
+            "displayName": "Method",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "headers": {
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true,
+            "type": "OBJECT"
+          },
+          "queryParams": {
+            "displayName": "Query Parameters",
+            "required": true,
+            "type": "OBJECT"
+          },
+          "body_type": {
+            "displayName": "Body Type",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            },
+            "type": "STATIC_DROPDOWN"
+          },
+          "body": {
+            "auth": {
+              "displayName": "API Key",
+              "description": "You can obtain your API key from [Dashboard](https://app.scrapeless.com).",
+              "required": true,
+              "type": "SECRET_TEXT"
+            },
+            "displayName": "Body",
+            "refreshers": [
+              "body_type"
+            ],
+            "required": false,
+            "type": "DYNAMIC"
+          },
+          "response_is_binary": {
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          },
+          "failsafe": {
+            "displayName": "No Error on Failure",
+            "required": false,
+            "type": "CHECKBOX"
+          },
+          "timeout": {
+            "displayName": "Timeout (in seconds)",
+            "required": false,
+            "type": "NUMBER"
+          },
+          "followRedirects": {
+            "displayName": "Follow redirects",
+            "required": false,
+            "defaultValue": false,
+            "type": "CHECKBOX"
+          }
+        },
+        "requireAuth": true,
+        "errorHandlingOptions": {
+          "continueOnFailure": {
+            "defaultValue": false
+          },
+          "retryOnFailure": {
+            "defaultValue": false
+          }
+        },
+        "audience": "human"
       }
     },
     "triggers": {},
@@ -494108,7 +496686,8 @@
     "packageType": "REGISTRY",
     "projectUsage": 0,
     "folder": "scrapeless",
-    "isCore": false
+    "isCore": false,
+    "updated": "2026-11-02T09:13:32.676Z"
   },
   {
     "id": "piece_seek_table",
