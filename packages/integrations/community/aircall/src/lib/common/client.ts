@@ -2,6 +2,36 @@ import { AuthenticationType, HttpMethod, httpClient } from '@inboxfm-connect/pie
 
 export const BASE_URL = `https://api.aircall.io/v1`;
 
+// Aircall paginates list endpoints (default 20 per page, per_page max 50)
+// and exposes the next page through `meta.next_page_link`. The list
+// endpoints are also capped at 10,000 records per query.
+// https://support.aircall.io/en-gb/articles/34702023578397
+export async function makePagedRequest<T>(
+  auth: { username: string; password: string },
+  path: string,
+  listKey: string,
+  { perPage = 50, maxPages = 10 }: { perPage?: number; maxPages?: number } = {}
+): Promise<{ items: T[]; truncated: boolean }> {
+  const items: T[] = [];
+
+  for (let page = 1; page <= maxPages; page++) {
+    const response = (await makeRequest(auth, HttpMethod.GET, `${path}?per_page=${perPage}&page=${page}`)) as {
+      [key: string]: unknown;
+      meta?: { next_page_link?: string | null };
+    };
+
+    const batch = (response[listKey] as T[] | undefined) ?? [];
+    items.push(...batch);
+
+    if (batch.length === 0 || !response.meta?.next_page_link) {
+      return { items, truncated: false };
+    }
+  }
+
+  return { items, truncated: true };
+}
+
+
 export async function makeRequest(
   auth: { username: string; password: string },
   method: HttpMethod,

@@ -1,9 +1,9 @@
 import { Property } from '@inboxfm-connect/pieces-framework';
-import { makeRequest } from './client';
+import { makePagedRequest, makeRequest } from './client';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
 import { aircallAuth } from './auth';
 
-export const callIdDropdown = Property.Dropdown<number,true,typeof aircallAuth>({
+export const callIdDropdown = Property.Dropdown<string,true,typeof aircallAuth>({
   auth: aircallAuth,
   displayName: 'Call',
   required: true,
@@ -18,19 +18,29 @@ export const callIdDropdown = Property.Dropdown<number,true,typeof aircallAuth>(
     }
 
     try {
-      const response = await makeRequest(
-        auth as { username: string; password: string },
-        HttpMethod.GET,
-        '/calls'
-      );
+      // GET /calls is paginated (default 20 per page, per_page max 50,
+      // next page via meta.next_page_link) — walk pages with a bounded
+      // budget so the dropdown is not silently capped at the first page.
+      // https://support.aircall.io/en-gb/articles/34702023578397
+      const { items: calls, truncated } = await makePagedRequest<
+        { id: number; raw_digits: string; direction: string }
+      >(auth as { username: string; password: string }, '/calls', 'calls');
 
-      const {calls} = response as {calls:{id:number,raw_digits:string, direction:string}[]}
+      const options = calls.map((call) => ({
+        label: `${call.raw_digits} - ${call.direction}`,
+        value: call.id.toString(),
+      }));
+
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all calls (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
+
       return {
         disabled: false,
-        options: calls.map((call) => ({
-          label: `${call.raw_digits} - ${call.direction}`,
-          value: call.id,
-        })),
+        options,
       };
     } catch (error) {
       return {
@@ -96,19 +106,29 @@ export const contactIdDropdown = Property.Dropdown<string,true,typeof aircallAut
     }
 
     try {
-      const response = await makeRequest(
-        auth,
-        HttpMethod.GET,
-        '/contacts'
-      );
+      // GET /contacts is paginated like /calls (default 20 per page,
+      // per_page max 50, next page via meta.next_page_link) — walk pages
+      // with a bounded budget so the dropdown is not silently capped.
+      // https://support.aircall.io/en-gb/articles/34702023578397
+      const { items: contacts, truncated } = await makePagedRequest<
+        { id: string; first_name: string; last_name: string }
+      >(auth, '/contacts', 'contacts');
 
-      const {contacts} = response as {contacts:{id:string,first_name:string,last_name:string}[]}
+      const options = contacts.map((contact) => ({
+        label: `${contact.first_name || ''} ${contact.last_name || ''}` || contact.id,
+        value: contact.id,
+      }));
+
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all contacts (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
+
       return {
         disabled: false,
-        options: contacts.map((contact) => ({
-          label:  `${contact.first_name || ""} ${contact.last_name || ""}` || contact.id,
-          value: contact.id,
-        })),
+        options,
       };
     } catch (error) {
       return {
