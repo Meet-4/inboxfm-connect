@@ -25,7 +25,7 @@ const listConnectionsSchema = z.object({
         .array(statusEnum)
         .optional()
         .describe(
-            'Filter by status: ACTIVE (working), MISSING (deleted or inaccessible), ERROR (auth/refresh failed). Omit to return all statuses.',
+            'Filter by status: ACTIVE (working), MISSING (placeholder connection — no credentials attached; actions may still run against it, so reconnect before trusting output), ERROR (auth/refresh failed). Omit to return all statuses.',
         ),
 })
 

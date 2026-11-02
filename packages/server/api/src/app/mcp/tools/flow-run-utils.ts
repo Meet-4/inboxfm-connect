@@ -1,6 +1,6 @@
 import { HeadlessRuntime } from '@inboxfm-connect/runtime'
 import { apLogger } from '@inboxfm-connect/server-utils'
-import { McpToolResult, NetworkMode } from '@inboxfm-connect/shared'
+import { AppConnectionStatus, McpToolResult, NetworkMode } from '@inboxfm-connect/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
 import { accessTokenManager } from '../../authentication/lib/access-token-manager'
@@ -134,5 +134,22 @@ export async function executeAdhocAction({
     })
 
     const text = `Result:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
+
+    // #546: a MISSING connection is a placeholder with no credentials attached —
+    // not "deleted or inaccessible". The engine still executes against it (it can
+    // even succeed for pieces that don't require auth), so flag the status in the
+    // tool result instead of letting humans and LLM agents misread the output as
+    // coming from a healthy connection.
+    if (connection.status === AppConnectionStatus.MISSING) {
+        const warning =
+            `Warning: connection "${connection.externalId}" (${pieceName}) has status MISSING — ` +
+            'it is a placeholder with no credentials attached. ' +
+            'The action below still ran, so its output may be unauthenticated or failing; re-connect it before trusting this result.'
+        return {
+            content: [{ type: 'text' as const, text: warning }, { type: 'text' as const, text }],
+            structuredContent: { connectionStatus: 'MISSING', result },
+        }
+    }
+
     return { content: [{ type: 'text', text }] }
 }

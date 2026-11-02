@@ -148,3 +148,39 @@ describe('executeAdhocAction engine context dispatch (#544)', () => {
         }))
     })
 })
+
+describe('executeAdhocAction MISSING connection warning (#546)', () => {
+    beforeEach(() => {
+        executeMock.mockReset()
+        executeMock.mockResolvedValue({ mapped: 'output' })
+    })
+
+    it('flags a MISSING connection in the tool result while still executing it', async () => {
+        connections = [
+            { id: 'conn-slack', externalId: 'slack-mihir', pieceName: '@inboxfm-connect/piece-slack', status: 'MISSING' },
+        ]
+
+        const result = await run({ pieceName: 'slack' })
+
+        // The tool still executes — a MISSING connection is a placeholder, not a hard
+        // error; the fix is the visibility of the status in the tool result.
+        expect(executeMock).toHaveBeenCalledTimes(1)
+        expect(result.content[0]?.text).toContain('status MISSING')
+        expect(result.content[0]?.text).toContain('slack-mihir')
+        // The engine output still follows the warning.
+        expect(result.content[1]?.text).toContain('"mapped": "output"')
+        // The status is surfaced for agents that read structuredContent.
+        expect(result.structuredContent).toMatchObject({ connectionStatus: 'MISSING' })
+    })
+
+    it('adds no warning for an ACTIVE connection', async () => {
+        connections = [
+            { id: 'conn-slack', externalId: 'slack-mihir', pieceName: '@inboxfm-connect/piece-slack', status: 'ACTIVE' },
+        ]
+
+        const result = await run({ pieceName: 'slack' })
+
+        expect(result.content[0]?.text).not.toContain('MISSING')
+        expect(result.structuredContent ?? {}).not.toHaveProperty('connectionStatus')
+    })
+})
