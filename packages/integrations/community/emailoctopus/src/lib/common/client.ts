@@ -31,12 +31,38 @@ export class EmailOctopusClient {
         return responseBody;
     }
 
-    async getLists(): Promise<EmailOctopusList[]> {
-        const response = await this.makeRequest<{ data: EmailOctopusList[] }>(
-            HttpMethod.GET,
-            '/lists'
-        );
-        return response.data;
+    // EmailOctopus paginates collections with `limit` (1-100) and a cursor
+    // from the response's `paging.next.cursor`; the cursor-less default call
+    // returned only the first page (10 records). Walk the documented pages
+    // under a bounded budget.
+    // https://emailoctopus.com/api-documentation/lists/
+    async getPaged<T>(path: string): Promise<{ items: T[]; truncated: boolean }> {
+        const items: T[] = [];
+        const PAGE_SIZE = 100;
+        const MAX_PAGES = 10;
+        let cursor: string | undefined = undefined;
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+            const query = new URLSearchParams({ limit: String(PAGE_SIZE) });
+            if (cursor) {
+                query.set('page[cursor]', cursor);
+            }
+            const response = await this.makeRequest<{
+                data: T[];
+                paging?: { next?: { cursor?: string } };
+            }>(HttpMethod.GET, `${path}?${query.toString()}`);
+            items.push(...(response.data ?? []));
+            const nextCursor = response.paging?.next?.cursor;
+            if (!nextCursor) {
+                return { items, truncated: false };
+            }
+            cursor = nextCursor;
+        }
+        return { items, truncated: true };
+    }
+
+    async getLists(): Promise<{ items: EmailOctopusList[]; truncated: boolean }> {
+        return this.getPaged<EmailOctopusList>('/lists');
     }
     
 
@@ -47,12 +73,8 @@ export class EmailOctopusClient {
         );
     }
 
-    async getCampaigns(): Promise<EmailOctopusCampaign[]> {
-        const response = await this.makeRequest<{ data: EmailOctopusCampaign[] }>(
-            HttpMethod.GET,
-            '/campaigns'
-        );
-        return response.data;
+    async getCampaigns(): Promise<{ items: EmailOctopusCampaign[]; truncated: boolean }> {
+        return this.getPaged<EmailOctopusCampaign>('/campaigns');
     }
 }
 

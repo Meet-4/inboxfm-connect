@@ -32,12 +32,19 @@ export const emailOctopusProps = {
         }
         const client = new EmailOctopusClient(auth.secret_text);
         const lists = await client.getLists();
+        const options = lists.items.map((list) => ({
+          label: list.name,
+          value: list.id,
+        }));
+        if (lists.truncated) {
+          options.push({
+            label: '⚠️ Could not load all lists (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: lists.map((list) => ({
-            label: list.name,
-            value: list.id,
-          })),
+          options,
         };
       },
     }),
@@ -61,12 +68,19 @@ export const emailOctopusProps = {
         }
         const client = new EmailOctopusClient(auth.secret_text);
         const campaigns = await client.getCampaigns();
+        const options = campaigns.items.map((campaign) => ({
+          label: campaign.name,
+          value: campaign.id,
+        }));
+        if (campaigns.truncated) {
+          options.push({
+            label: '⚠️ Could not load all campaigns (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: campaigns.map((campaign) => ({
-            label: campaign.name,
-            value: campaign.id,
-          })),
+          options,
         };
       },
     }),
