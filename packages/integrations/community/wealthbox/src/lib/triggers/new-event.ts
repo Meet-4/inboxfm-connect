@@ -13,7 +13,7 @@ import {
   Polling
 } from '@inboxfm-connect/pieces-common';
 import dayjs from 'dayjs';
-import { fetchContacts, fetchProjects, fetchOpportunities, fetchEventCategories, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchContacts, fetchProjects, fetchOpportunities, fetchEventCategories, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 const polling: Polling<any, any> = {
@@ -122,7 +122,7 @@ export const newEvent = createTrigger({
         }
 
         try {
-          let records: any[] = [];
+          let records: { items: any[]; truncated: boolean } = { items: [], truncated: false };
           let recordType = '';
 
           const resourceTypeValue = resource_type as unknown as string;
@@ -150,7 +150,7 @@ export const newEvent = createTrigger({
               };
           }
 
-          const recordOptions = records.map((record: any) => ({
+          const recordOptions = wealthboxOptions(records, 'records', (record: any) => ({
             label: record.name || record.title || `${recordType} ${record.id}`,
             value: record.id
           }));
@@ -190,7 +190,7 @@ export const newEvent = createTrigger({
         try {
           const categories = await fetchEventCategories(auth.secret_text);
           return {
-            options: categories.map((category: any) => ({
+            options: wealthboxOptions(categories, 'categories', (category: any) => ({
               label: category.name || `Category ${category.id}`,
               value: category.id
             }))

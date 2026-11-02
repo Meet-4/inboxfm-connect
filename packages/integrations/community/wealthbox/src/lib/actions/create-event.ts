@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchUsers, fetchUserGroups, fetchEventCategories, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, EVENT_STATES } from '../common';
+import { fetchContacts, fetchUsers, fetchUserGroups, fetchEventCategories, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, EVENT_STATES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createEvent = createAction({
@@ -79,7 +79,7 @@ export const createEvent = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))
@@ -134,12 +134,12 @@ export const createEvent = createAction({
             fetchUsers(auth.secret_text)
           ]);
 
-          const contactOptions = contacts.map((contact: any) => ({
+          const contactOptions = wealthboxOptions(contacts, 'contacts', (contact: any) => ({
             label: `${contact.name || `${contact.first_name} ${contact.last_name}`.trim()} (Contact)`,
             value: `contact_${contact.id}`
           }));
 
-          const userOptions = users.map((user: any) => ({
+          const userOptions = wealthboxOptions(users, 'users', (user: any) => ({
             label: `${user.name} (User)`,
             value: `user_${user.id}`
           }));
@@ -205,7 +205,7 @@ export const createEvent = createAction({
         try {
           const categories = await fetchEventCategories(auth.secret_text);
           return {
-            options: categories.map((category: any) => ({
+            options: wealthboxOptions(categories, 'categories', (category: any) => ({
               label: category.name,
               value: category.id
             }))
@@ -238,7 +238,7 @@ export const createEvent = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -283,7 +283,7 @@ export const createEvent = createAction({
 
         try {
           const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.EVENT);
-          const customFieldOptions = customFields.map((field: any) => ({
+          const customFieldOptions = wealthboxOptions(customFields, 'custom fields', (field: any) => ({
             label: field.name,
             value: field.name
           }));
@@ -360,7 +360,7 @@ export const createEvent = createAction({
     if (propsValue.contact_id) {
       try {
         const contacts = await fetchContacts(auth.secret_text, { active: true });
-        const selectedContact = contacts.find((contact: any) => contact.id === propsValue.contact_id);
+        const selectedContact = contacts.items.find((contact: any) => contact.id === propsValue.contact_id);
 
         requestBody.linked_to = [{
           id: propsValue.contact_id,
@@ -409,7 +409,7 @@ export const createEvent = createAction({
     if (customFieldsArray && Array.isArray(customFieldsArray) && customFieldsArray.length > 0) {
       try {
         const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.EVENT);
-        const customFieldMap = new Map(customFields.map((field: any) => [field.name, field.id]));
+        const customFieldMap = new Map(customFields.items.map((field: any) => [field.name, field.id]));
 
         requestBody.custom_fields = customFieldsArray.map((field: any) => {
           const fieldId = customFieldMap.get(field.custom_field);

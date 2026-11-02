@@ -1,224 +1,131 @@
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
 import { WEALTHBOX_API_BASE } from './constants';
 
-export const fetchUserGroups = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/user_groups`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
+// Wealthbox paginates all list endpoints with the `page` and `per_page`
+// query parameters (default 25 per page, 1-based pages), so a single
+// unparameterized call silently caps the result at the first 25 records.
+// https://dev.wealthbox.com/
+const WB_PAGE_SIZE = 50;
+const WB_MAX_PAGES = 10;
 
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch user groups: ${response.status}`);
+async function fetchWealthboxPaged<T = any>(
+  path: string,
+  listKey: string,
+  auth: string,
+  extraParams: Record<string, string> = {}
+): Promise<{ items: T[]; truncated: boolean }> {
+  const items: T[] = [];
+
+  for (let page = 1; page <= WB_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      ...extraParams,
+      per_page: String(WB_PAGE_SIZE),
+      page: String(page),
+    });
+
+    const response = await httpClient.sendRequest({
+      method: HttpMethod.GET,
+      url: `${WEALTHBOX_API_BASE}${path}?${params.toString()}`,
+      headers: {
+        'ACCESS_TOKEN': auth,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status >= 400) {
+      throw new Error(`Failed to fetch ${listKey}: ${response.status}`);
+    }
+
+    const batch = (response.body as Record<string, T[]>)?.[listKey] || [];
+    items.push(...batch);
+
+    if (batch.length < WB_PAGE_SIZE) {
+      return { items, truncated: false };
+    }
   }
 
-  return response.body.user_groups || [];
+  return { items, truncated: true };
+}
+
+// Maps a paged Wealthbox response into dropdown options and appends the
+// standard truncation notice when the page budget was exhausted.
+export function wealthboxOptions<TItem, TValue>(
+  page: { items: TItem[]; truncated: boolean },
+  resourceLabel: string,
+  toOption: (item: TItem) => { label: string; value: TValue }
+): { label: string; value: TValue }[] {
+  const options = page.items.map(toOption);
+  if (page.truncated) {
+    options.push({
+      label: `⚠️ Could not load all ${resourceLabel} (partial list)`,
+      value: '__truncated_notice__' as unknown as TValue,
+    });
+  }
+  return options;
+}
+
+export const fetchUserGroups = async (auth: string) => {
+  return fetchWealthboxPaged('/user_groups', 'user_groups', auth);
 };
 
 export const fetchContacts = async (auth: string, filters?: { active?: boolean; order?: string }) => {
-  const params = new URLSearchParams();
-  if (filters?.active !== undefined) params.append('active', filters.active.toString());
-  if (filters?.order) params.append('order', filters.order);
-
-  const url = `${WEALTHBOX_API_BASE}/contacts${params.toString() ? '?' + params.toString() : ''}`;
-
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch contacts: ${response.status}`);
-  }
-
-  return response.body.contacts || [];
+  const extraParams: Record<string, string> = {};
+  if (filters?.active !== undefined) extraParams['active'] = filters.active.toString();
+  if (filters?.order) extraParams['order'] = filters.order;
+  return fetchWealthboxPaged('/contacts', 'contacts', auth, extraParams);
 };
 
 export const fetchTags = async (auth: string, documentType?: string) => {
-  const params = new URLSearchParams();
-  if (documentType) params.append('document_type', documentType);
-
-  const url = `${WEALTHBOX_API_BASE}/categories/tags${params.toString() ? '?' + params.toString() : ''}`;
-
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch tags: ${response.status}`);
-  }
-
-  return response.body.tags || [];
+  return fetchWealthboxPaged(
+    '/categories/tags',
+    'tags',
+    auth,
+    documentType ? { document_type: documentType } : {}
+  );
 };
 
 export const fetchUsers = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/users`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch users: ${response.status}`);
-  }
-
-  return response.body.users || [];
+  return fetchWealthboxPaged('/users', 'users', auth);
 };
 
 export const fetchCustomFields = async (auth: string, documentType?: string) => {
-  const params = new URLSearchParams();
-  if (documentType) params.append('document_type', documentType);
-
-  const url = `${WEALTHBOX_API_BASE}/categories/custom_fields${params.toString() ? '?' + params.toString() : ''}`;
-
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch custom fields: ${response.status}`);
-  }
-
-  return response.body.custom_fields || [];
+  return fetchWealthboxPaged(
+    '/categories/custom_fields',
+    'custom_fields',
+    auth,
+    documentType ? { document_type: documentType } : {}
+  );
 };
 
 export const fetchEventCategories = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/event_categories`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch event categories: ${response.status}`);
-  }
-
-  return response.body.event_categories || [];
+  return fetchWealthboxPaged('/event_categories', 'event_categories', auth);
 };
 
 export const fetchHouseholds = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/contacts?type=Household&active=true`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
+  return fetchWealthboxPaged('/contacts', 'contacts', auth, {
+    type: 'Household',
+    active: 'true',
   });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch households: ${response.status}`);
-  }
-
-  return response.body.contacts || [];
 };
 
 export const fetchOpportunityStages = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/opportunity_stages`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch opportunity stages: ${response.status}`);
-  }
-
-  return response.body.opportunity_stages || [];
+  return fetchWealthboxPaged('/opportunity_stages', 'opportunity_stages', auth);
 };
 
 export const fetchTaskCategories = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/task_categories`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch task categories: ${response.status}`);
-  }
-
-  return response.body.task_categories || [];
+  return fetchWealthboxPaged('/task_categories', 'task_categories', auth);
 };
 
 export const fetchOpportunities = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/opportunities`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch opportunities: ${response.status}`);
-  }
-
-  return response.body.opportunities || [];
+  return fetchWealthboxPaged('/opportunities', 'opportunities', auth);
 };
 
 export const fetchProjects = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/projects`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch projects: ${response.status}`);
-  }
-
-  return response.body.projects || [];
+  return fetchWealthboxPaged('/projects', 'projects', auth);
 };
 
 export const fetchWorkflowTemplates = async (auth: string) => {
-  const response = await httpClient.sendRequest({
-    method: HttpMethod.GET,
-    url: `${WEALTHBOX_API_BASE}/workflow_templates`,
-    headers: {
-      'ACCESS_TOKEN': auth,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`Failed to fetch workflow templates: ${response.status}`);
-  }
-
-  return response.body.workflow_templates || [];
+  return fetchWealthboxPaged('/workflow_templates', 'workflow_templates', auth);
 };
 
 export const fetchTasks = async (auth: string, filters?: {

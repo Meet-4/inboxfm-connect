@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchWorkflowTemplates, fetchContacts, fetchProjects, fetchOpportunities, fetchUserGroups, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchWorkflowTemplates, fetchContacts, fetchProjects, fetchOpportunities, fetchUserGroups, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const startWorkflow = createAction({
@@ -23,7 +23,7 @@ export const startWorkflow = createAction({
         try {
           const templates = await fetchWorkflowTemplates(auth.secret_text);
           return {
-            options: templates.map((template: any) => ({
+            options: wealthboxOptions(templates, 'workflow templates', (template: any) => ({
               label: template.name || template.label || `Template ${template.id}`,
               value: template.id
             }))
@@ -73,7 +73,7 @@ export const startWorkflow = createAction({
         }
 
         try {
-          let records: any[] = [];
+          let records: { items: any[]; truncated: boolean } = { items: [], truncated: false };
           let recordType = '';
 
           const linkedTypeValue = linked_type as unknown as string;
@@ -106,7 +106,7 @@ export const startWorkflow = createAction({
               };
           }
 
-          const recordOptions = records.map((record: any) => ({
+          const recordOptions = wealthboxOptions(records, 'records', (record: any) => ({
             label: record.name || record.title || record.label || `${recordType} ${record.id}`,
             value: record.id
           }));
@@ -167,7 +167,7 @@ export const startWorkflow = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -302,19 +302,19 @@ export const startWorkflow = createAction({
 
         if (propsValue.linked_type === 'Contact' && linkedId) {
           const contacts = await fetchContacts(auth.secret_text, { active: true });
-          const contact = contacts.find((c: any) => c.id === linkedId);
+          const contact = contacts.items.find((c: any) => c.id === linkedId);
           if (contact) {
             recordName = contact.name || `${contact.first_name} ${contact.last_name}`.trim();
           }
         } else if (propsValue.linked_type === 'Project' && linkedId) {
           const projects = await fetchProjects(auth.secret_text);
-          const project = projects.find((p: any) => p.id === linkedId);
+          const project = projects.items.find((p: any) => p.id === linkedId);
           if (project) {
             recordName = project.name || project.title || `Project ${linkedId}`;
           }
         } else if (propsValue.linked_type === 'Opportunity' && linkedId) {
           const opportunities = await fetchOpportunities(auth.secret_text);
-          const opportunity = opportunities.find((o: any) => o.id === linkedId);
+          const opportunity = opportunities.items.find((o: any) => o.id === linkedId);
           if (opportunity) {
             recordName = opportunity.name || `Opportunity ${linkedId}`;
           }

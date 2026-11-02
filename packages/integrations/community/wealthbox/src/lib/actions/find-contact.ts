@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchTags, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchContacts, fetchTags, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const findContact = createAction({
@@ -107,7 +107,7 @@ export const findContact = createAction({
 
         try {
           const availableTags = await fetchTags(auth.secret_text, 'Contact');
-          const tagOptions = availableTags.map((tag: any) => ({
+          const tagOptions = wealthboxOptions(availableTags, 'tags', (tag: any) => ({
             label: tag.name,
             value: tag.name
           }));

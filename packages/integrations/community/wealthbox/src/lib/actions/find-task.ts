@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchProjects, fetchOpportunities, fetchUsers, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchContacts, fetchProjects, fetchOpportunities, fetchUsers, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const findTask = createAction({
@@ -48,7 +48,7 @@ export const findTask = createAction({
         }
 
         try {
-          let records: any[] = [];
+          let records: { items: any[]; truncated: boolean } = { items: [], truncated: false };
           let recordType = '';
 
           const resourceTypeValue = resource_type as unknown as string;
@@ -76,7 +76,7 @@ export const findTask = createAction({
               };
           }
 
-          const recordOptions = records.map((record: any) => ({
+          const recordOptions = wealthboxOptions(records, 'records', (record: any) => ({
             label: record.name || record.title || `${recordType} ${record.id}`,
             value: record.id
           }));
@@ -115,7 +115,7 @@ export const findTask = createAction({
         try {
           const users = await fetchUsers(auth.secret_text);
           return {
-            options: users.map((user: any) => ({
+            options: wealthboxOptions(users, 'users', (user: any) => ({
               label: `${user.name} (${user.email})`,
               value: user.id
             }))
@@ -147,7 +147,7 @@ export const findTask = createAction({
         try {
           const users = await fetchUsers(auth.secret_text);
           return {
-            options: users.map((user: any) => ({
+            options: wealthboxOptions(users, 'users', (user: any) => ({
               label: `${user.name} (${user.email})`,
               value: user.id
             }))

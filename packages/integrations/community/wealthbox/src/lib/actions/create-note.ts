@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchUserGroups, fetchContacts, fetchTags, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES } from '../common';
+import { fetchUserGroups, fetchContacts, fetchTags, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createNote = createAction({
@@ -29,7 +29,7 @@ export const createNote = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))
@@ -55,7 +55,7 @@ export const createNote = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -95,7 +95,7 @@ export const createNote = createAction({
 
         try {
           const tags = await fetchTags(auth.secret_text, DOCUMENT_TYPES.CONTACT_NOTE);
-          const tagOptions = tags.map((tag: any) => ({
+          const tagOptions = wealthboxOptions(tags, 'tags', (tag: any) => ({
             label: tag.name,
             value: tag.name
           }));
@@ -153,7 +153,7 @@ export const createNote = createAction({
 
     try {
       const contacts = await fetchContacts(auth.secret_text, { active: true });
-      const selectedContact = contacts.find((contact: any) => contact.id === propsValue.contact_id);
+      const selectedContact = contacts.items.find((contact: any) => contact.id === propsValue.contact_id);
       if (selectedContact) {
         linkedToResource.name = selectedContact.name || `${selectedContact.first_name} ${selectedContact.last_name}`.trim();
       }

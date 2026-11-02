@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchUserGroups, fetchUsers, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES } from '../common';
+import { fetchUserGroups, fetchUsers, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createProject = createAction({
@@ -33,7 +33,7 @@ export const createProject = createAction({
 
         try {
           const users = await fetchUsers(auth.secret_text);
-          const assignableUsers = users.filter((user: any) => !user.excluded_from_assignments);
+          const assignableUsers = users.items.filter((user: any) => !user.excluded_from_assignments);
           return {
             options: assignableUsers.map((user: any) => ({
               label: `${user.name} (${user.email})`,
@@ -61,7 +61,7 @@ export const createProject = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -106,7 +106,7 @@ export const createProject = createAction({
 
         try {
           const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.PROJECT);
-          const customFieldOptions = customFields.map((field: any) => ({
+          const customFieldOptions = wealthboxOptions(customFields, 'custom fields', (field: any) => ({
             label: field.name,
             value: field.name
           }));
@@ -185,7 +185,7 @@ export const createProject = createAction({
     if (customFieldsArray && Array.isArray(customFieldsArray) && customFieldsArray.length > 0) {
       try {
         const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.PROJECT);
-        const customFieldMap = new Map(customFields.map((field: any) => [field.name, field.id]));
+        const customFieldMap = new Map(customFields.items.map((field: any) => [field.name, field.id]));
 
         requestBody.custom_fields = customFieldsArray.map((field: any) => {
           const fieldId = customFieldMap.get(field.custom_field);

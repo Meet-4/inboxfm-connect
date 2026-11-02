@@ -13,7 +13,7 @@ import {
   Polling
 } from '@inboxfm-connect/pieces-common';
 import dayjs from 'dayjs';
-import { fetchUsers, fetchContacts, fetchProjects, fetchOpportunities, fetchOpportunityStages, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchUsers, fetchContacts, fetchProjects, fetchOpportunities, fetchOpportunityStages, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 const polling: Polling<any, any> = {
@@ -129,7 +129,7 @@ export const newOpportunity = createTrigger({
         }
 
         try {
-          let records: any[] = [];
+          let records: { items: any[]; truncated: boolean } = { items: [], truncated: false };
           let recordType = '';
 
           const resourceTypeValue = resource_type as unknown as string;
@@ -153,7 +153,7 @@ export const newOpportunity = createTrigger({
               };
           }
 
-          const recordOptions = records.map((record: any) => ({
+          const recordOptions = wealthboxOptions(records, 'records', (record: any) => ({
             label: record.name || record.title || `${recordType} ${record.id}`,
             value: record.id
           }));
@@ -193,7 +193,7 @@ export const newOpportunity = createTrigger({
         try {
           const stages = await fetchOpportunityStages(auth.secret_text);
           return {
-            options: stages.map((stage: any) => ({
+            options: wealthboxOptions(stages, 'opportunity stages', (stage: any) => ({
               label: stage.name || `Stage ${stage.id}`,
               value: stage.id
             }))
@@ -218,7 +218,7 @@ export const newOpportunity = createTrigger({
 
         try {
           const users = await fetchUsers(auth.secret_text);
-          const assignableUsers = users.filter((user: any) => !user.excluded_from_assignments);
+          const assignableUsers = users.items.filter((user: any) => !user.excluded_from_assignments);
           return {
             options: assignableUsers.map((user: any) => ({
               label: `${user.name} (${user.email})`,

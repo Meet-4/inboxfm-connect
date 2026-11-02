@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchHouseholds, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchContacts, fetchHouseholds, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const addHouseholdMember = createAction({
@@ -23,7 +23,7 @@ export const addHouseholdMember = createAction({
         try {
           const households = await fetchHouseholds(auth.secret_text);
           return {
-            options: households.map((household: any) => ({
+            options: wealthboxOptions(households, 'households', (household: any) => ({
               label: household.first_name || `Household ${household.id}`,
               value: household.id
             }))
@@ -48,7 +48,7 @@ export const addHouseholdMember = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))

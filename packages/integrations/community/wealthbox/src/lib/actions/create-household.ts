@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchUserGroups, fetchTags, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES } from '../common';
+import { fetchContacts, fetchUserGroups, fetchTags, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createHousehold = createAction({
@@ -29,7 +29,7 @@ export const createHousehold = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))
@@ -55,7 +55,7 @@ export const createHousehold = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))
@@ -176,7 +176,7 @@ export const createHousehold = createAction({
 
         try {
           const tags = await fetchTags(auth.secret_text, DOCUMENT_TYPES.CONTACT);
-          const tagOptions = tags.map((tag: any) => ({
+          const tagOptions = wealthboxOptions(tags, 'tags', (tag: any) => ({
             label: tag.name,
             value: tag.name
           }));
@@ -229,7 +229,7 @@ export const createHousehold = createAction({
           try {
             const userGroups = await fetchUserGroups(auth.secret_text);
 
-            const filteredGroups = userGroups.filter((group: any) => group.name !== 'Only Me');
+            const filteredGroups = userGroups.items.filter((group: any) => group.name !== 'Only Me');
 
             return {
               options: filteredGroups.map((group: any) => {

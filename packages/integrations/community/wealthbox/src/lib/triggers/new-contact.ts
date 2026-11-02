@@ -13,7 +13,7 @@ import {
   Polling
 } from '@inboxfm-connect/pieces-common';
 import dayjs from 'dayjs';
-import { fetchUsers, fetchTags, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchUsers, fetchTags, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 const polling: Polling<any, any> = {
@@ -157,7 +157,7 @@ export const newContact = createTrigger({
         try {
           const users = await fetchUsers(auth.secret_text);
           return {
-            options: users.map((user: any) => ({
+            options: wealthboxOptions(users, 'users', (user: any) => ({
               label: `${user.name} (${user.email})`,
               value: user.id
             }))
@@ -188,7 +188,7 @@ export const newContact = createTrigger({
 
         try {
           const availableTags = await fetchTags(auth.secret_text, 'Contact');
-          const tagOptions = availableTags.map((tag: any) => ({
+          const tagOptions = wealthboxOptions(availableTags, 'tags', (tag: any) => ({
             label: tag.name,
             value: tag.name
           }));

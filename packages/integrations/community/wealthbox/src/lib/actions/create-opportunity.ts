@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchUsers, fetchUserGroups, fetchOpportunityStages, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, OPPORTUNITY_AMOUNT_KINDS, CURRENCIES } from '../common';
+import { fetchContacts, fetchUsers, fetchUserGroups, fetchOpportunityStages, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, OPPORTUNITY_AMOUNT_KINDS, CURRENCIES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createOpportunity = createAction({
@@ -74,7 +74,7 @@ export const createOpportunity = createAction({
         try {
           const stages = await fetchOpportunityStages(auth.secret_text);
           return {
-            options: stages.map((stage: any) => ({
+            options: wealthboxOptions(stages, 'opportunity stages', (stage: any) => ({
               label: stage.name,
               value: stage.id
             }))
@@ -100,7 +100,7 @@ export const createOpportunity = createAction({
         try {
           const contacts = await fetchContacts(auth.secret_text, { active: true, order: 'recent' });
           return {
-            options: contacts.map((contact: any) => ({
+            options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
               label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
               value: contact.id
             }))
@@ -131,7 +131,7 @@ export const createOpportunity = createAction({
 
         try {
           const users = await fetchUsers(auth.secret_text);
-          const assignableUsers = users.filter((user: any) => !user.excluded_from_assignments);
+          const assignableUsers = users.items.filter((user: any) => !user.excluded_from_assignments);
           return {
             options: assignableUsers.map((user: any) => ({
               label: `${user.name} (${user.email})`,
@@ -159,7 +159,7 @@ export const createOpportunity = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -204,7 +204,7 @@ export const createOpportunity = createAction({
 
         try {
           const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.OPPORTUNITY);
-          const customFieldOptions = customFields.map((field: any) => ({
+          const customFieldOptions = wealthboxOptions(customFields, 'custom fields', (field: any) => ({
             label: field.name,
             value: field.name
           }));
@@ -284,7 +284,7 @@ export const createOpportunity = createAction({
     if (propsValue.contact_id) {
       try {
         const contacts = await fetchContacts(auth.secret_text, { active: true });
-        const selectedContact = contacts.find((contact: any) => contact.id === propsValue.contact_id);
+        const selectedContact = contacts.items.find((contact: any) => contact.id === propsValue.contact_id);
 
         requestBody.linked_to = [{
           id: propsValue.contact_id,
@@ -316,7 +316,7 @@ export const createOpportunity = createAction({
     if (customFieldsArray && Array.isArray(customFieldsArray) && customFieldsArray.length > 0) {
       try {
         const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.OPPORTUNITY);
-        const customFieldMap = new Map(customFields.map((field: any) => [field.name, field.id]));
+        const customFieldMap = new Map(customFields.items.map((field: any) => [field.name, field.id]));
 
         requestBody.custom_fields = customFieldsArray.map((field: any) => {
           const fieldId = customFieldMap.get(field.custom_field);

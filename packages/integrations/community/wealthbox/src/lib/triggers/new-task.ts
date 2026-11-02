@@ -13,7 +13,7 @@ import {
   Polling
 } from '@inboxfm-connect/pieces-common';
 import dayjs from 'dayjs';
-import { fetchUsers, fetchContacts, fetchProjects, fetchOpportunities, WEALTHBOX_API_BASE, handleApiError } from '../common';
+import { fetchUsers, fetchContacts, fetchProjects, fetchOpportunities, WEALTHBOX_API_BASE, handleApiError, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 const polling: Polling<any, any> = {
@@ -100,7 +100,7 @@ export const newTask = createTrigger({
         try {
           const users = await fetchUsers(auth.secret_text);
           return {
-            options: users.map((user: any) => ({
+            options: wealthboxOptions(users, 'users', (user: any) => ({
               label: `${user.name} (${user.email})`,
               value: user.id
             }))
@@ -132,7 +132,7 @@ export const newTask = createTrigger({
         try {
           const users = await fetchUsers(auth.secret_text);
           return {
-            options: users.map((user: any) => ({
+            options: wealthboxOptions(users, 'users', (user: any) => ({
               label: `${user.name} (${user.email})`,
               value: user.id
             }))
@@ -191,7 +191,7 @@ export const newTask = createTrigger({
         }
 
         try {
-          let records: any[] = [];
+          let records: { items: any[]; truncated: boolean } = { items: [], truncated: false };
           let recordType = '';
 
           const resourceTypeValue = resource_type as unknown as string;
@@ -219,7 +219,7 @@ export const newTask = createTrigger({
               };
           }
 
-          const recordOptions = records.map((record: any) => ({
+          const recordOptions = wealthboxOptions(records, 'records', (record: any) => ({
             label: record.name || record.title || `${recordType} ${record.id}`,
             value: record.id
           }));

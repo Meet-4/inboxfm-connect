@@ -1,6 +1,6 @@
 import { createAction, Property } from '@inboxfm-connect/pieces-framework';
 import { httpClient, HttpMethod } from '@inboxfm-connect/pieces-common';
-import { fetchContacts, fetchUsers, fetchUserGroups, fetchTaskCategories, fetchProjects, fetchOpportunities, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, TASK_PRIORITIES, LINK_TYPES } from '../common';
+import { fetchContacts, fetchUsers, fetchUserGroups, fetchTaskCategories, fetchProjects, fetchOpportunities, fetchCustomFields, WEALTHBOX_API_BASE, handleApiError, DOCUMENT_TYPES, TASK_PRIORITIES, LINK_TYPES, wealthboxOptions} from '../common';
 import { wealthboxAuth } from '../..';
 
 export const createTask = createAction({
@@ -33,7 +33,7 @@ export const createTask = createAction({
 
         try {
           const users = await fetchUsers(auth.secret_text);
-          const assignableUsers = users.filter((user: any) => !user.excluded_from_assignments);
+          const assignableUsers = users.items.filter((user: any) => !user.excluded_from_assignments);
           return {
             options: assignableUsers.map((user: any) => ({
               label: `${user.name} (${user.email})`,
@@ -114,7 +114,7 @@ export const createTask = createAction({
                 description: 'Select the contact to link this task to',
                 required: false,
                 options: {
-                  options: contacts.map((contact: any) => ({
+                  options: wealthboxOptions(contacts, 'contacts', (contact: any) => ({
                     label: contact.name || `${contact.first_name} ${contact.last_name}`.trim() || `Contact ${contact.id}`,
                     value: contact.id
                   }))
@@ -129,7 +129,7 @@ export const createTask = createAction({
                 description: 'Select the project to link this task to',
                 required: false,
                 options: {
-                  options: projects.map((project: any) => ({
+                  options: wealthboxOptions(projects, 'projects', (project: any) => ({
                     label: project.name || `Project ${project.id}`,
                     value: project.id
                   }))
@@ -144,7 +144,7 @@ export const createTask = createAction({
                 description: 'Select the opportunity to link this task to',
                 required: false,
                 options: {
-                  options: opportunities.map((opportunity: any) => ({
+                  options: wealthboxOptions(opportunities, 'opportunities', (opportunity: any) => ({
                     label: opportunity.name || `Opportunity ${opportunity.id}`,
                     value: opportunity.id
                   }))
@@ -184,7 +184,7 @@ export const createTask = createAction({
         try {
           const categories = await fetchTaskCategories(auth.secret_text);
           return {
-            options: categories.map((category: any) => ({
+            options: wealthboxOptions(categories, 'categories', (category: any) => ({
               label: category.name,
               value: category.id
             }))
@@ -210,7 +210,7 @@ export const createTask = createAction({
         try {
           const userGroups = await fetchUserGroups(auth.secret_text);
           return {
-            options: userGroups.map((group: any) => ({
+            options: wealthboxOptions(userGroups, 'user groups', (group: any) => ({
               label: group.name,
               value: group.name
             }))
@@ -261,7 +261,7 @@ export const createTask = createAction({
 
         try {
           const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.TASK);
-          const customFieldOptions = customFields.map((field: any) => ({
+          const customFieldOptions = wealthboxOptions(customFields, 'custom fields', (field: any) => ({
             label: field.name,
             value: field.name
           }));
@@ -361,19 +361,19 @@ export const createTask = createAction({
         const linkTypeStr = propsValue.link_type as string;
         if (linkTypeStr === LINK_TYPES.CONTACT) {
           const contacts = await fetchContacts(auth.secret_text, { active: true });
-          const contact = contacts.find((c: any) => c.id === linkedRecord.linked_id);
+          const contact = contacts.items.find((c: any) => c.id === linkedRecord.linked_id);
           if (contact) {
             recordName = contact.name || `${contact.first_name} ${contact.last_name}`.trim();
           }
         } else if (linkTypeStr === LINK_TYPES.PROJECT) {
           const projects = await fetchProjects(auth.secret_text);
-          const project = projects.find((p: any) => p.id === linkedRecord.linked_id);
+          const project = projects.items.find((p: any) => p.id === linkedRecord.linked_id);
           if (project) {
             recordName = project.name;
           }
         } else if (linkTypeStr === LINK_TYPES.OPPORTUNITY) {
           const opportunities = await fetchOpportunities(auth.secret_text);
-          const opportunity = opportunities.find((o: any) => o.id === linkedRecord.linked_id);
+          const opportunity = opportunities.items.find((o: any) => o.id === linkedRecord.linked_id);
           if (opportunity) {
             recordName = opportunity.name;
           }
@@ -397,7 +397,7 @@ export const createTask = createAction({
     if (customFieldsArray && Array.isArray(customFieldsArray) && customFieldsArray.length > 0) {
       try {
         const customFields = await fetchCustomFields(auth.secret_text, DOCUMENT_TYPES.TASK);
-        const customFieldMap = new Map(customFields.map((field: any) => [field.name, field.id]));
+        const customFieldMap = new Map(customFields.items.map((field: any) => [field.name, field.id]));
 
         requestBody.custom_fields = customFieldsArray.map((field: any) => {
           const fieldId = customFieldMap.get(field.custom_field);
