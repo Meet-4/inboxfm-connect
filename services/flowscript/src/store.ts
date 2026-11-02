@@ -392,6 +392,113 @@ export async function listRuns(projectId: string, flowName?: string, limit = 50)
   }))
 }
 
+// Cursor pagination for the runs listing (SeekPage convention, issue #718). GET /v1/runs
+// previously returned at most 100 rows with no way to continue, so run history beyond the
+// first page was unreachable through the API. The listing below is keyset-paginated on the
+// stable (created_at, id) ordering: flowscript_runs_project_created_idx backs the created_at
+// prefix and the row-wise comparison `(created_at, id) < ($4, $5)` makes id the tiebreaker,
+// so rows sharing a timestamp are neither skipped nor repeated across page boundaries.
+
+export type RunListCursor = {
+  createdAtMs: number
+  id: string
+}
+
+export type RunSummary = {
+  id: string
+  flowName: string
+  environment: string
+  versionId: string
+  triggerKind: string
+  status: string
+  error: string | null
+  workerId: string | null
+  attemptCount: number
+  retryAt: Date | null
+  cancellationReason: string | null
+  startedAt: Date | null
+  finishedAt: Date | null
+  createdAt: Date
+}
+
+// Opaque URL-safe token carrying the last emitted row's keyset position (base64url JSON).
+export function encodeRunListCursor(cursor: RunListCursor): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url')
+}
+
+export function decodeRunListCursor(encoded: string): RunListCursor | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'))
+    if (parsed === null || typeof parsed !== 'object') return null
+    const { createdAtMs, id } = parsed as Record<string, unknown>
+    if (typeof createdAtMs !== 'number' || !Number.isInteger(createdAtMs) || createdAtMs <= 0) return null
+    if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null
+    return { createdAtMs, id }
+  } catch {
+    return null
+  }
+}
+
+// One keyset page of runs. `status` mirrors the listRuns status filter so the route can compose
+// both concerns without a second SQL shape; `cursor` positions the page after the row it names.
+export async function listRunsPage(
+  projectId: string,
+  options: { flowName?: string; status?: string; limit?: number; cursor?: RunListCursor | null } = {},
+): Promise<{ data: RunSummary[]; next: string | null }> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100)
+  const result = await pool.query<{
+    id: string
+    flow_name: string
+    environment: string
+    version_id: string
+    trigger_kind: string
+    status: string
+    error: string | null
+    worker_id: string | null
+    attempt_count: number
+    retry_at: Date | null
+    cancellation_reason: string | null
+    started_at: Date | null
+    finished_at: Date | null
+    created_at: Date
+  }>(
+    `SELECT id, flow_name, environment, version_id, trigger_kind, status, error, worker_id, attempt_count, retry_at, cancellation_reason, started_at, finished_at, created_at
+     FROM flowscript_runs
+     WHERE project_id=$1
+       AND ($2::text IS NULL OR flow_name=$2)
+       AND ($3::text IS NULL OR status=$3)
+       AND ($4::timestamptz IS NULL OR (created_at, id) < ($4::timestamptz, $5::uuid))
+     ORDER BY created_at DESC, id DESC
+     LIMIT $6`,
+    [projectId, options.flowName ?? null, options.status ?? null, options.cursor ? new Date(options.cursor.createdAtMs) : null, options.cursor?.id ?? null, limit + 1],
+  )
+  // Fetch limit+1 rows so a following page is detectable without a separate COUNT query.
+  const hasMore = result.rows.length > limit
+  const rows = hasMore ? result.rows.slice(0, limit) : result.rows
+  const lastRow = rows[rows.length - 1]
+  return {
+    data: rows.map(row => ({
+      id: row.id,
+      flowName: row.flow_name,
+      environment: row.environment,
+      versionId: row.version_id,
+      triggerKind: row.trigger_kind,
+      status: row.status,
+      error: row.error,
+      workerId: row.worker_id,
+      attemptCount: row.attempt_count,
+      retryAt: row.retry_at,
+      cancellationReason: row.cancellation_reason,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      createdAt: row.created_at,
+    })),
+    next: hasMore && lastRow
+      ? encodeRunListCursor({ createdAtMs: new Date(lastRow.created_at).getTime(), id: lastRow.id })
+      : null,
+  }
+}
+
 export async function closeStore(): Promise<void> {
   await pool.end()
 }
