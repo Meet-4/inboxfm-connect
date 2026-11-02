@@ -36,21 +36,44 @@ export const dripAddSubscriberToCampaign = createAction({
             placeholder: 'Please select an account first',
           };
         }
-        const request: HttpRequest = {
-          method: HttpMethod.GET,
-          url: `${dripCommon.baseUrl(account_id as string)}/campaigns`,
-          headers: {
-            Authorization: `Basic ${Buffer.from(auth .secret_text).toString(
-              'base64'
-            )}`,
-          },
-        };
-        const response = await httpClient.sendRequest<{
-          campaigns: { name: string; id: string }[];
-        }>(request);
-        const opts = response.body.campaigns.map((campaign) => {
-          return { value: campaign.id, label: campaign.name };
-        });
+        // Drip v2 paginates every collection with `page` / `per_page`
+        // (default 100 per page); a single call capped the dropdown at the
+        // first 100 campaigns. Walk the pages under a bounded budget and
+        // surface a notice when the budget is exhausted.
+        // https://developer.drip.com/
+        const PAGE_SIZE = 100;
+        const MAX_PAGES = 10;
+
+        const opts: { value: string; label: string }[] = [];
+        let truncated = false;
+
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const request: HttpRequest = {
+            method: HttpMethod.GET,
+            url: `${dripCommon.baseUrl(account_id as string)}/campaigns?page=${page}&per_page=${PAGE_SIZE}`,
+            headers: {
+              Authorization: `Basic ${Buffer.from(auth.secret_text).toString(
+                'base64'
+              )}`,
+            },
+          };
+          const response = await httpClient.sendRequest<{
+            campaigns: { name: string; id: string }[];
+          }>(request);
+          const batch = response.body.campaigns ?? [];
+          for (const campaign of batch) {
+            opts.push({ value: campaign.id, label: campaign.name });
+          }
+          if (batch.length < PAGE_SIZE) break;
+          if (page === MAX_PAGES) truncated = true;
+        }
+
+        if (truncated) {
+          opts.push({
+            value: '__truncated_notice__',
+            label: '⚠️ Could not load all campaigns (partial list)',
+          });
+        }
         if (opts.length === 0) {
           return {
             disabled: false,
