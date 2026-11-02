@@ -1,6 +1,6 @@
 import { Property, DropdownOption } from '@inboxfm-connect/pieces-framework';
 import { HttpMethod } from '@inboxfm-connect/pieces-common';
-import { makeRequest } from './index';
+import { makeRequest, fetchKommoList } from './index';
 import { kommoAuth } from '../auth';
 
 interface KommoAuth {
@@ -134,7 +134,7 @@ export const lossReasonDropdown = (required = false) => Property.Dropdown({
   },
 });
 
-export const leadDropdown = Property.Dropdown({
+export const leadDropdown = Property.Dropdown<string, true, typeof kommoAuth>({
   auth: kommoAuth,
   displayName: 'Lead',
   required: true,
@@ -149,12 +149,27 @@ export const leadDropdown = Property.Dropdown({
     }
 
     const { subdomain, apiToken } = auth.props;
-    const leads = await makeRequest({ subdomain, apiToken }, HttpMethod.GET, '/leads');
+    // GET /api/v4/leads paginates (page + limit, max 250 per page) — walk
+    // the pages with a bounded budget so the dropdown is not silently
+    // capped at the first page.
+    // https://www.kommo.com/developers/content/crm_platform/leads-api
+    const { items: leads, truncated } = await fetchKommoList<{ id: number; name: string }>(
+      { subdomain, apiToken },
+      '/leads',
+      'leads'
+    );
 
-    const options: DropdownOption<number>[] = (leads._embedded?.leads || []).map((lead: any) => ({
+    const options: DropdownOption<string>[] = leads.map((lead: any) => ({
       label: lead.name,
-      value: lead.id,
+      value: lead.id.toString(),
     }));
+
+    if (truncated) {
+      options.push({
+        label: '⚠️ Could not load all leads (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
 
     return {
       disabled: false,
@@ -163,7 +178,7 @@ export const leadDropdown = Property.Dropdown({
   },
 });
 
-export const companyDropdown = Property.Dropdown({
+export const companyDropdown = Property.Dropdown<string, false, typeof kommoAuth>({
   auth: kommoAuth,
   displayName: 'Company',
   required: false,
@@ -178,14 +193,25 @@ export const companyDropdown = Property.Dropdown({
     }
 
     const { subdomain, apiToken } = auth.props;
-    const companies = await makeRequest({ subdomain, apiToken }, HttpMethod.GET, '/companies');
+    const { items: companies, truncated } = await fetchKommoList<{ id: number; name: string }>(
+      { subdomain, apiToken },
+      '/companies',
+      'companies'
+    );
 
-    const options: DropdownOption<string>[] = (companies._embedded?.companies || []).map(
+    const options: DropdownOption<string>[] = companies.map(
       (company: any) => ({
         label: company.name,
         value: company.id.toString(),
       })
     );
+
+    if (truncated) {
+      options.push({
+        label: '⚠️ Could not load all companies (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
 
     return {
       disabled: false,
@@ -194,11 +220,11 @@ export const companyDropdown = Property.Dropdown({
   },
 });
 
-export const contactDropdown = Property.Dropdown({
+export const contactDropdown = Property.Dropdown<string, false, typeof kommoAuth>({
   auth: kommoAuth,
     displayName: 'Contact',
-  required: false,
-  refreshers: [],
+    required: false,
+    refreshers: [],
   options: async ({ auth }) => {
     if (!auth) {
       return {
@@ -209,14 +235,25 @@ export const contactDropdown = Property.Dropdown({
     }
 
     const { subdomain, apiToken } = auth.props;
-    const contacts = await makeRequest({ subdomain, apiToken }, HttpMethod.GET, '/contacts');
+    const { items: contacts, truncated } = await fetchKommoList<{ id: number; name: string }>(
+      { subdomain, apiToken },
+      '/contacts',
+      'contacts'
+    );
 
-    const options: DropdownOption<number>[] = (contacts._embedded?.contacts || []).map(
+    const options: DropdownOption<string>[] = contacts.map(
       (contact: any) => ({
         label: contact.name,
-        value: contact.id,
+        value: contact.id.toString(),
       })
     );
+
+    if (truncated) {
+      options.push({
+        label: '⚠️ Could not load all contacts (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
 
     return {
       disabled: false,
