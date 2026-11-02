@@ -26,13 +26,43 @@ export const mailingListDropdown = Property.Dropdown({
     const typedAuth = auth.props
 
     try {
-      const lists = await sendpulseApiCall<SendpulseMailingList[]>({
-        auth: auth.props,
-        method: HttpMethod.GET,
-        resourceUri: '/addressbooks?limit=100&offset=0',
-      });
+      // SendPulse paginates GET /addressbooks with `limit` and `offset`; a
+      // single call capped the dropdown at the first 100 mailing lists.
+      // Walk the offsets under a bounded budget and surface a notice when
+      // the budget is exhausted.
+      // https://api.sendpulse.com/
+      const PAGE_SIZE = 100;
+      const MAX_PAGES = 10;
 
-      if (!lists.length) {
+      const options: { label: string; value: number }[] = [];
+      let truncated = false;
+
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const lists = await sendpulseApiCall<SendpulseMailingList[]>({
+          auth: auth.props,
+          method: HttpMethod.GET,
+          resourceUri: `/addressbooks?limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`,
+        });
+
+        for (const list of lists) {
+          options.push({
+            label: `${list.name} (${list.status_explain})`,
+            value: list.id,
+          });
+        }
+
+        if (lists.length < PAGE_SIZE) break;
+        if (page === MAX_PAGES - 1) truncated = true;
+      }
+
+      if (truncated) {
+        options.push({
+          label: '⚠️ Could not load all mailing lists (partial list)',
+          value: '__truncated_notice__' as unknown as number,
+        });
+      }
+
+      if (!options.length) {
         return {
           disabled: true,
           options: [],
@@ -42,10 +72,7 @@ export const mailingListDropdown = Property.Dropdown({
 
       return {
         disabled: false,
-        options: lists.map((list) => ({
-          label: `${list.name} (${list.status_explain})`,
-          value: list.id,
-        })),
+        options,
       };
     } catch (error: any) {
       return {
