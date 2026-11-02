@@ -1,5 +1,6 @@
 import { Building2, FolderKey, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ApiKeyRow, ApiKeysTable } from '@/components/api-keys/api-keys-table'
 import { CreateApiKeyDialog } from '@/components/api-keys/create-api-key-dialog'
@@ -42,6 +43,7 @@ function ListSkeleton() {
 }
 
 export default function ApiKeysPage() {
+  const { t } = useTranslation()
   const { user, projects, currentProject } = useAuth()
   const isPlatformAdmin = user?.platformRole === PLATFORM_ADMIN_ROLE
 
@@ -74,8 +76,8 @@ export default function ApiKeysPage() {
       setCreateOpen(false)
       setRevealedKey({ displayName: created.displayName, value: created.value })
     } catch (error) {
-      toast.error('Could not create API key', {
-        description: error instanceof Error ? error.message : 'Try again.',
+      toast.error(t('Could not create API key'), {
+        description: error instanceof Error ? error.message : t('Try again.'),
       })
     }
   }
@@ -86,8 +88,8 @@ export default function ApiKeysPage() {
       setCreateOpen(false)
       setRevealedKey({ displayName: created.displayName, value: created.value })
     } catch (error) {
-      toast.error('Could not create API key', {
-        description: error instanceof Error ? error.message : 'Try again.',
+      toast.error(t('Could not create API key'), {
+        description: error instanceof Error ? error.message : t('Try again.'),
       })
     }
   }
@@ -100,10 +102,10 @@ export default function ApiKeysPage() {
       } else {
         await deletePlatformKey.mutateAsync({ id: revokeTarget.id })
       }
-      toast.success('API key revoked')
+      toast.success(t('API key revoked'))
     } catch (error) {
-      toast.error('Could not revoke API key', {
-        description: error instanceof Error ? error.message : 'Try again.',
+      toast.error(t('Could not revoke API key'), {
+        description: error instanceof Error ? error.message : t('Try again.'),
       })
     } finally {
       setRevokeTarget(null)
@@ -118,12 +120,12 @@ export default function ApiKeysPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="API Keys"
-        description="Create and manage credentials that authenticate programmatic and MCP access to InboxFM Connect."
+        title={t('API Keys')}
+        description={t('Create and manage credentials that authenticate programmatic and MCP access to InboxFM Connect.')}
         actions={
           <Button size="sm" className="gap-1.5 shadow-xs" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            <span>Create API Key</span>
+            <span>{t('Create API Key')}</span>
           </Button>
         }
       />
@@ -132,13 +134,16 @@ export default function ApiKeysPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <FolderKey className="h-4 w-4 text-primary" />
-            <span>Project API Keys</span>
+            <span>{t('Project API Keys')}</span>
             <Badge variant="secondary">cak-</Badge>
           </CardTitle>
           <CardDescription>
-            Project-scoped keys used by the Connect SDK/API (connect sessions, execute). Available on every edition.
+            {t('Project-scoped keys used by the Connect SDK/API (connect sessions, execute). Available on every edition.')}
             {currentProject
-              ? ` Showing keys for "${currentProject.displayName}" — switch projects from the sidebar to manage others.`
+              ? ' ' +
+                t('Showing keys for "{{projectName}}" — switch projects from the sidebar to manage others.', {
+                  projectName: currentProject.displayName,
+                })
               : ''}
           </CardDescription>
         </CardHeader>
@@ -147,16 +152,16 @@ export default function ApiKeysPage() {
             <ListSkeleton />
           ) : projectKeysQuery.isError ? (
             <ErrorState
-              title="Unable to load project API keys."
-              description="Check that you are signed in and have access to this project, then try again."
+              title={t('Unable to load project API keys.')}
+              description={t('Check that you are signed in and have access to this project, then try again.')}
               onRetry={() => void projectKeysQuery.refetch()}
             />
           ) : projectKeys.length === 0 ? (
             <EmptyState
               icon={FolderKey}
-              title="No project API keys yet"
-              description="Create a key so your backend or AI agent can call the InboxFM Connect API on this project's behalf."
-              actionLabel="Create your first API key"
+              title={t('No project API keys yet')}
+              description={t("Create a key so your backend or AI agent can call the InboxFM Connect API on this project's behalf.")}
+              actionLabel={t('Create your first API key')}
               onAction={() => setCreateOpen(true)}
               className="min-h-0 py-6"
             />
@@ -171,12 +176,11 @@ export default function ApiKeysPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Building2 className="h-4 w-4 text-amber-500" />
-              <span>Platform API Keys</span>
+              <span>{t('Platform API Keys')}</span>
               <Badge variant="outline">sk-</Badge>
             </CardTitle>
             <CardDescription>
-              Platform-wide keys that authenticate as the whole platform across every project. Handle these like
-              root credentials.
+              {t('Platform-wide keys that authenticate as the whole platform across every project. Handle these like root credentials.')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -185,24 +189,24 @@ export default function ApiKeysPage() {
             ) : !platformKeysEnabled ? (
               <EmptyState
                 icon={Lock}
-                title="Requires an upgraded plan"
-                description="Platform-wide API keys are available on Enterprise and Cloud plans. Project API keys above work on every edition, including Community."
+                title={t('Requires an upgraded plan')}
+                description={t('Platform-wide API keys are available on Enterprise and Cloud plans. Project API keys above work on every edition, including Community.')}
                 className="min-h-0 py-6"
               />
             ) : platformKeysQuery.isLoading ? (
               <ListSkeleton />
             ) : platformKeysQuery.isError ? (
               <ErrorState
-                title="Unable to load platform API keys."
-                description="Check that you still have platform admin access, then try again."
+                title={t('Unable to load platform API keys.')}
+                description={t('Check that you still have platform admin access, then try again.')}
                 onRetry={() => void platformKeysQuery.refetch()}
               />
             ) : platformKeys.length === 0 ? (
               <EmptyState
                 icon={Building2}
-                title="No platform API keys yet"
-                description="Create a platform-wide key for trusted backend services that need cross-project access."
-                actionLabel="Create API Key"
+                title={t('No platform API keys yet')}
+                description={t('Create a platform-wide key for trusted backend services that need cross-project access.')}
+                actionLabel={t('Create API Key')}
                 onAction={() => setCreateOpen(true)}
                 className="min-h-0 py-6"
               />

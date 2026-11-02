@@ -1,5 +1,6 @@
 import { KeyRound, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { McpTokenDialog } from '@/components/mcp/mcp-token-dialog'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ function maskToken(token: string): string {
 }
 
 export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, onTokenGenerated }: McpCredentialCardProps) {
+  const { t } = useTranslation()
   const generateMutation = useGenerateMcpToken()
   const rotateMutation = useRotateMcpToken()
   const [generated, setGenerated] = useState<{ token: string; serverUrl: string } | null>(null)
@@ -36,8 +38,8 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
       onServerUrlDiscovered?.(result.mcpServerUrl)
       onTokenGenerated?.(result.mcpToken)
     } catch (error) {
-      toast.error('Could not generate an MCP token', {
-        description: mcpErrors.describe(error, 'Try again in a moment.'),
+      toast.error(t('Could not generate an MCP token'), {
+        description: mcpErrors.describe(error, t('Try again in a moment.')),
       })
     }
   }
@@ -45,13 +47,13 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
   const handleRotate = async () => {
     try {
       await rotateMutation.mutateAsync({ projectId })
-      toast.success('MCP server token rotated', {
-        description: 'Clients authenticating with credentials derived from the previous token may need to reconnect.',
+      toast.success(t('MCP server token rotated'), {
+        description: t('Clients authenticating with credentials derived from the previous token may need to reconnect.'),
       })
       setRotateOpen(false)
     } catch (error) {
-      toast.error('Could not rotate the MCP token', {
-        description: mcpErrors.describe(error, 'Try again in a moment.'),
+      toast.error(t('Could not rotate the MCP token'), {
+        description: mcpErrors.describe(error, t('Try again in a moment.')),
       })
     }
   }
@@ -61,26 +63,24 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-bold">
           <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
-          <span>Credentials</span>
+          <span>{t('Credentials')}</span>
         </CardTitle>
         <CardDescription className="text-xs">
-          How AI agents authenticate against the MCP endpoint.
+          {t('How AI agents authenticate against the MCP endpoint.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2" data-testid="mcp-credential-auth-modes">
           <div className="rounded-md border border-border bg-muted/30 p-3">
-            <p className="text-xs font-semibold text-foreground">OAuth (recommended)</p>
+            <p className="text-xs font-semibold text-foreground">{t('OAuth (recommended)')}</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-              Claude Desktop, Cursor and Windsurf can authorize against this server on first connect — no
-              token needed in the config. Just add the server URL.
+              {t('Claude Desktop, Cursor and Windsurf can authorize against this server on first connect — no token needed in the config. Just add the server URL.')}
             </p>
           </div>
           <div className="rounded-md border border-border bg-card p-3">
-            <p className="text-xs font-semibold text-foreground">Bearer token</p>
+            <p className="text-xs font-semibold text-foreground">{t('Bearer token')}</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-              For clients without OAuth support. Generates a short-lived token (~15 minutes) tied to your
-              account and this project.
+              {t('For clients without OAuth support. Generates a short-lived token (~15 minutes) tied to your account and this project.')}
             </p>
             <Button
               size="sm"
@@ -90,18 +90,18 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
               data-testid="mcp-generate-token"
             >
               <KeyRound className="h-3.5 w-3.5" />
-              <span>Generate Token</span>
+              <span>{t('Generate Token')}</span>
             </Button>
           </div>
         </div>
 
         <div className="space-y-1.5 border-t border-border pt-3" data-testid="mcp-server-token-section">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Server token
+            {t('Server token')}
           </span>
           <div className="flex items-center justify-between gap-2">
             <code
-              aria-label="Server token, masked"
+              aria-label={t('Server token, masked')}
               className="min-w-0 truncate rounded-md border border-input bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground"
             >
               {server ? maskToken(server.token) : '••••••••••••'}
@@ -115,11 +115,11 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
               data-testid="mcp-rotate-token"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              <span>Rotate Token</span>
+              <span>{t('Rotate Token')}</span>
             </Button>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Rotating replaces the internal server token. Existing client connections are not interrupted.
+            {t('Rotating replaces the internal server token. Existing client connections are not interrupted.')}
           </p>
         </div>
 
@@ -139,9 +139,9 @@ export function McpCredentialCard({ server, projectId, onServerUrlDiscovered, on
       <ConfirmDialog
         open={rotateOpen}
         onOpenChange={setRotateOpen}
-        title="Rotate MCP token?"
-        description="The current server token will be replaced by a new one. Clients that copied or stored the old token may stop working until they pick up the new one."
-        confirmLabel="Rotate Token"
+        title={t('Rotate MCP token?')}
+        description={t('The current server token will be replaced by a new one. Clients that copied or stored the old token may stop working until they pick up the new one.')}
+        confirmLabel={t('Rotate Token')}
         variant="destructive"
         loading={rotateMutation.isPending}
         onConfirm={() => void handleRotate()}

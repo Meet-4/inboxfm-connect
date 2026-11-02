@@ -1,5 +1,6 @@
 import { Github } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LogoMark } from './logo-mark'
 import { welcomeLinks } from './welcome-links'
 
@@ -8,35 +9,36 @@ interface FooterColumn {
   links: { label: string; href: string; external?: boolean }[]
 }
 
-const columns: FooterColumn[] = [
-  {
-    title: 'Product',
-    links: [
-      { label: 'Sign In', href: '/login' },
-      { label: 'Features', href: '#features' },
-      { label: 'Repository', href: welcomeLinks.githubRepo, external: true },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'README', href: welcomeLinks.githubReadme, external: true },
-      { label: 'Architecture', href: welcomeLinks.githubArchitecture, external: true },
-      { label: 'Contributing', href: welcomeLinks.githubContributing, external: true },
-    ],
-  },
-  {
-    title: 'Legal & Security',
-    links: [
-      { label: 'License', href: welcomeLinks.githubLicense, external: true },
-      { label: 'Licensing details', href: welcomeLinks.githubLicensing, external: true },
-      { label: 'Security policy', href: welcomeLinks.githubSecurity, external: true },
-      { label: 'Report an issue', href: welcomeLinks.githubIssues, external: true },
-    ],
-  },
-]
-
 export function WelcomeFooter() {
+  const { t } = useTranslation()
+  const columns: FooterColumn[] = [
+    {
+      title: t('Product'),
+      links: [
+        { label: t('Sign In'), href: '/login' },
+        { label: t('Features'), href: '#features' },
+        { label: t('Repository'), href: welcomeLinks.githubRepo, external: true },
+      ],
+    },
+    {
+      title: t('Resources'),
+      links: [
+        { label: t('README'), href: welcomeLinks.githubReadme, external: true },
+        { label: t('Architecture'), href: welcomeLinks.githubArchitecture, external: true },
+        { label: t('Contributing'), href: welcomeLinks.githubContributing, external: true },
+      ],
+    },
+    {
+      title: t('Legal & Security'),
+      links: [
+        { label: t('License'), href: welcomeLinks.githubLicense, external: true },
+        { label: t('Licensing details'), href: welcomeLinks.githubLicensing, external: true },
+        { label: t('Security policy'), href: welcomeLinks.githubSecurity, external: true },
+        { label: t('Report an issue'), href: welcomeLinks.githubIssues, external: true },
+      ],
+    },
+  ]
+
   return (
     <footer className="border-t border-border/80 bg-background">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
@@ -47,8 +49,7 @@ export function WelcomeFooter() {
               <span className="text-sm font-bold tracking-tight">InboxFM Connect</span>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Open-source, AI-first workflow automation. A fork of Activepieces, stripped down to a headless,
-              MCP-first execution model.
+              {t('Open-source, AI-first workflow automation. A fork of Activepieces, stripped down to a headless, MCP-first execution model.')}
             </p>
           </div>
 
@@ -84,7 +85,7 @@ export function WelcomeFooter() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/80 pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Inboxfm Connect. Dual-licensed — see{' '}
+            {t('© {{year}} Inboxfm Connect. Dual-licensed — see', { year: new Date().getFullYear() })}{' '}
             <a
               href={welcomeLinks.githubLicensing}
               target="_blank"

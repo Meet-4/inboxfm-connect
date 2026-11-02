@@ -1,5 +1,6 @@
 import { Bot, Check, Copy } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,12 +24,13 @@ function formatDate(value: string | undefined): string {
 }
 
 export function McpServerCard({ server, endpointUrl, enabledToolCount, totalToolCount }: McpServerCardProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const copyEndpoint = async () => {
     await navigator.clipboard.writeText(endpointUrl)
     setCopied(true)
-    toast.success('Copied MCP endpoint URL')
+    toast.success(t('Copied MCP endpoint URL'))
     window.setTimeout(() => setCopied(false), 2000)
   }
 
@@ -37,10 +39,10 @@ export function McpServerCard({ server, endpointUrl, enabledToolCount, totalTool
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-bold">
           <Bot className="h-4 w-4 text-primary" aria-hidden="true" />
-          <span>MCP Server</span>
+          <span>{t('MCP Server')}</span>
         </CardTitle>
         <CardDescription className="text-xs">
-          The streamable-HTTP endpoint AI agents connect to for this project.
+          {t('The streamable-HTTP endpoint AI agents connect to for this project.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -51,19 +53,19 @@ export function McpServerCard({ server, endpointUrl, enabledToolCount, totalTool
                 {server.type}
               </Badge>
               <Badge variant="success" dot className="text-[10px]">
-                Enabled · {enabledToolCount} of {totalToolCount} tools
+                {t('Enabled · {{enabled}} of {{total}} tools', { enabled: enabledToolCount, total: totalToolCount })}
               </Badge>
             </div>
 
             <div className="space-y-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Server URL
+                {t('Server URL')}
               </span>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
                   value={endpointUrl}
-                  aria-label="MCP server URL"
+                  aria-label={t('MCP server URL')}
                   data-testid="mcp-server-url"
                   className="min-w-0 flex-1 rounded-md border border-input bg-muted/40 px-3 py-1.5 font-mono text-xs text-foreground"
                 />
@@ -71,7 +73,7 @@ export function McpServerCard({ server, endpointUrl, enabledToolCount, totalTool
                   size="icon-sm"
                   variant="outline"
                   onClick={() => void copyEndpoint()}
-                  aria-label="Copy MCP server URL"
+                  aria-label={t('Copy MCP server URL')}
                   data-testid="mcp-copy-server-url"
                 >
                   {copied ? (
@@ -84,11 +86,11 @@ export function McpServerCard({ server, endpointUrl, enabledToolCount, totalTool
             </div>
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]" data-testid="mcp-server-dates">
-              <dt className="text-muted-foreground">Created</dt>
+              <dt className="text-muted-foreground">{t('Created')}</dt>
               <dd className="text-right font-medium text-foreground">{formatDate(server.created)}</dd>
-              <dt className="text-muted-foreground">Last updated</dt>
+              <dt className="text-muted-foreground">{t('Last updated')}</dt>
               <dd className="text-right font-medium text-foreground">{formatDate(server.updated)}</dd>
-              <dt className="text-muted-foreground">Server ID</dt>
+              <dt className="text-muted-foreground">{t('Server ID')}</dt>
               <dd className="truncate text-right font-mono text-[10px] text-muted-foreground">{server.id}</dd>
             </dl>
           </>
