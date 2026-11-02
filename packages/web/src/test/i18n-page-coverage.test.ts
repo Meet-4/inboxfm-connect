@@ -40,7 +40,6 @@ const PAGE_ALLOWLIST: Record<string, string> = {
   'actions/index.tsx': LEGACY,
   'activity/detail.tsx': LEGACY,
   'activity/index.tsx': LEGACY,
-  'auth/login.tsx': LEGACY,
   'automations/schedules-detail.tsx': LEGACY,
   'automations/schedules-edit.tsx': LEGACY,
   'automations/schedules-new.tsx': LEGACY,
