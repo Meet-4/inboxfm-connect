@@ -8,6 +8,7 @@ import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
 import { ALL_SUMMARIES, githubMetadata, seekPage } from '@/test/fixtures/integrations'
 import { automationConnection, githubTriggerBinding } from '@/test/fixtures/automations'
 import { Execution, TriggerBinding } from '@/lib/api/types'
+import { apiClient } from '@/lib/api/client'
 
 interface RecordedRequest {
   url: string
@@ -123,6 +124,9 @@ async function clickButton(container: HTMLElement, selector: string): Promise<vo
 describe('Trigger binding detail', () => {
   beforeEach(() => {
     localStorage.clear()
+    // The connection picker loads the project-scoped connections list, held
+    // until a project resolves (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_default')
     document.body.innerHTML = ''
   })
 
@@ -198,6 +202,9 @@ describe('Trigger binding detail', () => {
 describe('Trigger binding edit', () => {
   beforeEach(() => {
     localStorage.clear()
+    // The connection picker loads the project-scoped connections list, held
+    // until a project resolves (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_default')
     document.body.innerHTML = ''
   })
 

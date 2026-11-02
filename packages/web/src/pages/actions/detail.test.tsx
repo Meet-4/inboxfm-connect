@@ -112,7 +112,10 @@ function executeCalls(requests: StubRequestRecord[]): StubRequestRecord[] {
 describe('Action runner', () => {
   beforeEach(() => {
     localStorage.clear()
-    apiClient.setProjectId(null)
+    // The action runner's connection picker loads the project-scoped connections
+    // list, which is held until a project resolves (#543) — model the signed-in
+    // state instead of the fresh-session window.
+    apiClient.setProjectId('proj_runner_1')
     document.body.innerHTML = ''
   })
 

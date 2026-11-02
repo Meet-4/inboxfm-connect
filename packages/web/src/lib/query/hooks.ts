@@ -81,7 +81,12 @@ export function useConnectionsQuery(
     queryFn: () => connectionsApi.list(params),
     placeholderData: options?.keepPreviousData ? keepPreviousData : undefined,
     meta: { showErrorToast, showErrorDialog: showErrorToast },
-    enabled: options?.enabled,
+    // The list route is project-scoped and the backend rejects a project-less
+    // request (schema today; authorization layer per #543). On a fresh session the
+    // project resolves only after sign-in's project load, so hold the query until
+    // then instead of firing a request that dies as an opaque 400. Auth-state
+    // updates re-render consumers, which re-evaluates the gate with the resolved id.
+    enabled: (options?.enabled ?? true) && !!projectId,
   })
 }
 
@@ -98,7 +103,8 @@ export function useConnectionsInfiniteQuery(
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next ?? undefined,
     meta: { showErrorToast, showErrorDialog: showErrorToast },
-    enabled: options?.enabled,
+    // Same project gate as useConnectionsQuery (#543).
+    enabled: (options?.enabled ?? true) && !!projectId,
   })
 }
 

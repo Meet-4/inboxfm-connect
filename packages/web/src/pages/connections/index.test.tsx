@@ -80,6 +80,9 @@ describe('Connections page', () => {
   beforeEach(() => {
     localStorage.clear()
     sessionStorage.clear()
+    // The page's list query is held until a project resolves (#543) — model the
+    // signed-in state; the project-switching test below sets its own ids.
+    apiClient.setProjectId('proj_1')
     document.body.innerHTML = ''
     vi.restoreAllMocks()
   })

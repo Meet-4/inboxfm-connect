@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { apiClient } from '@/lib/api/client'
 import { stubApi } from '@/test/api-stub'
-import { mount } from '@/test/test-utils'
-import { useRunTriggerBinding } from './hooks'
+import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
+import { useConnectionsQuery, useRunTriggerBinding } from './hooks'
 
 /**
  * `useRunTriggerBinding` records executions server-side (POST /trigger-bindings/:id/run
@@ -61,5 +61,61 @@ describe('useRunTriggerBinding', () => {
       )
     ).toBe(true)
     expect(queryClient.getQueryState(executionsKey)?.isInvalidated).toBe(true)
+  })
+})
+
+/**
+ * The Connections list route is project-scoped: the backend rejects a request
+ * that carries no project (schema today, authorization layer per #543). On a
+ * fresh session the client singleton has no project yet (setProjectId runs
+ * after sign-in), so firing the query early only produces an opaque 400 with
+ * no recovery. The hook must hold the request until a project resolves (#543).
+ */
+describe('useConnectionsQuery project gate', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    apiClient.setToken(null)
+    apiClient.setProjectId(null)
+  })
+
+  function ConnectionsProbe() {
+    useConnectionsQuery()
+    return null
+  }
+
+  it('does not fire the list request until a project is resolved (#543)', async () => {
+    const { requests } = stubApi([
+      { match: (url) => url.pathname === '/api/v1/connections', respond: () => ({ status: 200, body: { data: [], next: null } }) },
+    ])
+
+    mount(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <ConnectionsProbe />
+      </QueryClientProvider>,
+    )
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    })
+
+    expect(requests.filter((request) => request.url.includes('/connections'))).toHaveLength(0)
+  })
+
+  it('fires the list request with the resolved project id once one is available (#543)', async () => {
+    apiClient.setProjectId('proj_gate')
+    const { requests } = stubApi([
+      { match: (url) => url.pathname === '/api/v1/connections', respond: () => ({ status: 200, body: { data: [], next: null } }) },
+    ])
+
+    mount(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <ConnectionsProbe />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => requests.some((request) => request.url.includes('projectId=proj_gate')))
+
+    expect(
+      requests.some((request) => request.url.includes('/api/v1/connections'))
+    ).toBe(true)
   })
 })

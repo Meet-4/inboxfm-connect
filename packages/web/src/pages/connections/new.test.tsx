@@ -12,6 +12,7 @@ import {
   secretAuthMetadata,
 } from '@/test/fixtures/integrations'
 import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
+import { apiClient } from '@/lib/api/client'
 
 let lastLocation: RouterLocation | null = null
 
@@ -151,6 +152,9 @@ describe('New connection page', () => {
     vi.restoreAllMocks()
     // The client reads ap-token from sessionStorage since #383.
     window.sessionStorage.setItem('ap-token', 'test-token')
+    // The project-scoped connections list is held until a project resolves
+    // (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_1')
   })
 
   it('shows guidance when no pieceName is provided', async () => {

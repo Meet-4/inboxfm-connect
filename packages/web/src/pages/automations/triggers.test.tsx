@@ -7,6 +7,7 @@ import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
 import { ALL_SUMMARIES, seekPage } from '@/test/fixtures/integrations'
 import { automationConnection, githubTriggerBinding } from '@/test/fixtures/automations'
 import { TriggerBinding } from '@/lib/api/types'
+import { apiClient } from '@/lib/api/client'
 
 interface RecordedRequest {
   url: string
@@ -140,6 +141,9 @@ describe('Trigger bindings hub', () => {
 
   beforeEach(() => {
     localStorage.clear()
+    // The connection picker loads the project-scoped connections list, held
+    // until a project resolves (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_default')
     document.body.innerHTML = ''
     backend = setupBackend()
   })

@@ -6,6 +6,7 @@ import IntegrationDetailPage from './detail'
 import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
 import { stubApi, StubRoute } from '@/test/api-stub'
 import { githubConnection, githubMetadata, seekPage } from '@/test/fixtures/integrations'
+import { apiClient } from '@/lib/api/client'
 
 let lastLocation: RouterLocation | null = null
 
@@ -87,6 +88,9 @@ async function clickTab(container: HTMLElement, label: string): Promise<void> {
 describe('Integration detail', () => {
   beforeEach(() => {
     localStorage.clear()
+    // The page's connections list is project-scoped and held until a project
+    // resolves (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_default')
     document.body.innerHTML = ''
   })
 

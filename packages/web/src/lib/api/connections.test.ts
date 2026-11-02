@@ -72,6 +72,44 @@ describe('connectionsApi', () => {
     expect(created.url).not.toContain('super-secret')
   })
 
+  it('fails loudly instead of firing a project-less create when no project is resolved (#543)', async () => {
+    apiClient.setProjectId(null)
+    const { calls } = stubApi([anyConnectionsRoute()])
+
+    await expect(
+      connectionsApi.create({
+        displayName: 'GitHub Bot',
+        pieceName: 'github',
+        pieceVersion: '0.1.0',
+        type: 'SECRET_TEXT',
+        externalId: 'ext_1',
+        value: { type: 'SECRET_TEXT', secret_text: 'super-secret' },
+      }),
+    ).rejects.toThrow(/project/i)
+
+    // The doomed request never fires — the backend rejects project-less writes
+    // with an opaque 400 the dialog cannot explain (#543).
+    expect(calls).toHaveLength(0)
+  })
+
+  it('still creates when an explicit projectId is supplied even if none is stored (#543)', async () => {
+    apiClient.setProjectId(null)
+    const { requests } = stubApi([anyConnectionsRoute()])
+
+    await connectionsApi.create({
+      projectId: PROJECT_ID,
+      displayName: 'GitHub Bot',
+      pieceName: 'github',
+      pieceVersion: '0.1.0',
+      type: 'SECRET_TEXT',
+      externalId: 'ext_1',
+      value: { type: 'SECRET_TEXT', secret_text: 'super-secret' },
+    })
+
+    const created = requestsTo(requests, (url) => url.pathname === '/api/v1/connections')[0]
+    expect(created.body).toMatchObject({ projectId: PROJECT_ID })
+  })
+
   it('reads and deletes a single connection without asserting project ownership', async () => {
     apiClient.setProjectId(PROJECT_ID)
     const { calls } = stubApi([{ match: () => true, respond: () => ({ status: 200, body: githubConnection('conn_1', 'GitHub Bot') }) }])

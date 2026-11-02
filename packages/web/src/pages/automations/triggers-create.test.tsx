@@ -6,6 +6,7 @@ import NewTriggerBindingPage from './triggers-new'
 import { createTestQueryClient, mount, waitFor } from '@/test/test-utils'
 import { ALL_SUMMARIES, githubMetadata, seekPage } from '@/test/fixtures/integrations'
 import { automationConnection } from '@/test/fixtures/automations'
+import { apiClient } from '@/lib/api/client'
 
 interface RecordedRequest {
   url: string
@@ -113,6 +114,9 @@ async function clickSubmit(container: HTMLElement): Promise<void> {
 describe('Trigger binding creation', () => {
   beforeEach(() => {
     localStorage.clear()
+    // The connection picker loads the project-scoped connections list, held
+    // until a project resolves (#543) — model the signed-in state.
+    apiClient.setProjectId('proj_default')
     document.body.innerHTML = ''
   })
 
@@ -157,6 +161,9 @@ describe('Trigger binding creation', () => {
       pieceVersion: '0.3.4',
       triggerName: 'onPush',
       connectionId: 'conn_github_1',
+      // The create API resolves the tenant from the active project (#543 gate
+      // models the signed-in state in beforeEach).
+      projectId: 'proj_default',
       promptTemplate: 'Announce every push in the dev channel.',
       settings: { branch: 'main' },
       status: 'ENABLED',

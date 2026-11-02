@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import { ApiClientError, apiClient } from './client'
 import {
   AppConnection,
   ConnectionsListParams,
@@ -37,12 +37,27 @@ const connectionsApi = {
     return apiClient.get<AppConnection>(`${CONNECTIONS_PATH}/${encodeURIComponent(id)}`)
   },
 
-  /** `POST /v1/connections` is guarded by ProjectResourceType.BODY. */
+  /**
+   * `POST /v1/connections` is guarded by ProjectResourceType.BODY and is rejected
+   * outright when the payload carries no project — on a fresh session (first visit,
+   * fresh tab, post-logout) the client singleton has no project resolved yet, and
+   * the request the dialog fires then dies as an opaque 400 with no recovery (#543).
+   * Fail loudly BEFORE firing instead: the message is what the Add Connection
+   * dialog renders (connectionErrors.describe passes ApiClientError.message through).
+   */
   create(request: CreateConnectionRequest): Promise<AppConnection> {
     const projectId = resolveProjectId(request.projectId)
+    if (projectId === undefined) {
+      // Rejected promise (async) rather than a sync throw, so every caller's
+      // `await connectionsApi.create(...)` / mutationFn contract behaves uniformly.
+      return Promise.reject(new ApiClientError(
+        400,
+        'No project is selected yet — the request was not sent. Wait a moment for the project to load, or sign in again, then retry.',
+      ))
+    }
     return apiClient.post<AppConnection>(CONNECTIONS_PATH, {
       ...request,
-      ...(projectId !== undefined ? { projectId } : {}),
+      projectId,
     })
   },
 
