@@ -279,7 +279,13 @@ export function toPieceMetadataModelSummary<T extends PieceMetadataSchema | Piec
     suggestionType?: SuggestionType,
 ): PieceMetadataModelSummary[] {
     return pieceMetadataEntityList.map((pieceMetadataEntity) => {
-        const originalMetadata = originalMetadataList.find((p) => p.name === pieceMetadataEntity.name)
+        // The original must be paired by (name, platformId) scope, not name alone: in
+        // platform-less views the same name can appear twice (an official row plus a
+        // platform-scoped custom row), and a name-only find() attributed the FIRST
+        // same-name row's action/trigger counts to the other scope. (name, platformId)
+        // is the identity the unique index and lastVersionOfEachPiece dedupe on.
+        const originalMetadata = originalMetadataList.find((p) => p.name === pieceMetadataEntity.name
+            && (p.platformId ?? null) === (pieceMetadataEntity.platformId ?? null))
         assertNotNullOrUndefined(originalMetadata, `Original metadata not found for ${pieceMetadataEntity.name}`)
         return {
             ...pieceMetadataEntity,
