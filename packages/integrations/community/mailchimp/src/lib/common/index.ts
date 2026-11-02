@@ -9,6 +9,44 @@ import { AuthenticationType } from '@inboxfm-connect/pieces-common';
 import crypto from 'crypto';
 import { mailchimpAuth } from '../..';
 
+// Mailchimp caps `count` at 1,000 and paginates with `offset`
+// https://mailchimp.com/developer/marketing/docs/methods-parameters/#pagination
+const MAILCHIMP_PAGE_SIZE = 1000;
+const MAILCHIMP_MAX_PAGES = 10;
+
+async function fetchAllMailchimpPages(
+  fetchPage: (offset: number) => Promise<Record<string, any>>
+): Promise<{
+  items: Record<string, any>[];
+  totalItems?: number;
+  truncated: boolean;
+}> {
+  const items: Record<string, any>[] = [];
+  let truncated = false;
+  let offset = 0;
+  let pages = 0;
+  let totalItems: number | undefined;
+
+  while (pages < MAILCHIMP_MAX_PAGES) {
+    pages++;
+    const response = (await fetchPage(offset)) ?? {};
+    const collectionKey = Object.keys(response).find((key) =>
+      Array.isArray(response[key])
+    );
+    if (!collectionKey) break;
+    const pageItems: Record<string, any>[] = response[collectionKey];
+    items.push(...pageItems);
+    totalItems = response['total_items'];
+    if (pageItems.length < MAILCHIMP_PAGE_SIZE) break;
+    offset += pageItems.length;
+    if (pages >= MAILCHIMP_MAX_PAGES) {
+      truncated = true;
+    }
+  }
+
+  return { items, totalItems, truncated };
+}
+
 export const mailchimpCommon = {
   mailChimpListIdDropdown: Property.Dropdown<string,true,typeof mailchimpAuth>({
     auth: mailchimpAuth,
@@ -30,10 +68,18 @@ export const mailchimpCommon = {
         authProp
       )) as any;
 
-      const options = listResponse.lists.map((list: any) => ({
-        label: list.name,
-        value: list.id,
-      }));
+      const options: { label: string; value: string }[] = listResponse.lists.map(
+        (list: any) => ({
+          label: list.name,
+          value: list.id,
+        })
+      );
+      if (listResponse.truncated) {
+        options.push({
+          label: '⚠️ Could not load all audiences (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
@@ -50,11 +96,18 @@ export const mailchimpCommon = {
       server: mailChimpServerPrefix,
     });
 
-    // mailchimp types are not complete this is from the docs.
-    return await (mailchimp as any).lists.getAllLists({
-      fields: ['lists.id', 'lists.name', 'total_items'],
-      count: 1000,
-    });
+    // Mailchimp caps `count` at 1,000 and paginates with `offset`
+    // https://mailchimp.com/developer/marketing/docs/methods-parameters/#pagination
+    const { items, totalItems, truncated } = await fetchAllMailchimpPages(
+      (offset) =>
+        (mailchimp as any).lists.getAllLists({
+          fields: ['lists.id', 'lists.name', 'total_items'],
+          count: MAILCHIMP_PAGE_SIZE,
+          offset,
+        })
+    );
+
+    return { lists: items, total_items: totalItems, truncated };
   },
 
   mailChimpCampaignIdDropdown: Property.Dropdown<string,true,typeof mailchimpAuth >({
@@ -77,10 +130,17 @@ export const mailchimpCommon = {
         authProp
       )) as any;
 
-      const options = campaignResponse.campaigns.map((campaign: any) => ({
-        label: `${campaign.settings?.title || campaign.id} (${campaign.status})`,
-        value: campaign.id,
-      }));
+      const options: { label: string; value: string }[] =
+        campaignResponse.campaigns.map((campaign: any) => ({
+          label: `${campaign.settings?.title || campaign.id} (${campaign.status})`,
+          value: campaign.id,
+        }));
+      if (campaignResponse.truncated) {
+        options.push({
+          label: '⚠️ Could not load all campaigns (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
@@ -98,11 +158,21 @@ export const mailchimpCommon = {
       server: mailChimpServerPrefix,
     });
 
-    // Get campaigns with essential fields for dropdown
-    return await (mailchimp as any).campaigns.list({
-      fields: ['campaigns.id', 'campaigns.settings.title', 'campaigns.status', 'total_items'],
-      count: 1000,
-    });
+    const { items, totalItems, truncated } = await fetchAllMailchimpPages(
+      (offset) =>
+        (mailchimp as any).campaigns.list({
+          fields: [
+            'campaigns.id',
+            'campaigns.settings.title',
+            'campaigns.status',
+            'total_items',
+          ],
+          count: MAILCHIMP_PAGE_SIZE,
+          offset,
+        })
+    );
+
+    return { campaigns: items, total_items: totalItems, truncated };
   },
 
   mailChimpStoreIdDropdown: Property.Dropdown<string,true,typeof mailchimpAuth >({
@@ -125,10 +195,18 @@ export const mailchimpCommon = {
         authProp
       )) as any;
 
-      const options = storeResponse.stores.map((store: any) => ({
-        label: `${store.name} (${store.id})`,
-        value: store.id,
-      }));
+      const options: { label: string; value: string }[] = storeResponse.stores.map(
+        (store: any) => ({
+          label: `${store.name} (${store.id})`,
+          value: store.id,
+        })
+      );
+      if (storeResponse.truncated) {
+        options.push({
+          label: '⚠️ Could not load all stores (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
@@ -146,11 +224,16 @@ export const mailchimpCommon = {
       server: mailChimpServerPrefix,
     });
 
-    // Get stores with essential fields for dropdown
-    return await (mailchimp as any).ecommerce.stores({
-      fields: ['stores.id', 'stores.name', 'total_items'],
-      count: 1000,
-    });
+    const { items, totalItems, truncated } = await fetchAllMailchimpPages(
+      (offset) =>
+        (mailchimp as any).ecommerce.stores({
+          fields: ['stores.id', 'stores.name', 'total_items'],
+          count: MAILCHIMP_PAGE_SIZE,
+          offset,
+        })
+    );
+
+    return { stores: items, total_items: totalItems, truncated };
   },
   getMailChimpServerPrefix: async (access_token: string) => {
     const mailChimpMetaDataRequest: HttpRequest<{ dc: string }> = {
