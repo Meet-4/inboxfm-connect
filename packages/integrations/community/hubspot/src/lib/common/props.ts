@@ -909,23 +909,53 @@ export const blogUrlDropdown = Property.Dropdown({
 
 		const authValue = auth as PiecePropValueSchema<typeof hubspotAuth>;
 
-		const response = await httpClient.sendRequest<ListBlogsResponse>({
-			method: HttpMethod.GET,
-			url: 'https://api.hubapi.com/content/api/v2/blogs',
-			authentication: { type: AuthenticationType.BEARER_TOKEN, token: authValue.access_token },
-			queryParams: {
-				limit: '100',
-			},
-		});
+		// The legacy /content/api/v2/blogs endpoint (CMS blog settings v2) has no
+		// documented pagination contract, so list blogs through the documented
+		// blog-settings endpoint instead: `limit` + `paging.next.after` cursor.
+		// https://developers.hubspot.com/docs/api-reference/latest/cms/blogs/blog-settings/guide.md
+		const PAGE_SIZE = 100;
+		const MAX_PAGES = 10;
+
+		const options: DropdownOption<string>[] = [];
+		let truncated = false;
+		let after: string | undefined;
+
+		for (let page = 0; page < MAX_PAGES; page++) {
+			const response = await httpClient.sendRequest<{
+				results: Array<{ id: string; name: string; absoluteUrl: string }>;
+				paging?: { next?: { after?: string } };
+			}>({
+				method: HttpMethod.GET,
+				url: 'https://api.hubapi.com/cms/blog-settings/2026-09/settings',
+				authentication: { type: AuthenticationType.BEARER_TOKEN, token: authValue.access_token },
+				queryParams: {
+					limit: String(PAGE_SIZE),
+					...(after ? { after } : {}),
+				},
+			});
+
+			for (const blog of response.body.results ?? []) {
+				options.push({
+					label: blog.absoluteUrl || blog.name || blog.id,
+					value: blog.id.toString(),
+				});
+			}
+
+			after = response.body.paging?.next?.after;
+			if (!after) break;
+			if (page === MAX_PAGES - 1) truncated = true;
+		}
+
+		if (truncated) {
+			options.push({
+				label: '⚠️ Could not load all blogs (partial list)',
+				value: '__truncated_notice__',
+			});
+		}
 
 		return {
 			disabled: false,
-			options: response.body.objects.map((blog) => {
-				return {
-					label: blog.absolute_url,
-					value: blog.id.toString(),
-				};
-			}),
+			options,
 		};
 	},
 });
