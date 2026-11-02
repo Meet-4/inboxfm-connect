@@ -404,10 +404,24 @@ const findExactVersion = async (
     }
 
     const sortedEntries = matchingRegistryEntries.sort(sortByVersionDescending)
+    // Scope precedence (the #625 class, server side): when the same name exists both
+    // platform-scoped and official, the platform's piece replaces the official one for
+    // that platform — the exact rule the list path already enforces
+    // (lastVersionOfEachPiece, issue #417). A pure version sort let the (usually
+    // higher-versioned) official row shadow the platform's custom piece on every
+    // unpinned lookup, so the engine resolved and served the WRONG piece while the
+    // dashboard advertised the platform's replacement. Entries from other platforms
+    // were already dropped by filterRegistry, so this only re-ranks the caller's own
+    // scope against the platform-less one; an exact version pin still wins via the
+    // range filter above.
+    const platformScopedEntry = !isNil(platformId)
+        ? sortedEntries.find((entry) => entry.platformId === platformId)
+        : undefined
+    const winningEntry = platformScopedEntry ?? sortedEntries[0]
     return {
-        name: sortedEntries[0].name,
-        version: sortedEntries[0].version,
-        platformId: sortedEntries[0].platformId,
+        name: winningEntry.name,
+        version: winningEntry.version,
+        platformId: winningEntry.platformId,
     }
 }
 
