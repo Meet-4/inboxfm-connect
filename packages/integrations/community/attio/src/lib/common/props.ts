@@ -169,23 +169,48 @@ export const linkedRecordDropdown = (params: DropdownParams) =>
 				};
 			}
 
-			const response = await attioApiCall<{ data: Array<Record<string, any>> }>({
-				accessToken: auth.secret_text,
-				method: HttpMethod.POST,
-				resourceUri: `/objects/${linked_object}/records/query`,
-				body: { limit: 200, offset: 0 },
-			});
+			// Attio paginates records/query with limit/offset — limit defaults
+			// to 500, offset to 0. The previous single limit:200 call silently
+			// dropped every record past the first 200, so walk the documented
+			// offsets with the documented page size and a bounded budget.
+			// https://docs.attio.com/rest-api/endpoint-reference/records/list-records
+			const PAGE_SIZE = 500;
+			const MAX_PAGES = 10;
 
-			return {
-				disabled: false,
-				options: response.data.map((record) => {
+			const options: Array<{ label: string; value: string | undefined }> = [];
+			let truncated = false;
+
+			for (let page = 0; page < MAX_PAGES; page++) {
+				const response = await attioApiCall<{ data: Array<Record<string, any>> }>({
+					accessToken: auth.secret_text,
+					method: HttpMethod.POST,
+					resourceUri: `/objects/${linked_object}/records/query`,
+					body: { limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+				});
+
+				for (const record of response.data ?? []) {
 					const nameValues: Array<any> = record['values']?.['name'] ?? [];
 					const label =
 						nameValues[0]?.full_name ??
 						nameValues[0]?.value ??
 						record['id']?.record_id;
-					return { label: String(label), value: record['id']?.record_id };
-				}),
+					options.push({ label: String(label), value: record['id']?.record_id });
+				}
+
+				if ((response.data?.length ?? 0) < PAGE_SIZE) break;
+				if (page === MAX_PAGES - 1) truncated = true;
+			}
+
+			if (truncated) {
+				options.push({
+					label: '⚠️ Could not load all records (partial list)',
+					value: '__truncated_notice__',
+				});
+			}
+
+			return {
+				disabled: false,
+				options,
 			};
 		},
 	});
