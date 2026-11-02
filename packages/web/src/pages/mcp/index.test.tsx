@@ -482,6 +482,35 @@ describe('MCP Hub', () => {
       const integrationCalls = calls.filter((call) => call.includes('/api/v1/integrations?'))
       expect(integrationCalls.length).toBe(1)
     }, 15000)
+
+    it('shows a retryable error state when the callable integrations list fails to load', async () => {
+      let failing = true
+      const { calls } = stubApi([
+        ...mcpRoutes(),
+        {
+          match: (url) => url.pathname === '/api/v1/integrations',
+          respond: () =>
+            failing
+              ? { status: 500, body: { message: 'catalog down' } }
+              : { status: 200, body: seekPage(ALL_SUMMARIES) },
+        },
+      ])
+      const container = renderMcp()
+
+      await waitFor(
+        () => container.querySelector('[data-testid="mcp-callable-integrations-error"]') !== null,
+        5000
+      )
+      expect(container.querySelector('[data-testid="mcp-callable-integrations"]')).toBeNull()
+
+      failing = false
+      await clickButtonWithText('Try again')
+
+      await waitFor(() => container.querySelector('[data-testid="mcp-callable-integrations"]') !== null)
+      const list = container.querySelector('[data-testid="mcp-callable-integrations"]')
+      expect(list?.textContent).toContain('GitHub')
+      expect(calls.filter((call) => call.includes('/api/v1/integrations')).length).toBe(2)
+    }, 15000)
   })
 
   describe('security', () => {

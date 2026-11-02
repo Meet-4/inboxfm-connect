@@ -241,7 +241,16 @@ export default function McpPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {integrationsQuery.isError ? null : integrationsQuery.isLoading ? (
+                {integrationsQuery.isError ? (
+                  <div data-testid="mcp-callable-integrations-error">
+                    <ErrorState
+                      title="Could not load callable integrations"
+                      description="The integrations catalog could not be loaded. Check your connection and try again."
+                      onRetry={() => void integrationsQuery.refetch()}
+                      className="min-h-[180px] border-border bg-card/50 p-4"
+                    />
+                  </div>
+                ) : integrationsQuery.isLoading ? (
                   <div className="space-y-2" aria-hidden="true">
                     {Array.from({ length: 3 }).map((_, index) => (
                       <Skeleton key={index} className="h-11 w-full rounded-md" />
