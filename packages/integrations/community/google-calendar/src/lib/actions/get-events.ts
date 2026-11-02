@@ -12,9 +12,10 @@ import { getEventsActionOutputSchema } from '../output-schemas';
 export const getEvents = createAction({
   auth: googleCalendarAuth,
   name: 'google_calendar_get_events',
-  description: 'Get Events',
+  description:
+    'Get Events. Follows Google Calendar pagination (up to 2500 events per page, up to 10000 events) and merges the pages.',
   audience: 'both',
-  aiMetadata: { description: 'Lists events from a Google Calendar, optionally filtered by a date range, search term, and event types, and can expand recurring events into individual instances. Use to look up or browse multiple events when you do not already have a specific event ID; use Get Event by ID for a single known event. Read-only and idempotent.', idempotent: true },
+  aiMetadata: { description: 'Lists events from a Google Calendar, optionally filtered by a date range, search term, and event types, and can expand recurring events into individual instances. Follows Google Calendar pagination (up to 2500 events per page, up to 10000 events) and merges the pages. Use to look up or browse multiple events when you do not already have a specific event ID; use Get Event by ID for a single known event. Read-only and idempotent.', idempotent: true },
   displayName: 'Get all Events',
   props: {
     calendar_id: googleCalendarCommon.calendarDropdown('writer'),
@@ -104,13 +105,54 @@ export const getEvents = createAction({
     const request: HttpRequest<Record<string, unknown>> = {
       method: HttpMethod.GET,
       url,
-      queryParams,
+      queryParams: {
+        ...queryParams,
+        // Google Calendar returns 250 events by page; 2500 is the maximum.
+        maxResults: '2500',
+      },
       authentication: {
         type: AuthenticationType.BEARER_TOKEN,
         token,
       },
     };
-    return await httpClient.sendRequest(request);
+    const response = await httpClient.sendRequest<Record<string, unknown>>(
+      request
+    );
+
+    // events.list paginates via nextPageToken, so a single request can miss
+    // events beyond the first page. Walk pages so they are not silently
+    // dropped (bounded walk).
+    const MAX_PAGES = 4; // at most 2500 events per page -> 10000 events per run
+    const items: unknown[] = [...((response.body as any)?.items ?? [])];
+    let nextPageToken = (response.body as any)?.nextPageToken;
+
+    for (let page = 2; nextPageToken && page <= MAX_PAGES; page++) {
+      const pageRequest: HttpRequest<Record<string, unknown>> = {
+        ...request,
+        queryParams: {
+          ...(request.queryParams ?? {}),
+          pageToken: nextPageToken as string,
+        },
+      };
+
+      const pageResponse = await httpClient.sendRequest<
+        Record<string, unknown>
+      >(pageRequest);
+
+      items.push(...(((pageResponse.body as any)?.items ?? []) as unknown[]));
+      nextPageToken = (pageResponse.body as any)?.nextPageToken;
+    }
+
+    if (response.body) {
+      response.body['items'] = items;
+      if (nextPageToken) {
+        response.body['nextPageToken'] = nextPageToken;
+      } else {
+        delete response.body['nextPageToken'];
+      }
+    }
+
+    return response;
   },
 });
 
