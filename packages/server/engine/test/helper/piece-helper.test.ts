@@ -132,4 +132,81 @@ describe('pieceHelper.executeTool headless context contract', () => {
             vi.unstubAllGlobals()
         }
     })
+
+    it('exposes project.externalId as the contract-mandated async function, not a raw string', async () => {
+        // BaseContext declares project.externalId as () => Promise<string | undefined>; pieces call
+        // `await context.project.externalId()` (e.g. connectuc webhook registration). The headless
+        // context passed the raw projectId string, so every such piece crashed with
+        // "externalId is not a function" on headless runs.
+        runMock.mockImplementation(async (ctx: { project: { id: string, externalId: () => Promise<string | undefined> } }) => ({
+            projectId: ctx.project.id,
+            externalIdType: typeof ctx.project.externalId,
+            externalId: await ctx.project.externalId(),
+        }))
+
+        const response = await pieceHelper.executeTool({ params, devPieces: [] })
+
+        expect(response.status).toBe('OK')
+        expect(response.response).toEqual({
+            projectId: 'project-1',
+            externalIdType: 'function',
+            // The headless operation carries no tenant external identity — the contract allows
+            // undefined, which pieces treat as "not provided".
+            externalId: undefined,
+        })
+    })
+
+    it('wires output.update so pieces streaming agent output do not crash headlessly (#618 class)', async () => {
+        // ToolContext.output is part of the BaseToolContext contract and piece-ai's run_agent
+        // action awaits context.output.update(...) on every streamed chunk — a missing output
+        // key made the whole action fail with "Cannot read properties of undefined".
+        runMock.mockImplementation(async (ctx: { output: { update: (params: { data: unknown }) => Promise<void> } }) => {
+            await ctx.output.update({ data: { chunk: 1 } })
+            return { updated: true }
+        })
+
+        const response = await pieceHelper.executeTool({ params, devPieces: [] })
+
+        expect(response.status).toBe('OK')
+        expect(response.response).toEqual({ updated: true })
+    })
+
+    it('wires agent.tools so piece-ai tool construction does not crash headlessly (#618 class)', async () => {
+        // ToolContext.agent is part of the BaseToolContext contract; piece-ai's
+        // constructAgentTools awaits context.agent.tools(...) before anything else. A missing
+        // agent key crashed the action with "Cannot read properties of undefined (reading 'tools')".
+        runMock.mockImplementation(async (ctx: { agent: { tools: (params: unknown) => Promise<Record<string, unknown>> } }) => {
+            const tools = await ctx.agent.tools({ tools: [], model: undefined })
+            return { toolNames: Object.keys(tools) }
+        })
+
+        const response = await pieceHelper.executeTool({ params, devPieces: [] })
+
+        expect(response.status).toBe('OK')
+        // Headless runs have no parent execution to spawn piece tools from, so the placeholder
+        // yields none — the agent degrades to its other tool types instead of crashing.
+        expect(response.response).toEqual({ toolNames: [] })
+    })
+
+    it('returns a well-shaped CreateWaitpointResult from the headless createWaitpoint stub', async () => {
+        // RunContext.createWaitpoint must resolve CreateWaitpointResult ({ id, resumeUrl,
+        // buildResumeUrl }). The old dummy resolved { id, token }, so a piece calling
+        // wp.buildResumeUrl(...) crashed with "buildResumeUrl is not a function".
+        runMock.mockImplementation(async (ctx: { run: { createWaitpoint: (params: unknown) => Promise<{ id: string, resumeUrl: string, buildResumeUrl: (params: { queryParams: Record<string, string> }) => string }> } }) => {
+            const waitpoint = await ctx.run.createWaitpoint({ type: 'DELAY' })
+            return {
+                id: waitpoint.id,
+                resumeUrl: waitpoint.resumeUrl,
+                builtUrl: waitpoint.buildResumeUrl({ queryParams: { token: 'abc' } }),
+            }
+        })
+
+        const response = await pieceHelper.executeTool({ params, devPieces: [] })
+
+        expect(response.status).toBe('OK')
+        const res = response.response as { id: string, resumeUrl: string, builtUrl: string }
+        expect(res.id).toBe('headless')
+        expect(res.resumeUrl).toBe('about:blank')
+        expect(res.builtUrl).toBe('about:blank')
+    })
 })

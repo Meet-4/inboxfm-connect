@@ -229,7 +229,10 @@ export const pieceHelper = {
         }
 
         const context = {
-            executionType: ExecutionType.BEGIN,
+            // `as const` keeps the literal assignable to the BeginExecutionToolContext union
+            // member — without it the enum widens to ExecutionType and the whole context fails
+            // assignability to ToolContext.
+            executionType: ExecutionType.BEGIN as const,
             store: createContextStore({
                 apiUrl: params.internalApiUrl,
                 prefix: '',
@@ -269,12 +272,40 @@ export const pieceHelper = {
                 id: 'headless',
                 stop: () => {},
                 respond: () => {},
-                createWaitpoint: async () => ({ id: 'dummy', token: 'dummy' }),
+                // CreateWaitpointHook must resolve the full CreateWaitpointResult shape
+                // ({ id, resumeUrl, buildResumeUrl }). The old { id, token } dummy made a piece
+                // calling wp.buildResumeUrl(...) crash with "not a function". Headless runs never
+                // really pause (waitForWaitpoint resolves immediately), so the values are inert
+                // placeholders — 'about:blank' is deliberately non-routable.
+                createWaitpoint: async () => ({
+                    id: 'headless',
+                    resumeUrl: 'about:blank',
+                    buildResumeUrl: () => 'about:blank',
+                }),
                 waitForWaitpoint: async () => {},
             },
             project: {
                 id: params.projectId,
-                externalId: params.projectId,
+                // BaseContext declares externalId as () => Promise<string | undefined> and pieces
+                // await it (connectuc webhook registration). A raw string here crashes those pieces
+                // with "externalId is not a function". The headless operation carries no tenant
+                // external identity, so the contract-allowed undefined is the honest value — the
+                // full fetch-backed resolver needs the real engine-token plumbing (#544) first.
+                externalId: async () => undefined,
+            },
+            // ToolContext.output is awaited by piece-ai's run_agent on every streamed chunk. A
+            // headless run has no run record to stream output to, so updates are accepted and
+            // discarded — the action's return value remains the sole output. Same placeholder
+            // philosophy as the no-op tags.add above.
+            output: {
+                update: async () => {},
+            },
+            // ToolContext.agent is awaited by piece-ai's constructAgentTools before anything else.
+            // Constructing piece tools requires a parent execution to recurse into, which headless
+            // runs do not have; an empty toolset lets the agent fall back to its other tool types
+            // (flows, MCP, knowledge base) instead of crashing.
+            agent: {
+                tools: async () => ({}),
             },
         }
 
