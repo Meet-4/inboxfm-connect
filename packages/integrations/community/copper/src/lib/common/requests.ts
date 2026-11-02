@@ -31,6 +31,50 @@ async function fireHttpRequest({
     });
 }
 
+
+// Copper's /search endpoints default to page_size=20 (1-200 allowed) and
+// page with page_number; a response shorter than the page size is the last
+// page. The record dropdowns sent no payload, so every picker silently
+// showed only the first 20 records. Walk pages at the documented maximum
+// page size with a bounded budget and report truncation.
+// https://developer.copper.com/introduction/pagination.html
+const COPPER_SEARCH_PAGE_SIZE = 200;
+const COPPER_SEARCH_MAX_PAGES = 10;
+
+async function searchCopperPaged(
+  auth: CopperAuthType,
+  path: string,
+  payload?: any
+): Promise<{ items: any[]; truncated: boolean }> {
+  const items: any[] = [];
+  let truncated = false;
+
+  for (let pageNumber = 1; pageNumber <= COPPER_SEARCH_MAX_PAGES; pageNumber++) {
+    const body = {
+      ...(payload ?? {}),
+      page_size: COPPER_SEARCH_PAGE_SIZE,
+      page_number: pageNumber,
+    };
+    const response = await fireHttpRequest({
+      method: HttpMethod.POST,
+      path,
+      auth,
+      body,
+    });
+    const page: any[] = Array.isArray(response) ? response : [];
+    items.push(...page);
+
+    if (page.length < COPPER_SEARCH_PAGE_SIZE) {
+      break;
+    }
+    if (pageNumber === COPPER_SEARCH_MAX_PAGES) {
+      truncated = true;
+    }
+  }
+
+  return { items, truncated };
+}
+
 export const CopperApiService = {
   async fetchCurrentUser(auth: CopperAuthType) {
     return await fireHttpRequest({
@@ -40,12 +84,15 @@ export const CopperApiService = {
     });
   },
   async fetchLeads(auth: CopperAuthType, payload?: any) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.LEADS}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-      body: payload
-    });
+      `/v1${API_ENDPOINTS.LEADS}/search`,
+      payload
+    );
+    return items;
+  },
+  async fetchLeadsPaged(auth: CopperAuthType, payload?: any) {
+    return searchCopperPaged(auth, `/v1{API_ENDPOINTS.LEADS}/search`, payload);
   },
   async createTask(auth: CopperAuthType, payload: any) {
     return await fireHttpRequest({
@@ -72,12 +119,15 @@ export const CopperApiService = {
     });
   },
   async fetchProjects(auth: CopperAuthType, payload?: any) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.PROJECTS}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-      body: payload
-    });
+      `/v1${API_ENDPOINTS.PROJECTS}/search`,
+      payload
+    );
+    return items;
+  },
+  async fetchProjectsPaged(auth: CopperAuthType, payload?: any) {
+    return searchCopperPaged(auth, `/v1${API_ENDPOINTS.PROJECTS}/search`, payload);
   },
   async createCompany(auth: CopperAuthType, payload: any) {
     return await fireHttpRequest({
@@ -96,12 +146,15 @@ export const CopperApiService = {
     });
   },
   async fetchCompanies(auth: CopperAuthType, payload?: any) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.COMPANIES}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-      body: payload
-    });
+      `/v1${API_ENDPOINTS.COMPANIES}/search`,
+      payload
+    );
+    return items;
+  },
+  async fetchCompaniesPaged(auth: CopperAuthType, payload?: any) {
+    return searchCopperPaged(auth, `/v1{API_ENDPOINTS.COMPANIES}/search`, payload);
   },
   async fetchActivityTypes(auth: CopperAuthType) {
     return await fireHttpRequest({
@@ -175,12 +228,15 @@ export const CopperApiService = {
     });
   },
   async fetchOpportunities(auth: CopperAuthType, payload?: any) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.OPPORTUNITIES}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-      body: payload
-    });
+      `/v1${API_ENDPOINTS.OPPORTUNITIES}/search`,
+      payload
+    );
+    return items;
+  },
+  async fetchOpportunitiesPaged(auth: CopperAuthType, payload?: any) {
+    return searchCopperPaged(auth, `/v1{API_ENDPOINTS.OPPORTUNITIES}/search`, payload);
   },
   async fetchTasks(auth: CopperAuthType) {
     return await fireHttpRequest({
@@ -237,19 +293,25 @@ export const CopperApiService = {
     });
   },
   async fetchPeople(auth: CopperAuthType, payload?: any) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.PEOPLE}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-      body: payload
-    });
+      `/v1${API_ENDPOINTS.PEOPLE}/search`,
+      payload
+    );
+    return items;
+  },
+  async fetchPeoplePaged(auth: CopperAuthType, payload?: any) {
+    return searchCopperPaged(auth, `/v1{API_ENDPOINTS.PEOPLE}/search`, payload);
   },
   async fetchUsers(auth: CopperAuthType) {
-    return await fireHttpRequest({
-      method: HttpMethod.POST,
-      path: `/v1${API_ENDPOINTS.USERS}/search`,
+    const { items } = await searchCopperPaged(
       auth,
-    });
+      `/v1${API_ENDPOINTS.USERS}/search`
+    );
+    return items;
+  },
+  async fetchUsersPaged(auth: CopperAuthType) {
+    return searchCopperPaged(auth, `/v1${API_ENDPOINTS.USERS}/search`);
   },
   async createWebhook(auth: CopperAuthType, payload: any) {
     return await fireHttpRequest({

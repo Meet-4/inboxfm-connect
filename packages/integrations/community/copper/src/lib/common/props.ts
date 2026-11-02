@@ -19,13 +19,22 @@ export const peopleDropdown = (refreshers: string[]) =>
       }
 
       try {
-        const people = await CopperApiService.fetchPeople(auth);
+        const { items: people, truncated } =
+          await CopperApiService.fetchPeoplePaged(auth);
 
-        return {
-          options: people.map((person: any) => ({
+        const options = people.map((person: any) => ({
             label: person.name,
             value: JSON.stringify(person),
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch campaigns', e);
@@ -54,13 +63,22 @@ export const leadDropdown = (refreshers: string[]) =>
       }
 
       try {
-        const leads = await CopperApiService.fetchLeads(auth);
+        const { items: leads, truncated } =
+          await CopperApiService.fetchLeadsPaged(auth);
 
-        return {
-          options: leads.map((lead: any) => ({
+        const options = leads.map((lead: any) => ({
             label: lead.name,
             value: JSON.stringify(lead),
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch leads', e);
@@ -95,13 +113,22 @@ export const companyDropdown = ({
       }
 
       try {
-        const companies = await CopperApiService.fetchCompanies(auth);
+        const { items: companies, truncated } =
+          await CopperApiService.fetchCompaniesPaged(auth);
 
-        return {
-          options: companies.map((company: any) => ({
+        const options = companies.map((company: any) => ({
             label: company.name,
             value: JSON.stringify(company),
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch companies', e);
@@ -136,13 +163,22 @@ export const multiCompanyDropdown = ({
       }
 
       try {
-        const companies = await CopperApiService.fetchCompanies(auth);
+        const { items: companies, truncated } =
+          await CopperApiService.fetchCompaniesPaged(auth);
 
-        return {
-          options: companies.map((company: any) => ({
+        const options = companies.map((company: any) => ({
             label: company.name,
             value: company.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch companies', e);
@@ -177,13 +213,22 @@ export const primaryContactsDropdown = ({
       }
 
       try {
-        const primaryContacts = await CopperApiService.fetchPeople(auth);
+        const { items: primaryContacts, truncated } =
+          await CopperApiService.fetchPeoplePaged(auth);
 
-        return {
-          options: primaryContacts.map((contact: any) => ({
+        const options = primaryContacts.map((contact: any) => ({
             label: contact.name,
             value: contact.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -218,13 +263,22 @@ export const multiPrimaryContactsDropdown = ({
       }
 
       try {
-        const primaryContacts = await CopperApiService.fetchPeople(auth);
+        const { items: primaryContacts, truncated } =
+          await CopperApiService.fetchPeoplePaged(auth);
 
-        return {
-          options: primaryContacts.map((contact: any) => ({
+        const options = primaryContacts.map((contact: any) => ({
             label: contact.name,
             value: contact.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -259,13 +313,22 @@ export const usersDropdown = ({
       }
 
       try {
-        const users = await CopperApiService.fetchUsers(auth);
+        const { items: users, truncated } =
+          await CopperApiService.fetchUsersPaged(auth);
 
-        return {
-          options: users.map((user: any) => ({
+        const options = users.map((user: any) => ({
             label: user.name,
             value: user.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -300,13 +363,22 @@ export const multiUsersDropdown = ({
       }
 
       try {
-        const users = await CopperApiService.fetchUsers(auth);
+        const { items: users, truncated } =
+          await CopperApiService.fetchUsersPaged(auth);
 
-        return {
-          options: users.map((user: any) => ({
+        const options = users.map((user: any) => ({
             label: user.name,
             value: user.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -341,13 +413,22 @@ export const opportunityDropdown = ({
       }
 
       try {
-        const opportunities = await CopperApiService.fetchOpportunities(auth);
+        const { items: opportunities, truncated } =
+          await CopperApiService.fetchOpportunitiesPaged(auth);
 
-        return {
-          options: opportunities.map((opportunity: any) => ({
+        const options = opportunities.map((opportunity: any) => ({
             label: opportunity.name,
             value: JSON.stringify(opportunity),
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -382,13 +463,22 @@ export const multiOpportunityDropdown = ({
       }
 
       try {
-        const opportunities = await CopperApiService.fetchOpportunities(auth);
+        const { items: opportunities, truncated } =
+          await CopperApiService.fetchOpportunitiesPaged(auth);
 
-        return {
-          options: opportunities.map((opportunity: any) => ({
+        const options = opportunities.map((opportunity: any) => ({
             label: opportunity.name,
             value: opportunity.id,
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch opportunities', e);
@@ -505,13 +595,22 @@ export const projectsDropdown = ({
       }
 
       try {
-        const projects = await CopperApiService.fetchProjects(auth);
+        const { items: projects, truncated } =
+          await CopperApiService.fetchProjectsPaged(auth);
 
-        return {
-          options: projects.map((project: any) => ({
+        const options = projects.map((project: any) => ({
             label: project.name,
             value: JSON.stringify(project),
-          })),
+          }));
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all records (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
+
+        return {
+          options,
         };
       } catch (e) {
         console.error('Failed to fetch projects', e);
