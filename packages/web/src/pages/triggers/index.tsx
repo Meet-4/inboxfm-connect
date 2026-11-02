@@ -1,5 +1,6 @@
 import { ChevronRight, Plus, Radio, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/page-header'
 import { AuthBadge } from '@/components/integrations/auth-badge'
@@ -27,6 +28,7 @@ function IntegrationListItem({
   active: boolean
   onSelect: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
@@ -51,7 +53,7 @@ function IntegrationListItem({
       />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-semibold text-foreground">{piece.displayName}</span>
-        <span className="block text-[10px] text-muted-foreground">{piece.triggers} triggers</span>
+        <span className="block text-[10px] text-muted-foreground">{t('{{count}} triggers', { count: piece.triggers })}</span>
       </span>
       <ChevronRight className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
     </button>
@@ -59,12 +61,13 @@ function IntegrationListItem({
 }
 
 function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
+  const { t } = useTranslation()
   const { data: piece, isLoading, isError, error, refetch } = useIntegration(pieceName)
   const triggers = useMemo(() => Object.values(piece?.triggers ?? {}), [piece])
 
   if (isLoading) {
     return (
-      <div className="space-y-2" aria-label="Loading triggers">
+      <div className="space-y-2" aria-label={t('Loading triggers')}>
         {Array.from({ length: 3 }).map((_, index) => (
           <Skeleton key={index} className="h-[76px] w-full rounded-xl" />
         ))}
@@ -76,11 +79,11 @@ function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
     return (
       <EmptyState
         icon={Radio}
-        title="Could not load triggers"
+        title={t('Could not load triggers')}
         description={
           error instanceof Error && error.message
-            ? `${error.message} Retry in a moment.`
-            : 'The trigger metadata for this integration could not be loaded.'
+            ? t('{{message}} Retry in a moment.', { message: error.message })
+            : t('The trigger metadata for this integration could not be loaded.')
         }
       />
     )
@@ -90,9 +93,9 @@ function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
     return (
       <EmptyState
         icon={Radio}
-        title={`${piece.displayName} exposes no triggers`}
-        description="Pick another integration from the list."
-        actionLabel="Refresh"
+        title={t('{{name}} exposes no triggers', { name: piece.displayName })}
+        description={t('Pick another integration from the list.')}
+        actionLabel={t('Refresh')}
         onAction={() => void refetch()}
       />
     )
@@ -114,11 +117,11 @@ function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
                   {trigger.name}
                 </code>
                 <Badge variant="outline" className="text-[10px]">
-                  {TRIGGER_TYPE_LABELS[trigger.type] ?? trigger.type}
+                  {t(TRIGGER_TYPE_LABELS[trigger.type] ?? trigger.type)}
                 </Badge>
               </div>
               <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                {trigger.description || 'No description provided.'}
+                {trigger.description || t('No description provided.')}
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <AuthBadge authType={piece.auth?.type} />
@@ -131,7 +134,7 @@ function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
                 data-testid={`create-binding-${trigger.name}`}
               >
                 <Plus className="h-3 w-3" />
-                <span>Create Binding</span>
+                <span>{t('Create Binding')}</span>
               </Link>
             </Button>
           </div>
@@ -142,6 +145,7 @@ function SelectedIntegrationTriggers({ pieceName }: { pieceName: string }) {
 }
 
 export default function TriggersPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const { data: integrations, isLoading, isError, refetch } = useIntegrations()
@@ -183,18 +187,18 @@ export default function TriggersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Trigger Discovery"
-        description="Every event source available across the catalog. Pick a trigger to bind it to an executable instruction — no canvas required."
-        breadcrumbs={[{ label: 'Automations', href: '/automations/triggers' }]}
+        title={t('Trigger Discovery')}
+        description={t('Every event source available across the catalog. Pick a trigger to bind it to an executable instruction — no canvas required.')}
+        breadcrumbs={[{ label: t('Automations'), href: '/automations/triggers' }]}
       />
 
       <div className="max-w-md">
         <Input
           icon={<Search className="h-4 w-4" />}
-          placeholder="Search integrations..."
+          placeholder={t('Search integrations...')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          aria-label="Search integrations"
+          aria-label={t('Search integrations')}
         />
       </div>
 
@@ -207,24 +211,24 @@ export default function TriggersPage() {
       ) : isError ? (
         <EmptyState
           icon={Radio}
-          title="Unable to load the integration catalog"
-          description="Check your connection and try again."
-          actionLabel="Retry"
+          title={t('Unable to load the integration catalog')}
+          description={t('Check your connection and try again.')}
+          actionLabel={t('Retry')}
           onAction={() => void refetch()}
         />
       ) : filteredPieces.length === 0 ? (
         <EmptyState
           icon={Radio}
-          title={search ? 'No integrations match your search' : 'No triggers available'}
+          title={search ? t('No integrations match your search') : t('No triggers available')}
           description={
             search
-              ? 'Try a different search term.'
-              : 'Sync your piece catalog to browse event triggers.'
+              ? t('Try a different search term.')
+              : t('Sync your piece catalog to browse event triggers.')
           }
         />
       ) : (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[280px_1fr]">
-          <nav aria-label="Integrations with triggers" className="space-y-1.5 lg:max-h-[560px] lg:overflow-y-auto lg:pr-1" data-testid="trigger-integration-list">
+          <nav aria-label={t('Integrations with triggers')} className="space-y-1.5 lg:max-h-[560px] lg:overflow-y-auto lg:pr-1" data-testid="trigger-integration-list">
             {filteredPieces.map((piece) => (
               <IntegrationListItem
                 key={piece.name}
@@ -245,8 +249,8 @@ export default function TriggersPage() {
             ) : (
               <EmptyState
                 icon={Radio}
-                title="Select an integration"
-                description="Choose an integration on the left to browse its event triggers."
+                title={t('Select an integration')}
+                description={t('Choose an integration on the left to browse its event triggers.')}
               />
             )}
           </Card>
