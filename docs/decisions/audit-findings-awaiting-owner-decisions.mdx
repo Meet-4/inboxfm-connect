@@ -18,6 +18,11 @@ and a **recommended default** the owner can accept or override. When an owner de
 implement per the decision, record the accepted outcome as a numbered entry in `docs/adr/`,
 and strike the item here.
 
+Entries appended from the wave-46 truth-pass onward are framed as **options with trade-offs**
+instead of a single default — a default-shaped recommendation reads like a decision that was
+never made. Where the flagging wave leaned one way it is marked as the audit's preference,
+not as the decision.
+
 ## Already resolved while this queue was curated
 
 - **App credentials stored plaintext at rest** (`report-w5-security.md`, Finding 3) — resolved
@@ -190,6 +195,36 @@ is a compatibility decision.
 Default: verify against live vendors; then declare explicit scopes matching each piece's
 actions and accept the re-consent, or document PAT-only support.
 
+### `convertToSecurityAccessRequest` drops `projectResource` on PLATFORM routes
+
+Evidence: `report-f1-w34.md` §7 follow-up 1 (open PR #698's report), with the reachability
+re-check in `report-g1-w35.md`; `report-b4-w31.md` finding 2 is the one case where the class
+produced a real cross-project leak.
+
+The guard's type lets a route declare `securityAccess.publicPlatform([...], { type, queryKey })`
+— a `projectResource` on a PLATFORM route — but `convertToSecurityAccessRequest()`
+(`core/security/v2/authz/authorization-middleware.ts`) only carries `adminOnly` /
+`nonEmbedUsersOnly` in its PLATFORM branch, so the declared `projectResource` silently
+authorizes nothing. The w35 re-check verified no live consumer reads it today (the two
+declaring routes enforce project permission in their own handlers), so the exposure is the
+trap itself: the next guard author gets a declaration that compiles, looks authoritative, and
+does nothing.
+
+Why an owner: both remedies are guard-framework API changes, not patches — making the
+PLATFORM branch honor the flag changes the meaning of every existing declaration (a behavior
+flip for routes that currently rely on their own handler checks); removing the parameter from
+the type breaks the declaring call sites at compile time.
+
+Options:
+
+- Make the PLATFORM branch authorize a declared `projectResource` (the type already promises
+  it). Future-safe; silently tightens any route that declares-but-does-not-rely-on it — audit
+  the two current declarers first.
+- Remove the dead parameter from `publicPlatform`'s PLATFORM shape (type-level rejection).
+  Compile-visible; keeps the two declaring routes' handler-side checks explicit; smallest
+  behavior change.
+- Keep the drop and document it on the guard. Cheapest; the trap stays for the next author.
+
 ## API redesigns and wire formats
 
 ### wedof send-file: broken dynamic props on a wrong wire format
@@ -303,6 +338,114 @@ doc-provable as a break — only moved messages are affected.
 
 Default: switch to `receivedDateTime` when a trigger-semantics pass next touches Outlook, and
 note the moved-message behavior change.
+
+### The documented API surface documents routes no controller registers
+
+Evidence: `report-r4-w45.md` §D/§E (the #741 spec-drift sweep), re-verified against the
+current tree (`app.ts` lines 197–251; `docs/openapi.json` census).
+
+`docs/endpoints/**` and the `docs/openapi.json` snapshot (a stale pre-rewrite artifact) carry
+a surface the live server does not register in any edition: 20 operation pages + 6 schema
+pages (flows, flow-runs, folders, templates, sample-data, git-repos, project-releases — plus
+worker-machines/queue-metrics, owned by open #723) and 59 of the snapshot's 94 operations
+(`flowModule`, `flowRunModule`, `folderModule`, `templateModule`, `tablesModule`,
+`knowledgeBaseModule`, `webhookModule`, `triggerModule`, `variableModule`, `tagsModule`,
+`agentsModule` and more are commented out in `app.ts`). Every one of these routes 404s today;
+the live API serves 148 paths and generates its own spec at `GET /v1/docs`, which the docs
+tree does not use.
+
+Why an owner: delete-vs-restore is a product call tied to the flowscript transition — flow
+CRUD, if it returns, returns as flowscript-backed routes with different semantics (the
+FlowScript service today exposes only internal-network publish/deploy/run shapes), while
+sample-data / git-repos / project-releases have no successor at all. Deleting public doc pages
+is a consumer-visible contract change; restoring endpoints is roadmap work. The #741 pass
+fixed every fixable ref drift and deliberately left this mass for a decision.
+
+Options:
+
+- Delete the dead pages + nav groups and regenerate `docs/openapi.json` from the live spec
+  (`GET /v1/docs`) — smallest truthful docs tree; external consumers see the documented
+  surface shrink to what actually answers.
+- Restore the subset flowscript can back (read-only flows/runs APIs), delete the rest —
+  matches docs to product direction; costs roadmap work on a public flowscript API first.
+- Keep the pages behind a "planned API" banner — preserves inbound links; keeps documenting
+  404s in the meantime.
+
+## Product surface decisions
+
+*Added by the wave-46 truth-pass; framed as options with trade-offs — none of these is a
+decision until an owner picks one.*
+
+### ApEdition: does CLOUD survive issue #25's CE-only direction?
+
+Evidence: issue #25 (open) — "Fully remove `packages/ee/` … does Cloud still make sense as a
+deployment mode without the ee plan/billing machinery, or does this become CE-only entirely?
+(This needs a product decision, not just a mechanical removal.)". Current-tree census (grep
+over `packages/` + `services/`): 34 files reference `ApEdition.CLOUD` — 24 of them production
+code (EE platform-plan/Stripe billing, license-keys, saml-authn, appsumo, embed-security,
+mcp-permissions, flag service, email senders, platform controller/utils, tool-search reindex,
+authentication) plus 10 test files; 14 reference `ApEdition.ENTERPRISE` (11 production). The
+api integration matrix runs dedicated `ce` / `ee` / `cloud` suites.
+
+Why an owner: #25's own text flags this as a product decision, not a mechanical removal. The
+CLOUD branch sites exist to gate hosted-offering machinery (billing, plans, license keys);
+whether any of that survives decides ~38 branch sites, the 12+ EE entities #25 lists, the
+`AP_EDITION` env contract, the test matrix, and the dual-license text.
+
+Options:
+
+- CE-only, per #25's direction: remove `ENTERPRISE` and `CLOUD`, delete the ee tree, ship one
+  edition. Cleanest end-state; a hosted/billed offering then needs a fresh design rather than
+  dormant branches.
+- Keep CLOUD as the single non-CE edition (fold `ENTERPRISE` into it): keeps the billing/plan
+  machinery and the cloud test suite meaningful and preserves a hosted seam; leaves #25's
+  ee-directory removal partially open (the plan/billing modules are the ee tree).
+- Keep all three editions until the product direction lands: zero churn now; every new feature
+  keeps paying the three-way edition tax and #25 stays blocked.
+
+### Tables module: ship the REST surface, and at what export cap?
+
+Evidence: `report-k4-w39.md` §Follow-ups (item 3); `app.ts:248`
+(`// await app.register(tablesModule)` — the REST module is unmounted, so export/template 404
+today while the data layer is live: MCP table tools read the same entities); open #718's hunk
+adds `MAX_EXPORT_RECORDS = 50_000` and 500-record batched reads to `exportTable` / template.
+
+Why an owner: whether the Tables REST surface ships at all is a product call, and if it ships,
+the 50k export cap is a contract decision — a table above the cap becomes a support
+escalation, not an engineering bug — so the number wants product input rather than a default.
+
+Options:
+
+- Ship with #718's 50k cap as-is (batched reads, honest 4xx above it, cap documented in the
+  endpoint docs).
+- Ship with paginated/streaming export and no hard cap — better contract, more engineering.
+- Do not ship the REST surface; keep tables reachable only through MCP tools and delete the
+  dead controller and endpoint docs — smallest surface, drops a documented feature.
+
+### FlowScript dead-lettered runs: visibility-only, or a requeue API?
+
+Evidence: `report-n4-w42.md` §Concerns (open #730): "Dead-letter requeue deliberately NOT
+added. Replaying dead-lettered runs risks duplicate external side effects (the
+`had_non_idempotent_step` → `uncertain` semantics exist precisely to prevent blind replay).
+Visibility is the safe half."
+
+After #730, `dead_letter` / `uncertain` runs are findable (`GET /v1/runs?status=`), retained
+for triage (`FLOWSCRIPT_DEAD_LETTER_RETENTION_DAYS`, default 90) with orphaned step attempts
+finalized — but the only exit from `dead_letter` is direct SQL.
+
+Why an owner: a requeue surface is a side-effect-semantics decision, not a missing feature:
+runs reach dead-letter only after exhausting retries, and the `had_non_idempotent_step` flag
+marks exactly the runs whose replay may duplicate sends/creates on external systems.
+
+Options:
+
+- Keep visibility-only; document SQL-based triage as the supported operator path. Zero new risk
+  surface; operators get no first-class tool.
+- Requeue API gated on the idempotency flag — allow replay only for runs with no
+  non-idempotent step recorded; flagged runs stay SQL-only (documented). Adds a safe operator
+  surface with a hard invariant.
+- Full requeue API with a duplicate-side-effect confirmation and an audit event — most
+  operator-friendly; moves the safety decision from the system to the person clicking.
 
 ## Pagination philosophy: the accepted list-cap tier
 
@@ -445,6 +588,58 @@ deliberate graceful-degradation shape the engine's props-error branch also produ
 Default: pick one convention for all dropdowns: fail the props call loudly (the engine's
 error branch) for auth-class errors and degrade silently only for empty/shape cases; fix
 amazon-ses as the pattern exemplar.
+
+### `tsconfig.base.json` pins compiler options TypeScript 7 removed: pick the migration shape
+
+Evidence: issue #495 (open) — `tsconfig.base.json:9` sets `moduleResolution: "node"` (TS5108:
+removed) and `:18` `baseUrl: "."` (TS5102: removed); every package extends this base, so a
+TypeScript 7.x compiler rejects the config before checking a single file, while the repo's
+pinned `5.5.4` still tolerates it — practical severity depends on which compiler resolves.
+Two closed-unmerged attempts define the two shapes: #494 (minimal — `./` prefixes on one
+package's local `paths`, `baseUrl` kept) and #499 (full — `baseUrl` removed,
+`moduleResolution: "bundler"`, `module: "esnext"`, all 12 root mappings plus per-package
+locals rewritten relative).
+
+Why an owner: the choice fixes what `paths` means for the whole monorepo (root-relative vs
+package-relative), changes import resolution semantics (`node` → `bundler`), and interacts
+with the standing fresh-worktree trap where a per-package `"paths": {}` override silently
+kills the inherited mappings. #494 and #499 were both closed without a ruling, so the next
+contributor has two precedents and no decision.
+
+Options:
+
+- #494's shape: keep `baseUrl`, make package-local `paths` entries relative one package at a
+  time. Minimal diff; `baseUrl` remains a removed option for any TS 7 tooling.
+- #499's shape: remove `baseUrl`, switch to `bundler` resolution, rewrite every mapping
+  relative. Compiler-clean end-state; largest blast radius; needs the CI compiler pin
+  verified first (issue #495's step 3).
+- Defer and pin the compiler hard (CI matrix + `packageManager`) so the removed options never
+  load in CI — buys time; contributors' newer local compilers keep failing, and the landmine
+  stays.
+
+### CI promises coverage and junit diagnostics no test run produces
+
+Evidence: `report-r2-w45.md` §Findings item 1 — ci.yml's `Upload diagnostics` artifact lists
+`coverage/` paths and `junit.xml`, but every `test` / `test-unit` script is bare `vitest run`;
+vitest 3 emits coverage only with `coverage.enabled` / `--coverage`, and only
+`core/{shared,execution,utils}` even carry coverage blocks (none enabled); the api has no
+junit reporter configured anywhere. Empirically: running shared's suite (126 tests) produced
+no `coverage/` directory, so the artifact only ever contains logs. Open #739 corrects one
+genuinely wrong path (`packages/engine/coverage` → `packages/server/engine/coverage`) — which
+still matches nothing until a run emits coverage there.
+
+Why an owner: making coverage real is a policy commitment — CI minutes, threshold gates, and
+which packages are in scope; trimming the paths is declaring CI diagnostics = logs. Both are
+legitimate positions and neither is a mechanical fix.
+
+Options:
+
+- Trim the artifact list to what actually exists (CI logs). Honest, zero cost; loses the
+  scaffolding for a future coverage rollout.
+- Enable coverage on the three packages that already carry blocks and add a junit reporter
+  for the api — small scope, adds CI runtime, still needs a threshold decision.
+- Commit to repo-wide coverage with thresholds as a CI gate — the full policy; largest
+  runtime cost, turns every future PR red on coverage regressions.
 
 ## Below-the-bar notes (fix on touch)
 
