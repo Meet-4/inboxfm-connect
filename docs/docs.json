@@ -501,7 +501,19 @@
                         "icon": "plug",
                         "pages": [
                            "endpoints/pieces/schema",
+                           "endpoints/pieces/list",
+                           "endpoints/pieces/get",
                            "endpoints/pieces/install"
+                        ]
+                     },
+                     {
+                        "group": "Executions",
+                        "icon": "play",
+                        "pages": [
+                           "endpoints/executions/schema",
+                           "endpoints/executions/create",
+                           "endpoints/executions/list",
+                           "endpoints/executions/get"
                         ]
                      },
                      {
