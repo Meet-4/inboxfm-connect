@@ -129,15 +129,25 @@ export const clickupCommon = {
           };
         }
         const accessToken = getAccessTokenOrThrow(auth);
-        const response = await listTasks(accessToken, list_id as string);
+        const { tasks, truncated } = await listTasks(
+          accessToken,
+          list_id as string
+        );
+        const options = tasks.map((task) => {
+          return {
+            label: task.name,
+            value: task.id,
+          };
+        });
+        if (truncated) {
+          options.push({
+            label: '⚠️ Could not load all tasks (partial list)',
+            value: '__truncated_notice__',
+          });
+        }
         return {
           disabled: false,
-          options: response.tasks.map((task) => {
-            return {
-              label: task.name,
-              value: task.id,
-            };
-          }),
+          options,
         };
       },
     }),
@@ -575,14 +585,42 @@ export async function listTags(accessToken: string, spaceId: string) {
 }
 
 export async function listTasks(accessToken: string, listId: string) {
-  return (
-    await callClickUpApi<{
-      tasks: {
-        id: string;
-        name: string;
-      }[];
-    }>(HttpMethod.GET, `list/${listId}/task`, accessToken, undefined)
-  ).body;
+  // ClickUp's Get Tasks returns up to 100 tasks per page and paginates with
+  // the `page` query parameter (starts at 0)
+  // https://developer.clickup.com/reference/gettasks
+  const tasks: { id: string; name: string }[] = [];
+  const pageSize = 100;
+  const MAX_PAGES = 50;
+  let truncated = false;
+  let page = 0;
+  let lastPageSize = pageSize;
+
+  while (page < MAX_PAGES && lastPageSize === pageSize) {
+    const response = (
+      await callClickUpApi<{
+        tasks: {
+          id: string;
+          name: string;
+        }[];
+      }>(
+        HttpMethod.GET,
+        `list/${listId}/task`,
+        accessToken,
+        undefined,
+        { page: page.toString() }
+      )
+    ).body;
+    lastPageSize = Array.isArray(response.tasks) ? response.tasks.length : 0;
+    if (Array.isArray(response.tasks)) {
+      tasks.push(...response.tasks);
+    }
+    if (page >= MAX_PAGES - 1 && lastPageSize === pageSize) {
+      truncated = true;
+    }
+    page++;
+  }
+
+  return { tasks, truncated };
 }
 
 export async function retrieveChannels(
