@@ -31,6 +31,51 @@ async function fireHttpRequest({
     });
 }
 
+// Zoho Bigin v2 list endpoints return per_page records (200 by default)
+// and an info block whose more_records flag reports whether further pages
+// exist; pagination reaches up to 2000 records. The record dropdowns
+// fetched a single page, so accounts with more than 200 records of a type
+// silently lost the rest when picking a record. Walk pages at the
+// documented maximum page size with a bounded budget and report
+// truncation so dropdowns can surface a partial-list notice.
+// https://www.zoho.com/bigin/help/developer/rest-api/pagination.html
+const BIGIN_PER_PAGE = 200;
+const BIGIN_MAX_PAGES = 10;
+
+async function fetchBiginList(
+  access_token: string,
+  api_domain: string,
+  endpoint: string,
+  dataKey: 'data' | 'tags' | 'users'
+) {
+  const items: any[] = [];
+  let info: any = undefined;
+  let truncated = false;
+
+  for (let page = 1; page <= BIGIN_MAX_PAGES; page++) {
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const response = await fireHttpRequest({
+      method: HttpMethod.GET,
+      path: `${api_domain}/bigin/v2${endpoint}${separator}per_page=${BIGIN_PER_PAGE}&page=${page}`,
+      access_token,
+    });
+    const body = (response ?? {}) as any;
+    const pageItems = Array.isArray(body[dataKey]) ? body[dataKey] : [];
+    items.push(...pageItems);
+    if (body.info) {
+      info = body.info;
+    }
+    if (body?.info?.more_records !== true) {
+      break;
+    }
+    if (page === BIGIN_MAX_PAGES) {
+      truncated = true;
+    }
+  }
+
+  return { [dataKey]: items, info, truncated } as any;
+}
+
 export const biginApiService = {
   createWebhook: async (
     access_token: string,
@@ -73,6 +118,14 @@ export const biginApiService = {
       access_token,
     });
   },
+  fetchUsersPaged: async (access_token: string, api_domain: string) => {
+    return fetchBiginList(
+      access_token,
+      api_domain,
+      `${API_ENDPOINTS.USERS}?type=ActiveUsers`,
+      'users'
+    );
+  },
   createCompany: async (
     access_token: string,
     api_domain: string,
@@ -98,11 +151,12 @@ export const biginApiService = {
     });
   },
   fetchCompanies: async (access_token: string, api_domain: string) => {
-    return fireHttpRequest({
-      method: HttpMethod.GET,
-      path: `${api_domain}/bigin/v2${API_ENDPOINTS.COMPANIES}?fields=Owner,Account_Name,Phone,Website,Tag,Description,Billing_Street,Billing_State,Billing_Country,Billing_Code`,
+    return fetchBiginList(
       access_token,
-    });
+      api_domain,
+      `${API_ENDPOINTS.COMPANIES}?fields=Owner,Account_Name,Phone,Website,Tag,Description,Billing_Street,Billing_State,Billing_Country,Billing_Code`,
+      'data'
+    );
   },
   createContact: async (
     access_token: string,
@@ -133,25 +187,28 @@ export const biginApiService = {
     api_domain: string,
     module: string
   ) => {
-    return fireHttpRequest({
-      method: HttpMethod.GET,
-      path: `${api_domain}/bigin/v2${API_ENDPOINTS.TAGS}?module=${module}`,
+    return fetchBiginList(
       access_token,
-    });
+      api_domain,
+      `${API_ENDPOINTS.TAGS}?module=${module}`,
+      'tags'
+    );
   },
   fetchContacts: async (access_token: string, api_domain: string) => {
-    return fireHttpRequest({
-      method: HttpMethod.GET,
-      path: `${api_domain}/bigin/v2${API_ENDPOINTS.CONTACTS}?fields=First_Name,Last_Name,Title,Email,Mobile,Email_Opt_Out,Owner,Account_Name,Tag,Description,Mailing_Street,Mailing_City,Mailing_State,Mailing_Country,Mailing_Zip`,
+    return fetchBiginList(
       access_token,
-    });
+      api_domain,
+      `${API_ENDPOINTS.CONTACTS}?fields=First_Name,Last_Name,Title,Email,Mobile,Email_Opt_Out,Owner,Account_Name,Tag,Description,Mailing_Street,Mailing_City,Mailing_State,Mailing_Country,Mailing_Zip`,
+      'data'
+    );
   },
   fetchPipelinesRecords: async (access_token: string, api_domain: string) => {
-    return fireHttpRequest({
-      method: HttpMethod.GET,
-      path: `${api_domain}/bigin/v2${API_ENDPOINTS.PIPELINES}?fields=Deal_Name,Stage,Owner,Description,Contact_Name,Account_Name,Amount,Closing_Date,Sub_Pipeline,Tag`,
+    return fetchBiginList(
       access_token,
-    });
+      api_domain,
+      `${API_ENDPOINTS.PIPELINES}?fields=Deal_Name,Stage,Owner,Description,Contact_Name,Account_Name,Amount,Closing_Date,Sub_Pipeline,Tag`,
+      'data'
+    );
   },
   createPipelineRecord: async (
     access_token: string,
@@ -178,11 +235,12 @@ export const biginApiService = {
     });
   },
   fetchProducts: async (access_token: string, api_domain: string) => {
-    return fireHttpRequest({
-      method: HttpMethod.GET,
-      path: `${api_domain}/bigin/v2${API_ENDPOINTS.PRODUCTS}?fields=Product_Name,Owner,Product_Code,Product_Category,Unit_Price,Description,Tag,Product_Active`,
+    return fetchBiginList(
       access_token,
-    });
+      api_domain,
+      `${API_ENDPOINTS.PRODUCTS}?fields=Product_Name,Owner,Product_Code,Product_Category,Unit_Price,Description,Tag,Product_Active`,
+      'data'
+    );
   },
   fetchTasks: async (access_token: string, api_domain: string) => {
     return fireHttpRequest({

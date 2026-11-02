@@ -16,7 +16,7 @@ export const usersDropdown = Property.Dropdown({
     const { api_domain } = auth;
 
     try {
-      const response = await biginApiService.fetchUsers(
+      const response = await biginApiService.fetchUsersPaged(
         auth.access_token,
         api_domain
       );
@@ -37,6 +37,13 @@ export const usersDropdown = Property.Dropdown({
           value: user.id,
         };
       });
+
+      if (response.truncated) {
+        options.push({
+          label: '⚠️ Could not load all records (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
 
       return {
         disabled: false,
@@ -61,11 +68,19 @@ export const companyDropdown = Property.Dropdown({
       auth.access_token,
       auth.api_domain
     );
-    return {
-      options: resp.data.map((a: any) => ({
+    const options = resp.data.map((a: any) => ({
         label: a.Account_Name,
         value: a.id,
-      })),
+      }));
+    if (resp.truncated) {
+      options.push({
+        label: '⚠️ Could not load all records (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
+
+    return {
+      options,
     };
   },
 });
@@ -83,11 +98,19 @@ export const contactsDropdown = Property.Dropdown({
       auth.access_token,
       auth.api_domain
     );
-    return {
-      options: resp.data.map((a: any) => ({
+    const options = resp.data.map((a: any) => ({
         label: a.First_Name + ' ' + a.Last_Name,
         value: a.id,
-      })),
+      }));
+    if (resp.truncated) {
+      options.push({
+        label: '⚠️ Could not load all records (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
+
+    return {
+      options,
     };
   },
 });
@@ -105,11 +128,19 @@ export const multiContactsDropdown = Property.MultiSelectDropdown({
       auth.access_token,
       auth.api_domain
     );
-    return {
-      options: resp.data.map((a: any) => ({
+    const options = resp.data.map((a: any) => ({
         label: a.First_Name + ' ' + a.Last_Name,
         value: a.id,
-      })),
+      }));
+    if (resp.truncated) {
+      options.push({
+        label: '⚠️ Could not load all records (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
+
+    return {
+      options,
     };
   },
 });
@@ -127,11 +158,19 @@ export const pipelineRecordsDropdown = Property.Dropdown({
       auth.access_token,
       auth.api_domain
     );
-    return {
-      options: resp.data.map((a: any) => ({
+    const options = resp.data.map((a: any) => ({
         label: a.Deal_Name,
         value: JSON.stringify(a),
-      })),
+      }));
+    if (resp.truncated) {
+      options.push({
+        label: '⚠️ Could not load all records (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
+
+    return {
+      options,
     };
   },
 });
@@ -177,11 +216,19 @@ export const productsDropdown = Property.MultiSelectDropdown({
       return handleDropdownError('No products found. Please add products first.');
     }
 
-    return {
-      options: resp.data.map((a: any) => ({
+    const options = resp.data.map((a: any) => ({
         label: a.Product_Name,
         value: JSON.stringify(a),
-      })),
+      }));
+    if (resp.truncated) {
+      options.push({
+        label: '⚠️ Could not load all records (partial list)',
+        value: '__truncated_notice__',
+      });
+    }
+
+    return {
+      options,
     };
   },
 });
@@ -207,11 +254,19 @@ export const tagsDropdown = (module: string, defaultValue?: string[]) => Propert
         return handleDropdownError('No tags found. Please add tags first.');
       }
 
-      return {
-        options: tags.map((a: any) => ({
+      const options = tags.map((a: any) => ({
           label: a.name,
           value: a.name,
-        })),
+        }));
+      if (resp.truncated) {
+        options.push({
+          label: '⚠️ Could not load all records (partial list)',
+          value: '__truncated_notice__',
+        });
+      }
+
+      return {
+        options,
       };
     } catch (e) {
       return handleDropdownError('Failed to load tags');
