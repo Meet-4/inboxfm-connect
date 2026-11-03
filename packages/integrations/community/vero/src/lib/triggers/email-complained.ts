@@ -24,7 +24,28 @@ export const emailComplained = createTrigger({
   `,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    complained_at: 1762000000,
+    type: 'complained',
+    user: {
+      id: 123,
+      email: 'steve@getvero.com',
+    },
+    event: {
+      data: {
+        key: 'value',
+      },
+      name: 'Test event',
+      triggered_at: 1761900000,
+    },
+    campaign: {
+      id: 987,
+      type: 'transactional',
+      name: 'Order confirmation',
+      group: 'Order confirmation - Email 6',
+      channel: 'email',
+    },
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     // implement webhook creation logic
