@@ -43,12 +43,18 @@ export const findSubscriberAction = createAction({
             CustomFields:transformCustomFields(response.body['CustomFields'])
         },
       };
-    } catch (error) {
-      // If subscriber is not found, API returns a 404
-      return {
-        found: false,
-        result: null,
-      };
+    } catch (error: any) {
+      // Campaign Monitor signals a missing subscriber as HTTP 400 with body
+      // Code 203 ("Subscriber Not In List"), not a 404 — see
+      // https://www.campaignmonitor.com/api/subscribers/. Only that case is a
+      // genuine miss; auth, rate-limit and server failures must surface.
+      if (error?.response?.status === 400 && error?.response?.body?.Code === 203) {
+        return {
+          found: false,
+          result: null,
+        };
+      }
+      throw error;
     }
   },
 });
