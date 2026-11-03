@@ -23,7 +23,7 @@ export const messagebird = createPiece({
       auth: birdAuth,
       authMapping: async (auth) => {
         return {
-          Authorization: `Bearer ${(auth.props as BirdAuthValue).apiKey}`,
+          Authorization: `AccessKey ${(auth.props as BirdAuthValue).apiKey}`,
         };
       }
     }),

@@ -181,7 +181,7 @@ export const kizeoFormsCommon = {
           }
         }
       } catch (e) {
-        console.debug(e);
+        throw e instanceof Error ? e : new Error(String(e));
       }
 
       return fields;
@@ -267,7 +267,7 @@ export const kizeoFormsCommon = {
           }
         }
       } catch (e) {
-        console.debug(e);
+        throw e instanceof Error ? e : new Error(String(e));
       }
 
       return properties;

@@ -341,7 +341,7 @@ export const createSubmission = createAction({
 
           return fields;
         } catch (error) {
-          return {};
+          throw error;
         }
       },
     }),
