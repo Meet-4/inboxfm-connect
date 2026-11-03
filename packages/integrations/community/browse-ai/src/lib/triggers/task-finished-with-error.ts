@@ -112,7 +112,7 @@ export const taskFinishedWithErrorTrigger = createTrigger({
       event: string;
     };
 
-    if (payload.event !== 'task.finishedWithError') return [];
+    if (payload.event !== 'taskFinishedWithError') return [];
 
     return [payload.task];
   },
