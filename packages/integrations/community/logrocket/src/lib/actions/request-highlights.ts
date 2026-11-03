@@ -48,7 +48,9 @@ export const requestHighlights = createAction({
   },
   async run(context) {
     const { orgId, projectId, userEmail, userId, timeRangeStart, timeRangeEnd, webhookUrl } = context.propsValue;
-    const apiKey = context.auth;
+    // SecretText connection value is `{ secret_text }` — interpolating the whole
+    // object would send "Authorization: token [object Object]" (401 on every call).
+    const apiKey = context.auth.secret_text;
 
     if (!userEmail && !userId) {
       throw new Error('Either userEmail or userId must be provided');

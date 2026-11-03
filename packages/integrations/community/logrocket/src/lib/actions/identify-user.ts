@@ -48,7 +48,9 @@ export const identifyUser = createAction({
   },
   async run(context) {
     const { orgId, appId, userId, name, email, timestamp, traits } = context.propsValue;
-    const apiKey = context.auth;
+    // SecretText connection value is `{ secret_text }` — interpolating the whole
+    // object would send "Authorization: token [object Object]" (401 on every call).
+    const apiKey = context.auth.secret_text;
 
     const body: Record<string, unknown> = {};
 
