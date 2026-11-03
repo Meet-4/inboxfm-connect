@@ -44,7 +44,15 @@ export const airtableNewRecordTrigger = createTrigger({
       'Fires when a new record is created in the selected base and table (optionally scoped to a view), polling on each record\'s creation time. Represents a newly added row.',
   },
   props,
-  sampleData: {},
+  sampleData: {
+    id: 'recA1b2C3d4E5f6G7',
+    createdTime: '2026-10-15T10:30:00.000Z',
+    fields: {
+      Name: 'Jane Doe',
+      Email: 'jane.doe@example.com',
+      Status: 'active',
+    },
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);
