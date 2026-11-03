@@ -42,7 +42,9 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof sftpAuth>, { pat
         };
       });
     } catch (err) {
-      return [];
+      // Rethrow so connection/auth/path failures surface in the run log
+      // instead of silently looking like "no new files".
+      throw err;
     } finally {
       if (client) {
         await endClient(client, auth.props.protocol);
