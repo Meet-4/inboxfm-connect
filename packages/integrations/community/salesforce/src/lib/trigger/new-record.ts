@@ -31,7 +31,23 @@ export const newRecord = createTrigger({
       required: false,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    attributes: {
+      type: 'Lead',
+      url: 'https://acme-dev-ed.my.salesforce.com/services/data/v59.0/sobjects/Lead/00Qxx000000000123',
+    },
+    Id: '00Qxx000000000123',
+    IsDeleted: false,
+    FirstName: 'Jane',
+    LastName: 'Doe',
+    Company: 'Acme Corp',
+    Email: 'jane.doe@example.com',
+    Phone: '+15550100',
+    Status: 'Working - Contacted',
+    CreatedDate: '2026-10-15T10:30:00.000+0000',
+    LastModifiedDate: '2026-10-15T10:30:00.000+0000',
+    SystemModstamp: '2026-10-15T10:30:00.000+0000',
+  },
   type: TriggerStrategy.POLLING,
   async test(ctx) {
     return await pollingHelper.test(polling, {
