@@ -51,9 +51,12 @@ export const smsReceived = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload.body as any;
-
-    // Return the webhook payload as a single item
-    return [payload];
+    // A VoIPstudio webhook can listen for several event types, so only emit
+    // deliveries matching this trigger's event.
+    const body = context.payload.body as { event_name?: string };
+    if (body?.event_name !== 'sms.received') {
+      return [];
+    }
+    return [body];
   },
 });

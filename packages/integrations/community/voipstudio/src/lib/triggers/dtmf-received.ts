@@ -59,6 +59,13 @@ export const dtmfReceived = createTrigger({
     // VoIPStudio webhooks are disabled manually in the admin panel
   },
   async run(context) {
-    return [context.payload.body];
+    // A VoIPstudio webhook can listen for several event types (the "Call
+    // State Change" selection delivers every call state), so only emit
+    // deliveries matching this trigger's event.
+    const body = context.payload.body as { event_name?: string };
+    if (body?.event_name !== 'call.dtmf') {
+      return [];
+    }
+    return [body];
   },
 });

@@ -61,6 +61,13 @@ export const callConnected = createTrigger({
     // No additional cleanup needed on our side
   },
   async run(context) {
-    return [context.payload.body];
+    // A VoIPstudio webhook can listen for several event types (the "Call
+    // State Change" selection delivers every call state), so only emit
+    // deliveries matching this trigger's event.
+    const body = context.payload.body as { event_name?: string };
+    if (body?.event_name !== 'call.connected') {
+      return [];
+    }
+    return [body];
   },
 });
