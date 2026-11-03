@@ -15,7 +15,7 @@ import type {
 const markdown = `
 To authenticate with Letta:
 
-1. **For Letta Cloud**: Get your API key from [Letta Cloud](https://cloud.letta.ai)
+1. **For Letta Cloud**: Get your API key from [Letta Cloud](https://app.letta.com/settings)
 2. **For Self-hosted**: Leave API key empty and provide your server URL (e.g., http://localhost:8283)
 `;
 
