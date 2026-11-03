@@ -14,7 +14,14 @@ export const updatedOpportunityStatus = createTrigger({
       "Fires only when an opportunity's status changes in Copper CRM, e.g. Open to Won/Lost/Abandoned (other opportunity edits are ignored), via a Copper webhook. Emits a status-change event with the previous and current status.",
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 24680,
+    change_type: 'status_change',
+    previous_status: 'open',
+    current_status: 'won',
+    subscription_id: 398712,
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

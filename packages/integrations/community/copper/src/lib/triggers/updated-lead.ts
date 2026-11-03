@@ -14,7 +14,16 @@ export const updatedLead = createTrigger({
       'Fires when an existing lead is modified in Copper CRM (any field change), via a Copper webhook. Emits the updated lead record.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    ids: [13579],
+    type: 'lead',
+    event: 'update',
+    subscription_id: 398712,
+    updated_attributes: {
+      status: ["new", "working"],
+    },
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

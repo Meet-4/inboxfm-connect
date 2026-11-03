@@ -14,7 +14,16 @@ export const updatedProject = createTrigger({
       'Fires when an existing project is modified in Copper CRM (any field change), via a Copper webhook. Emits the updated project record.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    ids: [13579],
+    type: 'project',
+    event: 'update',
+    subscription_id: 398712,
+    updated_attributes: {
+      name: ["Website Revamp", "Website Revamp Phase 2"],
+    },
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {
