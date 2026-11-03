@@ -16,7 +16,10 @@ export const newDocumentNotProcessed = createTrigger({
   props: {
     mailboxId: parserDropdown({ required: false }),
   },
-  sampleData: {},
+  sampleData: {
+    text: 'New template needed for document 1e2e34cba5c678a9012f3e456c789a0f: no matching template was found',
+    DocumentID: '1e2e34cba5c678a9012f3e456c789a0f',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await parseurCommon.createWebhook({

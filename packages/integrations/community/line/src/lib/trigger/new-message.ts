@@ -27,7 +27,25 @@ export const newMessage = createTrigger({
     }),
   },
   type: TriggerStrategy.WEBHOOK,
-  sampleData: {},
+  sampleData: {
+    type: 'message',
+    mode: 'active',
+    webhookEventId: '01FZ7A8HqM3vBcD2EfGhIjKlMnOpQrStUvW',
+    deliveryContext: {
+      isRedelivery: false,
+    },
+    timestamp: 1762000000000,
+    source: {
+      type: 'user',
+      userId: 'U4af4980629a1e3c6e5d7b8c9d0e1f2a3',
+    },
+    replyToken: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6',
+    message: {
+      id: '3257080000000001',
+      type: 'text',
+      text: 'Hello, world!',
+    },
+  },
   async onEnable(context) {
     // Empty
   },

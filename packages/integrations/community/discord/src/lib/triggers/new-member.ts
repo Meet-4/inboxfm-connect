@@ -72,7 +72,15 @@ export const newMember = createTrigger({
       required: true,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    user: {
+      id: '803511102246784512',
+      username: 'jane.doe',
+      discriminator: '0',
+      avatar: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+    },
+    joined_at: '2026-10-15T10:30:00.000000+00:00',
+  },
   onEnable: async (context) => {
     await pollingHelper.onEnable(polling, {
       auth: context.auth,

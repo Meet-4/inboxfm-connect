@@ -63,7 +63,12 @@ export const alertForQuery = createTrigger({
       required: false,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    query: 'I want to be alerted if there is a protest in paris',
+    reasoning: 'Multiple licensed news sources report a protest currently taking place in central Paris, matching the alert criteria.',
+    message: 'A protest is currently taking place in central Paris.',
+    report_url: 'https://asknews.app/newsplunker/reports/173047ef-0c30-4937-9cdc-e06a7d7a07b0.pdf',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const { auth, propsValue, webhookUrl } = context;

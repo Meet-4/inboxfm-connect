@@ -27,7 +27,21 @@ export default createTrigger({
       required: false,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    exists: true,
+    id: '3vHbQs',
+    content: 'print(\'hello world\')',
+    title: 'example script',
+    encrypted: false,
+    folder: 'folder-1a2b3c4d',
+    user_id: 'user_5f8a9b',
+    visibility: 'UNLISTED',
+    forked_from: '1a2b3c4d',
+    raw_url: 'https://pastefy.app/3vHbQs/raw',
+    type: 'PASTE',
+    created_at: '2026-10-15T10:20:00.000Z',
+    expire_at: '2026-10-22T10:20:00.000Z',
+  },
   onEnable: async (context) => {
     const client = makeClient(context.auth, context.propsValue);
     const paste = await client.getPaste(context.propsValue.paste_id);

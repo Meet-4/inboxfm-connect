@@ -61,7 +61,18 @@ export const newOpportunity = createTrigger({
     }),
   },
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    id: 'op9Kd3fT2xQpL',
+    name: 'Acme renewal',
+    pipelineId: 'pipeline01',
+    pipelineStageId: 'stage02',
+    contactId: 'DWQ45t2IPVxi9LDu1wBl',
+    status: 'open',
+    monetaryValue: 1500,
+    assignedTo: 'FFIlZv9yV8nW4b05UR3l',
+    createdAt: '2026-10-15T10:30:00.000Z',
+    updatedAt: '2026-10-15T10:30:00.000Z',
+  },
 
   onEnable: async (context) => {
     await pollingHelper.onEnable(polling, {

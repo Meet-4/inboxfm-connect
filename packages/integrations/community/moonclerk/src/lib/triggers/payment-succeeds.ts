@@ -29,7 +29,27 @@ export const paymentSucceeds = createTrigger({
                                 `,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    id: 1348394,
+    date: '2026-10-15T10:30:00Z',
+    status: 'successful',
+    currency: 'USD',
+    amount: 1000,
+    fee: 59,
+    amount_refunded: 0,
+    amount_description: 'Option A',
+    name: 'Jim Customer',
+    email: 'jim@example.com',
+    payment_method: {
+      type: 'card',
+      last4: '4242',
+      brand: 'Visa',
+    },
+    charge_reference: 'ch_3ohpsF8ra5rqjj',
+    customer_id: 53453,
+    customer_reference: 'cus_4SOZuEc4cxP5L7',
+    form_id: 112,
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     // implement webhook creation logic

@@ -68,7 +68,13 @@ export const messageReceived = createTrigger({
       defaultValue: 50,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    orderId: 'ord_1a2b3c4d5e6f',
+    status: 'paid',
+    amount: 1999,
+    currency: 'USD',
+    customer_email: 'jane.doe@example.com',
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     const { store, auth, propsValue } = context;

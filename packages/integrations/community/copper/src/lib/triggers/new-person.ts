@@ -14,7 +14,13 @@ export const newPerson = createTrigger({
       'Fires when a new person (contact) is created in Copper CRM, via a Copper webhook. Emits the newly created person record.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    ids: [13579],
+    type: 'person',
+    event: 'new',
+    subscription_id: 398712,
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

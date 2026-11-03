@@ -15,7 +15,14 @@ export const updatedLeadStatus = createTrigger({
         "Fires only when a lead's status changes in Copper CRM (other lead edits are ignored), via a Copper webhook. Emits a status-change event with the previous and current status.",
     },
     props: {},
-    sampleData: {},
+    sampleData: {
+      id: 13579,
+      change_type: 'status_change',
+      previous_status: 'new',
+      current_status: 'working',
+      subscription_id: 398712,
+      timestamp: '2026-10-15T10:30:00.084Z',
+    },
     type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

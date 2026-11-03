@@ -26,7 +26,15 @@ export const newLead = createTrigger({
       value: message,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    response: {
+      email: 'jane.doe@example.com',
+      name: 'Jane Doe',
+    },
+    popupID: '292',
+    responseID: 2195,
+    timestamp: 'Tue, 15 Oct 2026 10:30:00 GMT',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable() {
     // ignore

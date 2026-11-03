@@ -59,7 +59,14 @@ export const newFormSubmission = createTrigger({
     }),
   },
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    id: '38303ec7-629a-49e2-888a-cf8bf0b1f97e',
+    contactId: 'DWQ45t2IPVxi9LDu1wBl',
+    createdAt: '2026-10-15T10:30:00.000Z',
+    formId: 'YSWdvS4Is98wtIDGnpmI',
+    name: 'test',
+    email: 'test@test.com',
+  },
 
   onEnable: async (context) => {
     await pollingHelper.onEnable(polling, {

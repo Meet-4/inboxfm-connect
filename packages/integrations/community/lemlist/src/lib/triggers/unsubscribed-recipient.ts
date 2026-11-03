@@ -13,7 +13,16 @@ export const unsubscribedRecipient = createTrigger({
     description: 'Fires via webhook when a recipient unsubscribes from outreach (Lemlist emailsUnsubscribed event). Represents an opt-out signal for a single lead.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    _id: 'act_5f8a9b2c3d4e5f6a7b8c9d0e',
+    type: 'emailsUnsubscribed',
+    campaignId: 'cam_A1B2C3D4E5F6G7H8I9',
+    campaignName: 'Q4 outreach',
+    email: 'jane.doe@example.com',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    companyName: 'Acme Corp',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await lemlistApiService.createWebhook(context.auth, {

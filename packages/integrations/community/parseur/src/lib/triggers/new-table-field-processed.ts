@@ -16,7 +16,18 @@ export const newTableFieldProcessed = createTrigger({
   props: {
     mailboxId: parserDropdown({ required: true }),
   },
-  sampleData: {},
+  sampleData: [
+    {
+    sku: 'ABC',
+    qty: 2,
+    DocumentID: '1e2e34cba5c678a9012f3e456c789a0f',
+    },
+    {
+    sku: 'XYZ',
+    qty: 1,
+    DocumentID: '1e2e34cba5c678a9012f3e456c789a0f',
+    },
+  ],
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await parseurCommon.createWebhook({

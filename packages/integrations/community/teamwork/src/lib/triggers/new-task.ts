@@ -75,7 +75,23 @@ auth: teamworkAuth,
 		}
 		return [payload];
 	},
-	sampleData: {},
+	sampleData: {
+		eventCreator: {
+			id: 238860,
+			firstName: 'Marc',
+			lastName: 'Cashman',
+			avatar: 'https://s3.amazonaws.com/TWFiles/343429/userAvatar/userImg_343429_238860.png',
+		},
+		task: {
+			id: 41276638,
+			name: 'Draft the Q4 launch plan',
+			description: 'First draft of the Q4 launch plan',
+			projectId: 732893,
+			tasklistId: 1518546,
+			dateCreated: '2026-10-15T10:30:00Z',
+			dateUpdated: '2026-10-15T10:30:00Z',
+		},
+	},
 });
 
 

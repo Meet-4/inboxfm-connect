@@ -14,7 +14,18 @@ export const newCompanyCreated = createTrigger({
     description: 'Fires when a new company (account) record is created in Bigin CRM, via an Accounts.create webhook. Represents a newly added organization.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    server_time: 1762000000000,
+    query_params: {
+    },
+    module: 'Accounts',
+    resource_uri: 'https://www.zohoapis.com/bigin/v2/Accounts',
+    ids: ["1770000123456001"],
+    affected_fields: [],
+    operation: 'insert',
+    channel_id: '1770000000000',
+    token: 'bigin_webhook_token',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     try {

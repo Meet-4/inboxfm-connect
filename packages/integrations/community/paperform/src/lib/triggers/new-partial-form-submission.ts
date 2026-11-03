@@ -103,7 +103,21 @@ export const newPartialFormSubmission = createTrigger({
       };
     });
   },
-  sampleData: {},
+  sampleData: {
+    id: 'ps_1a2b3c4d5e6f7g8h',
+    form_id: 'contact-us',
+    data: {
+      'Full Name': 'Jane Doe',
+    },
+    last_answered: '1',
+    submitted_at: '',
+    updated_at: '2026-10-15T10:25:00.000000Z',
+    created_at: '2026-10-15T10:20:00.000000Z',
+    account_timezone: 'UTC',
+    submitted_at_utc: '',
+    created_at_utc: '2026-10-15T10:20:00.000000Z',
+    updated_at_utc: '2026-10-15T10:25:00.000000Z',
+  },
 });
 
 interface Payload {

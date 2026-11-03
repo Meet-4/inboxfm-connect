@@ -91,7 +91,13 @@ export const newRowTrigger = createTrigger({
     }),
   },
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    ID: 101,
+    NAME: 'Jane Doe',
+    EMAIL: 'jane.doe@example.com',
+    STATUS: 'NEW',
+    CREATED_AT: '2026-10-15T10:30:00Z',
+  },
 
   async onEnable(context) {
     await pollingHelper.onEnable(polling, {

@@ -173,7 +173,12 @@ export const newRow = createTrigger({
       defaultValue: 'DESC',
     }),
   },
-  sampleData: {},
+  sampleData: {
+    id: 'user:9f8e7d6c5b4a4321',
+    name: 'Jane Doe',
+    email: 'jane.doe@example.com',
+    created_at: '2026-10-15T10:30:00Z',
+  },
   type: TriggerStrategy.POLLING,
   auth: surrealdbAuth,
   async test(context) {

@@ -14,7 +14,18 @@ export const newEventCreated = createTrigger({
     description: 'Fires when a new calendar event is created in Bigin CRM, via an Events.create webhook. Represents a newly scheduled meeting or appointment.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    server_time: 1762000000000,
+    query_params: {
+    },
+    module: 'Events',
+    resource_uri: 'https://www.zohoapis.com/bigin/v2/Events',
+    ids: ["1770000123456001"],
+    affected_fields: [],
+    operation: 'insert',
+    channel_id: '1770000000000',
+    token: 'bigin_webhook_token',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     try {

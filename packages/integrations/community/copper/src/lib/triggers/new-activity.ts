@@ -60,7 +60,21 @@ export const newActivity = createTrigger({
       'Fires when a new activity (note or logged interaction) is recorded in Copper CRM. Polls for activities by creation date, emitting one event per newly logged activity.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 123456,
+    name: 'Call with Acme Corp',
+    details: 'Discussed pricing options and agreed on next steps',
+    assignee_id: 98765,
+    custom_activity_type_id: 456,
+    parent: {
+      type: 'lead',
+      id: 13579,
+    },
+    activity_date: 1762000000,
+    date_created: 1762000000,
+    date_modified: 1762000100,
+    tags: ["pricing"],
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);

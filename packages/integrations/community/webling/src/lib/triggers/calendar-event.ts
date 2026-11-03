@@ -42,7 +42,44 @@ export const onEventChanged = createTrigger({
   props: {
     calendarId: weblingCommon.calendarDropdown(),
   },
-  sampleData: {},
+  sampleData: {
+    type: 'calendarevent',
+    meta: {
+      created: '2026-10-15T10:20:00+02:00',
+      createuser: {
+        label: 'Jane Doe',
+        type: 'user',
+      },
+      lastmodified: '2026-10-15T10:30:00+02:00',
+      lastmodifieduser: {
+        label: 'Jane Doe',
+        type: 'user',
+      },
+    },
+    readonly: false,
+    properties: {
+      title: 'Team meeting',
+      description: 'Weekly team sync',
+      place: 'Room 1',
+      begin: '2026-10-16T10:00:00+02:00',
+      end: '2026-10-16T11:00:00+02:00',
+      duration: '01:00:00',
+      isAllDay: false,
+      isRecurring: false,
+      status: 'confirmed',
+      recurrencePattern: null,
+      enableParticipantSignup: false,
+      enableParticipantMaybeState: false,
+      isSignupBinding: false,
+      maxParticipants: null,
+      signedupParticipants: '0',
+      signupAllowedUntil: null,
+      doAutoAcceptParticipants: false,
+      questionSchema: null,
+      showParticipationsInPortal: false,
+      showAllAnswersInPortal: false,
+    },
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     const { store, auth, propsValue } = context;

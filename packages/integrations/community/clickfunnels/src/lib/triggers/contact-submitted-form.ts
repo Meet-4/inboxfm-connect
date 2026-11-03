@@ -19,7 +19,29 @@ export const contactSubmittedForm = createTrigger({
     teamId: teamsDropdown(['auth']),
     workspaceId: workspacesDropdown(['auth', 'teamId']),
   },
-  sampleData: {},
+  sampleData: {
+    data: {
+      id: 3101,
+      public_id: 'sbU9vW',
+      contact_id: 236296209,
+      workspace_id: 42,
+      page_id: 81023,
+      created_at: '2026-10-15T10:30:00.000Z',
+      updated_at: '2026-10-15T10:30:00.000Z',
+      data: {
+        email_address: 'bob@example.com',
+        first_name: 'Bob',
+        last_name: 'Dullan',
+      },
+    },
+    event_id: '9d3a2f71-2b64-4f61-8b1d-4f6dc0f6a1c2',
+    event_type: 'form_submission.created',
+    subject_id: 3101,
+    subject_type: 'FormSubmission',
+    created_at: '2026-10-15T10:30:00.000Z',
+    page_id: null,
+    funnel_id: null,
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable({ auth, webhookUrl, propsValue: { workspaceId }, store }) {
     if (!workspaceId) {

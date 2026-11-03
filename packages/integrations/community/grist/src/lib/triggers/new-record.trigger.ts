@@ -19,7 +19,12 @@ export const gristNewRecordTrigger = createTrigger({
     readiness_column: commonProps.readiness_column,
   },
   type: TriggerStrategy.WEBHOOK,
-  sampleData: {},
+  sampleData: {
+    id: 7,
+    Name: 'Alice Smith',
+    Email: 'alice@example.com',
+    Status: 'new',
+  },
   async onEnable(context) {
     const documentId = context.propsValue.document_id;
     const tableId = context.propsValue.table_id;

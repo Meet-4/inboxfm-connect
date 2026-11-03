@@ -14,7 +14,16 @@ export const updatedOpportunity = createTrigger({
       'Fires when an existing opportunity (deal) is modified in Copper CRM (any field change), via a Copper webhook. Emits the updated opportunity record. For stage- or status-specific changes use the dedicated Updated Opportunity Stage / Status triggers instead.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    ids: [13579],
+    type: 'opportunity',
+    event: 'update',
+    subscription_id: 398712,
+    updated_attributes: {
+      name: ["Acme renewal", "Acme renewal Q4"],
+    },
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

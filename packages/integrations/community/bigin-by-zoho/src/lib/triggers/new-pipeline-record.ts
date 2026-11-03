@@ -14,7 +14,18 @@ export const newPipelineRecordCreated = createTrigger({
     description: 'Fires when a new pipeline record (deal) is created in Bigin CRM, via a Pipelines.create webhook. Represents a newly opened sales opportunity.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    server_time: 1762000000000,
+    query_params: {
+    },
+    module: 'Pipelines',
+    resource_uri: 'https://www.zohoapis.com/bigin/v2/Pipelines',
+    ids: ["1770000123456001"],
+    affected_fields: [],
+    operation: 'insert',
+    channel_id: '1770000000000',
+    token: 'bigin_webhook_token',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     try {

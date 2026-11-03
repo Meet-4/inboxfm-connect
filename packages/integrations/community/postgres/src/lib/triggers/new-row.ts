@@ -182,7 +182,13 @@ export const newRow = createTrigger({
             defaultValue: 'DESC',
         }),
     },
-    sampleData: {},
+    sampleData: {
+    id: 101,
+    name: 'Jane Doe',
+    email: 'jane.doe@example.com',
+    status: 'new',
+    created_at: '2026-10-15 10:30:00',
+  },
     type: TriggerStrategy.POLLING,
     async test(context) {
         return await pollingHelper.test(polling, context);

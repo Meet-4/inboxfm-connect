@@ -14,7 +14,10 @@ export const newDocumentExportFailed = createTrigger({
       'Fires when delivering a successfully parsed document to a configured export target (webhook or downstream integration) fails for the selected Parseur mailbox. Use to detect and handle export/delivery failures.',
   },
   props: { mailboxId: parserDropdown({ required: true }) },
-  sampleData: {},
+  sampleData: {
+    text: 'Export failed for document 1e2e34cba5c678a9012f3e456c789a0f: target endpoint returned 500 Internal Server Error',
+    DocumentID: '1e2e34cba5c678a9012f3e456c789a0f',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await parseurCommon.createWebhook({

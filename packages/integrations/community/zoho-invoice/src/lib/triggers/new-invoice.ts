@@ -77,5 +77,29 @@ export const newInvoice = createTrigger({
     });
   },
 
-  sampleData: {},
+  sampleData: {
+    invoice_id: '460000000045033',
+    invoice_number: 'INV-00004',
+    customer_id: '460000000017103',
+    customer_name: 'Bowman and Co',
+    status: 'sent',
+    date: '2026-10-15',
+    due_date: '2026-10-25',
+    total: 407.5,
+    balance: 407.5,
+    created_time: '1762000000',
+    line_items: [
+      {
+        line_item_id: '460000000062003',
+        item_id: '460000000027009',
+        name: 'Consulting services',
+        description: 'October retainer',
+        rate: 350,
+        quantity: 1,
+        unit: null,
+        amount: 350,
+        discount: 0,
+      },
+    ],
+  },
 });

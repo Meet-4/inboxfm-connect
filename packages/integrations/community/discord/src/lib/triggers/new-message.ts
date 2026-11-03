@@ -64,7 +64,27 @@ export const newMessage = createTrigger({
     }),
     channel: discordCommon.channel,
   },
-  sampleData: {},
+  sampleData: {
+    id: '1294312755767377920',
+    type: 0,
+    content: 'The deployment is done, please review',
+    channel_id: '1029384756473829104',
+    author: {
+      id: '803511102246784512',
+      username: 'jane.doe',
+    },
+    attachments: [],
+    embeds: [],
+    mentions: [],
+    mention_roles: [],
+    pinned: false,
+    mention_everyone: false,
+    tts: false,
+    timestamp: '2026-10-15T10:30:00.000000+00:00',
+    edited_timestamp: null,
+    flags: 0,
+    components: [],
+  },
   onEnable: async (context) => {
     await pollingHelper.onEnable(polling, {
       auth: context.auth,

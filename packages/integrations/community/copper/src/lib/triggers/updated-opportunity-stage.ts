@@ -14,7 +14,20 @@ export const updatedOpportunityStage = createTrigger({
       'Fires only when an opportunity moves to a different pipeline stage in Copper CRM (other opportunity edits are ignored), via a Copper webhook. Emits a stage-change event with the previous and current stage id and label.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 24680,
+    change_type: 'stage_change',
+    previous_stage_id: 1770055,
+    current_stage_id: 1770056,
+    previous_stage_label: 'New Opportunity',
+    current_stage_label: 'Qualification',
+    previous_last_stage_at: 1761400000,
+    current_last_stage_at: 1762000000,
+    previous_days_in_stage: 12,
+    current_days_in_stage: 0,
+    subscription_id: 398712,
+    timestamp: '2026-10-15T10:30:00.084Z',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const response = await CopperApiService.createWebhook(context.auth, {

@@ -12,7 +12,40 @@ export const newResponse = createTrigger({
       'Fires when a respondent submits a new response to the selected SurveyMonkey survey. Emits the full submitted response, including the survey identifier, response ID, and the respondent answers, fetched from the SurveyMonkey API.',
   },
   type: TriggerStrategy.WEBHOOK,
-  sampleData: {},
+  sampleData: {
+    total_time: 144,
+    ip_address: '192.168.4.16',
+    recipient_id: '',
+    id: '5007154402',
+    logic_path: {},
+    metadata: {},
+    date_modified: '2026-10-15T21:59:38+00:00',
+    response_status: 'completed',
+    custom_variables: {},
+    collection_mode: 'default',
+    first_type: 'link',
+    first_class: 'user',
+    page_path: [],
+    analyze_url: 'https://www.surveymonkey.com/analyze/browse/5007154402_1',
+    pages: [
+      {
+        id: '123397733',
+        questions: [
+          {
+            id: '123397734',
+            answers: [
+              {
+                row: null,
+                column: null,
+                choice_id: '123397735',
+                text: 'Yes',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
   props: {
     survey: smCommon.survey,
   },
