@@ -56,7 +56,11 @@ export const drupalPollingId = createTrigger({
       required: true,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    entity_type: 'node',
+    entity_id: '42',
+    title: 'Data pushed by the Drupal poll',
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     const { auth, propsValue, store, files } = context;

@@ -26,7 +26,10 @@ export const drupalWebhook = createTrigger({
       required: true,
     }),
   },
-  sampleData: {},
+  sampleData: {
+    event: 'Drupal webhook event',
+    data: 'Payload sent by the Drupal site',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const { website_url, username, password } = context.auth.props;
