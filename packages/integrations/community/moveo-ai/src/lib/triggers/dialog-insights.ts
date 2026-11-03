@@ -38,6 +38,14 @@ export const dialogInsights = createTrigger({
   async run(context) {
     const body = (context.payload.body);
     const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
+    // Moveo event notifications carry the event name in event_type (the
+    // same value rides the X-Moveo-Event header); docs.moveo.ai lists
+    // dialog:expired and dialog:insights as the only event-notification
+    // types, so a URL shared across notifications only fires its own event.
+    const eventType = (parsedBody as { event_type?: string })?.event_type;
+    if (eventType !== 'dialog:insights') {
+      return [];
+    }
     return [parsedBody];
   },
 });

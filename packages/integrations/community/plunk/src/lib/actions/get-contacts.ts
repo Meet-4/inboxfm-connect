@@ -7,7 +7,9 @@ import {
 import { PLUNK_BASE_URL, plunkAuth } from '../auth';
 
 type PlunkContactsPage = {
-  data?: unknown[];
+  // GET /contacts on next-api.useplunk.com returns the page under `contacts`
+  // (see https://docs.useplunk.com/api-reference/endpoints/contacts).
+  contacts?: unknown[];
   cursor?: string | null;
   hasMore?: boolean;
 };
@@ -49,8 +51,8 @@ export const getContacts = createAction({
       });
 
       const body = response.body as PlunkContactsPage;
-      if (body.data?.length) {
-        items.push(...body.data);
+      if (body.contacts?.length) {
+        items.push(...body.contacts);
       }
 
       if (!body.hasMore || !body.cursor) {

@@ -48,8 +48,9 @@ export const existsTask = createAction({
         return 0;
       }
     } catch (error) {
-      // Handle the error when the request fails (status other than 2xx).
-      return 'There was a problem getting information from your Invoice Ninja';
+      // Re-throw so a failed request fails the step instead of resolving
+      // with the error text as a successful output.
+      throw error;
     }
   },
 });
