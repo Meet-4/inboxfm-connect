@@ -48,7 +48,23 @@ export const translationUpdated = createTrigger({
   props: {
     projectId: projectDropdown,
   },
-  sampleData: {},
+  sampleData: {
+    translation_id: 345678,
+    key_id: 123456,
+    language_iso: 'de',
+    modified_at: '2026-10-15 10:30:00 (Etc/UTC)',
+    modified_at_timestamp: 1762000000,
+    modified_by: 201,
+    modified_by_email: 'jane.doe@example.com',
+    translation: 'Willkommen',
+    is_unverified: false,
+    is_reviewed: true,
+    reviewed_by: 201,
+    words: 1,
+    custom_translation_statuses: [],
+    task_id: null,
+    segment_number: 1,
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);
