@@ -47,7 +47,7 @@ export default createAction({
             const result = await odoo.updateRecord({ model, recordId, fields });
             return { success: result };
         } catch (err) {
-            return err;
+            throw err;
         }
     }
 });

@@ -57,7 +57,7 @@ export default createAction({
             });
             return `Contact ${c} created!`
         } catch (err) {
-            return err
+            throw err;
         }
     }
 });

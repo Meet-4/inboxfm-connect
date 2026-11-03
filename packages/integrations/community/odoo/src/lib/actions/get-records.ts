@@ -61,7 +61,7 @@ export default createAction({
             : [];
             return await odoo.getRecords({model: context.propsValue.model, domain: domainArray, fields: context.propsValue.fields, offset: context.propsValue.offset, limit: context.propsValue.limit})
         } catch (err) {
-            return err
+            throw err;
         }
     }
 });

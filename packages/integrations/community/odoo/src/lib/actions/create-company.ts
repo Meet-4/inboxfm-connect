@@ -46,7 +46,7 @@ export default createAction({
             });
             return `Company ${c} created!`
         } catch (err) {
-            return err;
+            throw err;
         }
     },
 });
