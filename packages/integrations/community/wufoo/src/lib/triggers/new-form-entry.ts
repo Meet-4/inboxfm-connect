@@ -162,49 +162,6 @@ export const newFormEntryTrigger = createTrigger({
     return [payload];
   },
 
-  async test(context) {
-    return [
-      {
-        entryId: '123',
-        dateCreated: '2025-01-15 14:30:22',
-        createdBy: 'public',
-        formData: {
-          Field105: 'Sample form submission for testing',
-          Field106: '456',
-          Field107: 'This is a test paragraph field entry with multiple lines of content.',
-          Field1: 'John',
-          Field2: 'Doe',
-          Field218: 'john.doe@example.com',
-          Field220: '555-123-4567',
-          Field217: '2025-01-15',
-        },
-        commonFields: {
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john.doe@example.com',
-          phone: '555-123-4567',
-        },
-        rawPayload: {
-          EntryId: '123',
-          Field105: 'Sample form submission for testing',
-          Field106: '456',
-          Field107: 'This is a test paragraph field entry with multiple lines of content.',
-          Field1: 'John',
-          Field2: 'Doe',
-          Field218: 'john.doe@example.com',
-          Field220: '555-123-4567',
-          Field217: '2025-01-15',
-          DateCreated: '2025-01-15 14:30:22',
-          CreatedBy: 'public',
-        },
-        webhookInfo: {
-          receivedAt: '2025-01-15T14:30:22.000Z',
-          source: 'wufoo',
-          type: 'form_entry',
-        },
-      },
-    ];
-  },
 
   sampleData: {
     entryId: '124',

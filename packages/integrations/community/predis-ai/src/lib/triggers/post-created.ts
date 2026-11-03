@@ -36,17 +36,6 @@ The webhook will fire when posts reach **completed** or **error** status.`,
     const payload = context.payload.body as Record<string, unknown>;
     return [payload];
   },
-  async test() {
-    return [
-      {
-        status: 'completed',
-        caption: 'Sample caption for your post',
-        post_id: 'sample_post_id_123',
-        generated_media: [{ url: 'https://example.com/media.png' }],
-        brand_id: 'sample_brand_id',
-      },
-    ];
-  },
   sampleData: {
     status: 'completed',
     caption: 'Sample caption for your post',
