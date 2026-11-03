@@ -56,5 +56,20 @@ export const smsRecipientResponseMissed = createTrigger({
     };
   },
 
-  sampleData: {},
+  sampleData: {
+    time: 1762000000000,
+    triggerId: 14,
+    triggerName: 'sms.recipient.response.missed',
+    from: '+15550199',
+    to: '+15550100',
+    body: 'I will be available tomorrow afternoon',
+    data: {
+      recipient: {
+        id: '18dQ9yVWkdNYz7xg*olKoGqbe',
+        name: 'Jane Doe',
+        phone: '+15550100',
+      },
+      message: 'I will be available tomorrow afternoon',
+    },
+  },
 });
