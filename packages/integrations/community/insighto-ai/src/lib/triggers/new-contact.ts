@@ -31,8 +31,29 @@ export const newContact = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   async onEnable(context) {
-    // Initialize with empty seen contacts
-    await context.store.put('seen_contacts', []);
+    // Seed the seen-contacts baseline with the contacts that already exist,
+    // otherwise the first poll would emit every pre-existing contact (up to a
+    // full page of 100) as if they were all newly created.
+    const apiKey = context.auth.secret_text;
+    const response = await httpClient.sendRequest({
+      method: HttpMethod.GET,
+      url: `https://api.insighto.ai/api/v1/contact`,
+      queryParams: {
+        api_key: apiKey,
+        page: '1',
+        size: '100',
+      },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const contacts: unknown[] = response.body?.data?.items ?? [];
+    const existingIds = contacts
+      .map((contact) => (contact as { id?: unknown })?.id)
+      .filter((id): id is string => typeof id === 'string');
+
+    await context.store.put('seen_contacts', existingIds);
   },
   async onDisable(context) {
     await context.store.delete('seen_contacts');

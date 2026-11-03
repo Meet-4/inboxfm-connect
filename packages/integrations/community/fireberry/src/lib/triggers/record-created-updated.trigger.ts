@@ -145,6 +145,9 @@ export const recordCreatedOrUpdatedTrigger = createTrigger({
       const cutoffTime = new Date(Date.now() - (lookback * 60 * 1000));
       lastPollTime = cutoffTime.toISOString();
     }
+    const lastPollMs = new Date(lastPollTime).getTime();
+    // 'both' and 'updated' both track modification time; only 'created' tracks creation time.
+    const cursorField = triggerType === 'created' ? 'createdon' : 'modifiedon';
     
     const objectsMetadata = await client.getObjectsMetadata();
     const targetObject = objectsMetadata.data.find(obj => obj.systemName === objectType);
@@ -155,54 +158,75 @@ export const recordCreatedOrUpdatedTrigger = createTrigger({
     
     const objectNumber = parseInt(targetObject.objectType);
     
-    let query = '';
+    // Fireberry queries only accept a calendar-day cutoff, so every poll
+    // re-fetches the whole day's matches. Drain all pages (the API caps
+    // page_number at 10) and filter client-side against the exact ms cursor,
+    // mirroring pollingHelper's TIMEBASED dedupe.
     const cutoffDate = new Date(lastPollTime).toISOString().split('T')[0];
-    
-    if (triggerType === 'created') {
-      query = `createdon >= '${cutoffDate}'`;
-    } else if (triggerType === 'updated') {
-      query = `modifiedon >= '${cutoffDate}'`;
-    } else {
-      query = `modifiedon >= '${cutoffDate}'`;
-    }
+    const query = `${cursorField} >= '${cutoffDate}'`;
     
     try {
-      const response = await client.request<{
-        success: boolean;
-        data: {
-          ObjectName: string;
-          SystemName: string;
-          ObjectType: number;
-          PrimaryKey: string;
-          PrimaryField: string;
-          PageNum: number;
-          SortBy: string;
-          SortBy_Desc: boolean;
-          IsLastPage: boolean;
-          Columns: Array<Record<string, any>>;
-          Data: Array<Record<string, any>>;
-        };
-      }>({
-        method: HttpMethod.POST,
-        resourceUri: '/api/query',
-        body: {
-          objecttype: objectNumber,
-          query: query,
-          sort_by: 'modifiedon',
-          sort_type: 'desc',
-          page_size: 50,
-        },
+      const allRecords: Array<Record<string, any>> = [];
+      let pageNumber = 1;
+      let isLastPage = false;
+
+      do {
+        const response = await client.request<{
+          success: boolean;
+          data: {
+            ObjectName: string;
+            SystemName: string;
+            ObjectType: number;
+            PrimaryKey: string;
+            PrimaryField: string;
+            PageNum: number;
+            SortBy: string;
+            SortBy_Desc: boolean;
+            IsLastPage: boolean;
+            Columns: Array<Record<string, any>>;
+            Data: Array<Record<string, any>>;
+          };
+        }>({
+          method: HttpMethod.POST,
+          resourceUri: '/api/query',
+          body: {
+            objecttype: objectNumber,
+            query: query,
+            sort_by: 'modifiedon',
+            sort_type: 'desc',
+            page_size: 50,
+            page_number: pageNumber,
+          },
+        });
+
+        if (!response.success) {
+          throw new Error('Failed to fetch records from Fireberry');
+        }
+
+        allRecords.push(...(response.data.Data || []));
+        isLastPage = response.data.IsLastPage === true;
+        pageNumber++;
+      } while (!isLastPage && pageNumber <= 10);
+
+      // Drop records already emitted by an earlier poll (same calendar day
+      // is re-fetched every poll, so the day's records come back repeatedly).
+      const newRecords = allRecords.filter((record) => {
+        const recordMs = new Date(record[cursorField] ?? 0).getTime();
+        return Number.isFinite(recordMs) && recordMs > lastPollMs;
       });
-      
-      if (!response.success) {
-        throw new Error('Failed to fetch records from Fireberry');
+
+      // Advance the cursor to the newest emitted record (not to now) so
+      // records that fall behind the page cap stay discoverable later.
+      if (newRecords.length > 0) {
+        const newestMs = newRecords.reduce(
+          (acc, record) =>
+            Math.max(acc, new Date(record[cursorField] ?? 0).getTime()),
+          lastPollMs
+        );
+        await store.put('lastPollTime', new Date(newestMs).toISOString());
       }
-      
-      const records = response.data.Data || [];
-      
-      await store.put('lastPollTime', new Date().toISOString());
-      
-      return records.reverse();
+
+      return newRecords.reverse();
       
     } catch (error: any) {
       if (error.message?.includes('429')) {

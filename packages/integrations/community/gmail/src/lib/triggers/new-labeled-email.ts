@@ -5,7 +5,7 @@ import {
 } from '@inboxfm-connect/pieces-framework';
 import { GmailProps } from '../common/props';
 import { gmailAuth, createGoogleClient } from '../auth';
-import { gmail as googleGmail } from '@googleapis/gmail';
+import { gmail as googleGmail, gmail_v1 } from '@googleapis/gmail';
 import { parseStream, convertAttachment } from '../common/data';
 import { newLabeledEmailTriggerOutputSchema } from '../output-schemas';
 
@@ -90,47 +90,68 @@ export const gmailNewLabeledEmailTrigger = createTrigger({
 
     const lastHistoryId = await context.store.get('lastHistoryId');
 
-    const historyResponse = await gmail.users.history.list({
-      userId: 'me',
-      startHistoryId: lastHistoryId as string,
-      labelId: context.propsValue.label.id,
-      historyTypes: ['labelAdded', 'messageAdded'],
-    });
-
+    // history.list paginates (~100 history records per page). Drain every
+    // page before advancing the cursor: the response historyId is the
+    // mailbox's CURRENT history id, so storing it after reading only the
+    // first page would permanently skip label events on later pages.
+    let pageToken: string | undefined = undefined;
+    let latestHistoryId: string | undefined = undefined;
     const labeledMessages = new Map<string, string>();
-    const results = [];
 
-    if (historyResponse.data.history) {
-      for (const history of historyResponse.data.history) {
-        if (history.labelsAdded) {
-          for (const labelAdded of history.labelsAdded) {
-            if (
-              labelAdded.labelIds?.includes(context.propsValue.label.id) &&
-              labelAdded.message?.id
-            ) {
-              labeledMessages.set(
-                labelAdded.message.id,
-                history.id?.toString() || ''
-              );
+    do {
+      // Fresh const with an explicit annotation so the call-site argument
+      // type does not depend on the loop's flow analysis of pageToken
+      // (TS7022: historyResponse would otherwise infer through its own
+      // initializer, since pageToken is reassigned from the response).
+      const token: string | undefined = pageToken;
+
+      const historyResponse: { data: gmail_v1.Schema$ListHistoryResponse } =
+        await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: lastHistoryId as string,
+        labelId: context.propsValue.label.id,
+        historyTypes: ['labelAdded', 'messageAdded'],
+        pageToken: token,
+      });
+
+      latestHistoryId = historyResponse.data.historyId ?? latestHistoryId;
+
+      if (historyResponse.data.history) {
+        for (const history of historyResponse.data.history) {
+          if (history.labelsAdded) {
+            for (const labelAdded of history.labelsAdded) {
+              if (
+                labelAdded.labelIds?.includes(context.propsValue.label.id) &&
+                labelAdded.message?.id
+              ) {
+                labeledMessages.set(
+                  labelAdded.message.id,
+                  history.id?.toString() || ''
+                );
+              }
             }
-          }
-        } else if (history.messagesAdded) {
-          for (const messageAdded of history.messagesAdded) {
-            if (
-              messageAdded.message?.id &&
-              messageAdded.message.labelIds?.includes(
-                context.propsValue.label.id
-              )
-            ) {
-              labeledMessages.set(
-                messageAdded.message.id,
-                history.id?.toString() || ''
-              );
+          } else if (history.messagesAdded) {
+            for (const messageAdded of history.messagesAdded) {
+              if (
+                messageAdded.message?.id &&
+                messageAdded.message.labelIds?.includes(
+                  context.propsValue.label.id
+                )
+              ) {
+                labeledMessages.set(
+                  messageAdded.message.id,
+                  history.id?.toString() || ''
+                );
+              }
             }
           }
         }
       }
-    }
+
+      pageToken = historyResponse.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    const results = [];
 
     for (const [messageId, historyId] of labeledMessages) {
       const enrichedMessage = await enrichGmailMessage({
@@ -151,8 +172,8 @@ export const gmailNewLabeledEmailTrigger = createTrigger({
       }
     }
 
-    if (historyResponse.data.historyId) {
-      await context.store.put('lastHistoryId', historyResponse.data.historyId);
+    if (latestHistoryId) {
+      await context.store.put('lastHistoryId', latestHistoryId);
     }
 
     return results;
