@@ -14,7 +14,18 @@ export const contactUpdated = createTrigger({
     description: 'Fires when an existing contact (person) record is edited in Bigin CRM, via a Contacts.edit webhook. Represents a change to a person already in the CRM.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    server_time: 1762000000000,
+    query_params: {
+    },
+    module: 'Contacts',
+    resource_uri: 'https://www.zohoapis.com/bigin/v2/Contacts',
+    ids: ["1770000123456001"],
+    affected_fields: [],
+    operation: 'update',
+    channel_id: '1770000000000',
+    token: 'bigin_webhook_token',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     try {

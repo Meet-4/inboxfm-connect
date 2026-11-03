@@ -14,7 +14,18 @@ export const newCallCreated = createTrigger({
     description: 'Fires when a new call log entry is created in Bigin CRM, via a Calls.create webhook. Represents a newly recorded phone interaction.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    server_time: 1762000000000,
+    query_params: {
+    },
+    module: 'Calls',
+    resource_uri: 'https://www.zohoapis.com/bigin/v2/Calls',
+    ids: ["1770000123456001"],
+    affected_fields: [],
+    operation: 'insert',
+    channel_id: '1770000000000',
+    token: 'bigin_webhook_token',
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     try {
