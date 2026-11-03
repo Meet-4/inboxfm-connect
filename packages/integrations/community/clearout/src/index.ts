@@ -18,7 +18,7 @@ export const clearout = createPiece({
       baseUrl: () => 'https://api.clearout.io/v2', // Replace with the actual base URL
       auth: clearoutAuth,
       authMapping: async (auth) => ({
-        Authorization: `${auth.props.apiKey}`,
+        Authorization: `Bearer ${auth.props.apiKey}`,
       }),
     }),
   ],

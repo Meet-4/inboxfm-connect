@@ -21,19 +21,12 @@ export const getNoteAction = createAction({
 		}),
 	},
 	async run(context) {
-		try {
-			const response = await pipedriveApiCall({
-				accessToken: context.auth.access_token,
-				apiDomain: context.auth.data['api_domain'],
-				method: HttpMethod.GET,
-				resourceUri: `/v1/notes/${context.propsValue.noteId}`,
-			});
-			return response;
-		} catch (error) {
-			return {
-				success: false,
-                data:{}
-			};
-		}
+		const response = await pipedriveApiCall({
+			accessToken: context.auth.access_token,
+			apiDomain: context.auth.data['api_domain'],
+			method: HttpMethod.GET,
+			resourceUri: `/v1/notes/${context.propsValue.noteId}`,
+		});
+		return response;
 	},
 });

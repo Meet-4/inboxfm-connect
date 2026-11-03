@@ -1,6 +1,9 @@
 export interface promptResponse {
   choices: {
-    text: string;
+    message: {
+      role: string;
+      content: string;
+    };
   }[];
   model: string;
   id: string;

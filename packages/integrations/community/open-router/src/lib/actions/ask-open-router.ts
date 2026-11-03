@@ -106,8 +106,8 @@ export const askOpenRouterAction = createAction({
       url: 'https://openrouter.ai/api/v1/chat/completions',
       method: HttpMethod.POST,
       body: {
-        prompt: prompt,
         model: openRouterModel,
+        messages: [{ role: 'user', content: prompt }],
         temperature: context.propsValue.temperature,
         max_tokens: context.propsValue.maxTokens,
         top_p: context.propsValue.topP,
@@ -121,8 +121,8 @@ export const askOpenRouterAction = createAction({
       },
     };
     const response = await httpClient.sendRequest<promptResponse>(request);
-    const responseText = response.body.choices[0].text;
+    const responseText = response.body.choices[0].message.content;
     const trimmedResponse = responseText.trim();
-    return trimmedResponse;
+    return { response: trimmedResponse };
   },
 });

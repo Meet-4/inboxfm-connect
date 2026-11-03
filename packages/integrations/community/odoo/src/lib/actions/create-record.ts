@@ -42,7 +42,7 @@ export default createAction({
             const recordId = await odoo.createRecord({ model, fields });
             return { id: recordId };
         } catch (err) {
-            return err;
+            throw err;
         }
     }
 });

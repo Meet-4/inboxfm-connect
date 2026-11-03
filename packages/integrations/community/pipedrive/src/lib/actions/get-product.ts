@@ -5,7 +5,7 @@ import {
 	pipedrivePaginatedV1ApiCall,
 	pipedriveTransformCustomFields,
 } from '../common';
-import { HttpMethod } from '@inboxfm-connect/pieces-common';
+import { HttpMethod, HttpError } from '@inboxfm-connect/pieces-common';
 import { GetField } from '../common/types';
 
 export const getProductAction = createAction({
@@ -47,10 +47,13 @@ export const getProductAction = createAction({
 				data: [updatedProductProperties],
 			};
 		} catch (error) {
-			return {
-				found: false,
-				data: [],
-			};
+			if (error instanceof HttpError && error.response?.status === 404) {
+				return {
+					found: false,
+					data: [],
+				};
+			}
+			throw error;
 		}
 	},
 });

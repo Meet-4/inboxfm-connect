@@ -51,7 +51,7 @@ export default createAction({
             else
                 return await odoo.getAllContacts({ isCompany: context.propsValue['type'] })
         } catch (err) {
-            return err
+            throw err;
         }
     }
 });
