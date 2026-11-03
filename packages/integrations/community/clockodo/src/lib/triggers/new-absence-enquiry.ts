@@ -38,7 +38,19 @@ export default createTrigger({
   },
   type: TriggerStrategy.POLLING,
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 1234,
+    users_id: 100,
+    date_since: '2026-11-02',
+    date_until: '2026-11-06',
+    status: 0,
+    type: 1,
+    note: 'Family vacation',
+    count_days: 5,
+    count_hours: 40,
+    sick_note: false,
+    date_enquired: '2026-10-15T10:30:00Z',
+  },
   onEnable: async (context) => {
     await pollingHelper.onEnable(polling, {
       auth: context.auth,
