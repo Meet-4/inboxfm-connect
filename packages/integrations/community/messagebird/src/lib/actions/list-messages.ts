@@ -68,7 +68,7 @@ export const listMessages = createAction({
         ...(pageToken ? { pageToken: pageToken } : {}),
       },
       headers: {
-        'Authorization': `Bearer ${auth.apiKey}`,
+        'Authorization': `AccessKey ${auth.apiKey}`,
         'Content-Type': 'application/json',
       },
     });
