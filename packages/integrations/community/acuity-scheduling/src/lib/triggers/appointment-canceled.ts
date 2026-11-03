@@ -98,8 +98,8 @@ export const appointmentCanceledTrigger = createTrigger({
 
 		// Check for 'canceled' action
 		if (
-			payload.action === 'appointment.canceled' &&
-			payload.id &&
+			payload?.action === 'canceled' &&
+			payload?.id &&
 			(!calendarId || calendarId === payload.calendarID) &&
 			(!appointmentTypeId || appointmentTypeId === payload.appointmentTypeID)
 		) {

@@ -95,8 +95,8 @@ export const appointmentScheduledTrigger = createTrigger({
 			appointmentTypeID: number;
 		};
 		if (
-			payload.action === 'appointment.scheduled' &&
-			payload.id &&
+			payload?.action === 'scheduled' &&
+			payload?.id &&
 			(!calendarId || calendarId === payload.calendarID) &&
 			(!appointmentTypeId || appointmentTypeId === payload.appointmentTypeID)
 		) {
