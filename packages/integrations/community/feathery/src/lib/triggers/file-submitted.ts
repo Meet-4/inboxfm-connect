@@ -67,9 +67,11 @@ const polling: Polling<
         epochMilliSeconds: dayjs(envelope.created_at).valueOf(),
         data: envelope,
       }));
-    } catch {
-      // Return empty if no documents/users found
-      return [];
+    } catch (error) {
+      // Rethrow so auth/network failures fail the poll visibly instead of
+      // silently producing zero events. The non-array body guard above already
+      // handles the API's "no envelopes found" response.
+      throw error;
     }
   },
 };

@@ -293,8 +293,9 @@ export const reportFieldChanged = createTrigger({
       await context.store.put('lastReportState', currentState);
       return changes;
     } catch (error) {
-      console.error('Error fetching BambooHR report:', error);
-      return [];
+      // Rethrow so a dead/expired API key or unreachable BambooHR API fails the
+      // poll visibly instead of silently producing zero events forever.
+      throw error;
     }
   },
 });

@@ -42,8 +42,8 @@ const polling: Polling<
       `/projects/${propsValue['project_id']}/conversations?${queryString}`
     );
 
-    if (response.body.status === 'success' && response.body.data.data) {
-      items.push(...response.body.data.data);
+    if (response.status === 'success' && response.data?.data) {
+      items.push(...response.data.data);
     }
 
     return items.map((item) => ({

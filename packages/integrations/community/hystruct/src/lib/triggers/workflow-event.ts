@@ -37,19 +37,6 @@ To receive workflow events, set up a webhook in your Hystruct dashboard:
   async run(context) {
     return [context.payload.body];
   },
-  async test() {
-    return [
-      {
-        workflowId: 'wf_abc123',
-        event: 'job.completed',
-        data: {
-          jobId: 'job_xyz789',
-          status: 'completed',
-          completedAt: new Date().toISOString(),
-        },
-      },
-    ];
-  },
   sampleData: {
     workflowId: 'wf_abc123',
     event: 'job.completed',

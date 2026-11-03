@@ -72,6 +72,6 @@ export const createPhoneCall = createAction({
       body
     );
 
-    return response.body;
+    return response;
   },
 });
