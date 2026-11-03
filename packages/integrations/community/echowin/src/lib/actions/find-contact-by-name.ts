@@ -39,7 +39,7 @@ export const findContactByName = createAction({
       `/contacts?${queryString}`
     );
 
-    return response.body;
+    return response;
   },
 });
 

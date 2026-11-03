@@ -69,7 +69,7 @@ export const createContact = createAction({
       payload
     );
 
-    return response.body;
+    return response;
   },
 });
 

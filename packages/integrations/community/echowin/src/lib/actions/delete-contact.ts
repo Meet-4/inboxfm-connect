@@ -30,7 +30,7 @@ export const deleteContact = createAction({
       `/contacts/${contactId}`
     );
 
-    return response.body;
+    return response;
   },
 });
 
