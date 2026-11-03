@@ -19,7 +19,7 @@ export const fileUpload = createAction({
   auth: straicoAuth,
   name: 'file_upload',
   displayName: 'Upload File',
-  description: 'Upload a file to Straico API for processing.',
+  description: 'Upload a file to Straico API for processing.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     file: Property.File({
       displayName: 'File',

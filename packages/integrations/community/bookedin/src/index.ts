@@ -14,7 +14,7 @@ import { bookedinAuth } from './lib/auth';
 // --- Piece Definition ---
 export const bookedin = createPiece({
   displayName: 'Bookedin',
-  description: 'AI agents for lead conversion and appointment booking.',
+  description: 'AI agents for lead conversion and appointment booking.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.bookedin.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and Bookedin has published no replacement API, so this action cannot reach its API.',
   logoUrl: 'https://cdn.activepieces.com/pieces/bookedin.png',
   categories: [PieceCategory.SALES_AND_CRM],
   auth: bookedinAuth,

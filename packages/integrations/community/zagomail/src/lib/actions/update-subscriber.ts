@@ -9,7 +9,7 @@ export const updateSubscriber = createAction({
   auth: zagomailAuth,
   name: 'updateSubscriber',
   displayName: 'Update Subscriber',
-  description: 'Updates an existing subscriber.',
+  description: 'Updates an existing subscriber.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Updates the custom fields of an existing subscriber in a Zagomail list, targeting it by list UID and subscriber UID. Use to change a contact details after creation. Idempotent: repeating the call with the same field values leaves the subscriber in the same state.', idempotent: true },
   props: {

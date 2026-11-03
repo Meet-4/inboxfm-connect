@@ -13,7 +13,7 @@ export const updateRag = createAction({
   auth: straicoAuth,
   name: 'update_rag',
   displayName: 'Update RAG',
-  description: 'Update an existing RAG (Retrieval-Augmented Generation) base with additional files.',
+  description: 'Update an existing RAG (Retrieval-Augmented Generation) base with additional files.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     ragId: Property.ShortText({
       displayName: 'RAG ID',

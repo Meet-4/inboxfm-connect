@@ -7,7 +7,7 @@ export const fraudCheck = createAction({
   auth: chainAwareAuth,
   name: 'fraudCheck',
   displayName: 'Fraud Check',
-  description: 'Calculate fraud probability for a wallet address',
+  description: 'Calculate fraud probability for a wallet address\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Calculate a ChainAware fraud-probability score for a wallet address on a given network. Choose this when you need a quantified fraud likelihood for a wallet; the optional "Only Fraud" flag narrows the result to fraud-related signals only. Requires the network name and wallet address. Read-only analysis — idempotent.',

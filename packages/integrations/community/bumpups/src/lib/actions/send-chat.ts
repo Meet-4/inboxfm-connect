@@ -7,7 +7,7 @@ export const sendChat = createAction({
   name: 'send_chat',
   displayName: 'Send Chat',
   description:
-    'Creates an interactive chat response for a given YouTube video using the bump-1.0 model. Provide the video URL and an optional prompt.',
+    'Creates an interactive chat response for a given YouTube video using the bump-1.0 model. Provide the video URL and an optional prompt.\n\nDEPRECATED (Nov 2026 liveness census): The old API host api.bumpups.com no longer resolves; Bumpups now serves its API at bumpups.com/api/v1 with Bearer auth and a different async contract, so this action needs a full rewrite.',
   audience: 'both',
   aiMetadata: { description: 'Sends a question or instruction about a public YouTube video to the Bumpups chat model and returns its answer grounded in the video content, with an output-format option for plain text or markdown. Use for free-form queries about a specific video (the general-purpose option versus the fixed description/hashtags/takeaways/titles/timestamps actions); the video URL is required, while the prompt is optional and defaults to a summary if omitted (max 500 chars). Not idempotent — each call invokes the model and may produce different responses.', idempotent: false },
   auth: BumpupsAuth,

@@ -8,7 +8,7 @@ import { vidnozClient } from '../common/auth';
 export const generateVideoWithAvatar = createAction({
   name: 'generate_video_with_avatar',
   displayName: 'Generate Video with Avatar',
-  description: 'Generate a video from an avatar.',
+  description: 'Generate a video from an avatar.\n\nDEPRECATED (Nov 2026 liveness census): The API host devapi.vidnoz.com no longer has DNS records (confirmed on multiple resolvers) and Vidnoz has published no replacement host, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Submits a Vidnoz job to generate a talking-avatar video, returning a task id for the queued generation (poll separately for the finished video). Choose this to drive a chosen avatar from scratch rather than a pre-made template. Requires an avatar id and a voice configuration whose voiceMode selects the source — text-to-speech, an audio file, or silence — and a backgroundMode of either solid color or image/video. Not idempotent: each call queues a new video generation task.',

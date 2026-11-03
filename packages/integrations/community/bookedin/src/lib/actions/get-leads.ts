@@ -6,7 +6,7 @@ import { BASE_URL, getBookedinHeaders, extractApiKey } from '../common/props';
 export const getLeads = createAction({
   name: 'getLeads',
   displayName: 'Get Leads',
-  description: 'Get all leads for the current business with pagination metadata.',
+  description: 'Get all leads for the current business with pagination metadata.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.bookedin.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and Bookedin has published no replacement API, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'List leads for the authenticated Bookedin business, returning a page with pagination metadata. Use it to browse or find leads; leave the filter fields empty to fetch all, or narrow by free-text search (name/email/phone), exact email, phone, or source, and page through results with limit/skip. Read-only and idempotent.', idempotent: true },
   auth: bookedinAuth,

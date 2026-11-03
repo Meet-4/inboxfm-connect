@@ -30,7 +30,7 @@ export const llmrailsAuth = PieceAuth.SecretText({
 
 export const llmrails = createPiece({
   displayName: 'LLMRails',
-  description: 'LLM Rails Platform',
+  description: 'LLM Rails Platform\n\nDEPRECATED (Nov 2026 liveness census): api.llmrails.com and console.llmrails.com no longer accept TCP connections (connect timeout on every probe), so this action cannot reach its API.',
 
   minimumSupportedRelease: '0.30.0',
   logoUrl: 'https://cdn.activepieces.com/pieces/llmrails.png',

@@ -13,7 +13,7 @@ export const imageGeneration = createAction({
   auth: straicoAuth,
   name: 'image_generation',
   displayName: 'Image Generation',
-  description: 'Enables users to generate high-quality images based on textual descriptions.',
+  description: 'Enables users to generate high-quality images based on textual descriptions.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     variations: Property.StaticDropdown({
       displayName: 'Number of Images',

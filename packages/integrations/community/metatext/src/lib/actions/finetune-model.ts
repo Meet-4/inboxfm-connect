@@ -7,7 +7,7 @@ export const finetuneModel = createAction({
   auth: metatextAuth,
   name: 'finetune_model',
   displayName: 'Fine-tune Model',
-  description: 'Initiate a fine-tuning job for your model',
+  description: 'Initiate a fine-tuning job for your model\n\nDEPRECATED (Nov 2026 liveness census): The API host api.metatext.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and metatext.ai now hosts an unrelated product, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Start a new Metatext fine-tuning job for a project, training a base model on the project data for a chosen task type (classification, extraction, or generation). Use when you want to kick off model training rather than run inference. Requires the project ID, task type, and base model name; optional hyperparameters tune the run. Not idempotent: each call launches a separate training job.', idempotent: false },
   props: {

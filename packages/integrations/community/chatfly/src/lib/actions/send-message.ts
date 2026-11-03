@@ -6,7 +6,7 @@ export const sendMessageAction = createAction({
   auth: chatflyAuth,
   name: "send_message",
   displayName: "Send Message",
-  description: "Send a message to ChatFly bot",
+  description: "Send a message to ChatFly bot\n\nDEPRECATED (Nov 2026 liveness census): The API host backend.chatfly.co no longer resolves (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.",
   audience: 'both',
   aiMetadata: { description: 'Send a user message to a ChatFly AI chatbot and get back its streaming chat response. Choose this to query or converse with a deployed ChatFly bot. Requires the target bot ID and a session ID that ties the message to a conversation thread; each call posts a new message, so it is not idempotent.', idempotent: false },
   props: {

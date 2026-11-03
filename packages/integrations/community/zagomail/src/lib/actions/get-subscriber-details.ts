@@ -7,7 +7,7 @@ export const getSubscriberDetails = createAction({
   auth: zagomailAuth,
   name: 'getSubscriberDetails',
   displayName: 'Get Subscriber',
-  description: 'Gets the details of a subscriber.',
+  description: 'Gets the details of a subscriber.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Retrieves the full details of a single subscriber in a Zagomail list, addressed directly by list UID and subscriber UID. Use when you already hold the subscriber UID; to find one from an email, use Search Subscriber first. Read-only and idempotent.', idempotent: true },
   props: {

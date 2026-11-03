@@ -10,7 +10,7 @@ export const startBrowsingTask = createAction({
   auth: twinLabsAuth,
   displayName: 'Browse',
   description:
-    'Browse the internet with an AI web navigation agent that can find information for you',
+    'Browse the internet with an AI web navigation agent that can find information for you\n\nDEPRECATED (Nov 2026 liveness census): The API host paris.prod.api.twin.so no longer resolves; Twin moved to build.twin.so with a new agent-based REST API (no /browse endpoint), so this action needs a full rewrite.',
   audience: 'both',
   aiMetadata: { description: 'Launches an autonomous AI web-navigation agent that starts at a given URL and pursues a free-text goal (e.g. find a price, extract a fact, locate a page), then blocks polling until the task completes or a 15-minute timeout elapses, returning the agent\'s text output. Choose it when a task requires live, multi-step browsing of a website rather than a single fixed API call or scrape. Requires a starting URL and a goal; each call spins up a fresh browsing run, so it is not idempotent.', idempotent: false },
   props: {

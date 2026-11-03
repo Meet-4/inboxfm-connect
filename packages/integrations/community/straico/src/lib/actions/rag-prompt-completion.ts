@@ -12,7 +12,7 @@ export const ragPromptCompletion = createAction({
   auth: straicoAuth,
   name: 'rag_prompt_completion',
   displayName: 'RAG Prompt Completion',
-  description: 'Send a prompt to a specific RAG (Retrieval-Augmented Generation) model.',
+  description: 'Send a prompt to a specific RAG (Retrieval-Augmented Generation) model.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     ragId: Property.ShortText({
       displayName: 'RAG ID',

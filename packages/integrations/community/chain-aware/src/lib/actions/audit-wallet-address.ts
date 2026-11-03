@@ -7,7 +7,7 @@ export const auditWalletAddress = createAction({
   auth: chainAwareAuth,
   name: 'auditWalletAddress',
   displayName: 'Audit Wallet Address',
-  description: 'Audit a wallet address for fraud risk',
+  description: 'Audit a wallet address for fraud risk\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Run a ChainAware fraud-risk audit on a single on-chain wallet address for a given network (e.g. ethereum, bsc). Choose this for a broad risk overview of a wallet; use Fraud Check when you specifically need a fraud-probability score. Requires the network name and wallet address. Read-only analysis — idempotent.',

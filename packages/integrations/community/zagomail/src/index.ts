@@ -15,7 +15,7 @@ import { zagomailAuth } from './lib/auth';
 
 export const zagomail = createPiece({
 	displayName: 'Zagomail',
-	description: 'All-in-one email marketing and automation platform',
+	description: 'All-in-one email marketing and automation platform\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
 	logoUrl: 'https://cdn.activepieces.com/pieces/zagomail.png',
 	authors: ['gs03dev'],
 	auth: zagomailAuth,

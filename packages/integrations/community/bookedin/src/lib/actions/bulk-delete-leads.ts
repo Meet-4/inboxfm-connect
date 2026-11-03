@@ -6,7 +6,7 @@ import { BASE_URL, getBookedinHeaders, leadIdsMultiSelectDropdown, extractApiKey
 export const bulkDeleteLeads = createAction({
   name: 'bulkDeleteLeads',
   displayName: 'Bulk Delete Leads',
-  description: 'Delete multiple leads (max 500 per request)',
+  description: 'Delete multiple leads (max 500 per request)\n\nDEPRECATED (Nov 2026 liveness census): The API host api.bookedin.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and Bookedin has published no replacement API, so this action cannot reach its API.',
   auth: bookedinAuth,
   props: {
     lead_ids: leadIdsMultiSelectDropdown,

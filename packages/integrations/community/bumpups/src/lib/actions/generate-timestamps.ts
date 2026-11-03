@@ -7,7 +7,7 @@ export const generateTimestamps = createAction({
   auth: BumpupsAuth,
   name: 'generateTimestamps',
   displayName: 'Generate Timestamps',
-  description: 'Generates detailed timestamps for a YouTube video based on its content.',
+  description: 'Generates detailed timestamps for a YouTube video based on its content.\n\nDEPRECATED (Nov 2026 liveness census): The old API host api.bumpups.com no longer resolves; Bumpups now serves its API at bumpups.com/api/v1 with Bearer auth and a different async contract, so this action needs a full rewrite.',
   audience: 'both',
   aiMetadata: { description: 'Calls the Bumpups AI model on a public YouTube video URL to generate chapter timestamps from the video content, with a style option for long or short timestamp segments. Use when an agent needs chaptered timestamps for a specific YouTube video; the video URL is required and an optional language code sets the output language. Not idempotent — each call invokes the model and may produce different timestamps.', idempotent: false },
   props: {

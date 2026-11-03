@@ -40,7 +40,7 @@ export const vidnozAuth = PieceAuth.SecretText({
 
 export const vidnoz = createPiece({
   displayName: "Vidnoz",
-  description: "AI video generation platform",
+  description: "AI video generation platform\n\nDEPRECATED (Nov 2026 liveness census): The API host devapi.vidnoz.com no longer has DNS records (confirmed on multiple resolvers) and Vidnoz has published no replacement host, so this action cannot reach its API.",
   auth: vidnozAuth,
   minimumSupportedRelease: '0.36.1',
   logoUrl: "https://cdn.activepieces.com/pieces/vidnoz.png",

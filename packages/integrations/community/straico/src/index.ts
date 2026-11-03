@@ -38,7 +38,7 @@ export const straico = createPiece({
   minimumSupportedRelease: '0.30.0',
   logoUrl: 'https://cdn.activepieces.com/pieces/straico.png',
   categories: [PieceCategory.ARTIFICIAL_INTELLIGENCE],
-  description: 'All-in-one generative AI platform',
+  description: 'All-in-one generative AI platform\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   authors: ['dennisrongo'],
   actions: [
     promptCompletion,

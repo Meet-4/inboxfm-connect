@@ -10,7 +10,7 @@ export const clarifaiAskLLM = createAction({
   name: 'ask-llm',
   displayName: 'Ask LLM',
   description:
-    'Send a prompt to any large language models (LLM) supported by clarifai.',
+    'Send a prompt to any large language models (LLM) supported by clarifai.\n\nDEPRECATED (Nov 2026 liveness census): The Clarifai public platform went offline in July 2026 (core team and inference technology acquired by Nebius); the API host api.clarifai.com no longer resolves, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description:

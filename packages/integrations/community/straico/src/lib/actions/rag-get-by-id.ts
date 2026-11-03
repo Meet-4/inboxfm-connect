@@ -12,7 +12,7 @@ export const getRagById = createAction({
   auth: straicoAuth,
   name: 'get_rag_by_id',
   displayName: 'Get RAG by ID',
-  description: 'Retrieve a specific RAG (Retrieval-Augmented Generation) base by its ID.',
+  description: 'Retrieve a specific RAG (Retrieval-Augmented Generation) base by its ID.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     ragId: Property.ShortText({
       displayName: 'RAG ID',

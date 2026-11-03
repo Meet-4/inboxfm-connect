@@ -6,7 +6,7 @@ export const generateAnswerAction = createAction({
     name:'generate-answer',
     auth:dashworksAuth,
     displayName:'Generate Answer',
-    description:'Generates an answer from a Dashworks bot.',
+    description:'Generates an answer from a Dashworks bot.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.dashworks.ai is a dangling CNAME to a deleted AWS load balancer and does not resolve; Dashworks has published no replacement host, so this action cannot reach its API.',
     audience: 'both',
     aiMetadata: { description: 'Send a question or prompt to a specific Dashworks bot and get back a generated, knowledge-grounded answer. Use when an agent needs Dashworks to answer using its connected company knowledge sources. Requires the target bot ID; optionally toggle inline markdown source citations in the answer. Not idempotent — each call generates a fresh answer.', idempotent: false },
     props:{

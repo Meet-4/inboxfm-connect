@@ -50,7 +50,7 @@ export const sessionAuth = PieceAuth.SecretText({
 
 export const sessionsUs = createPiece({
   displayName: 'Sessions.us',
-  description: 'Video conferencing platform for businesses and professionals',
+  description: 'Video conferencing platform for businesses and professionals\n\nDEPRECATED (Nov 2026 liveness census): The API host api.app.sessions.us no longer resolves (NXDOMAIN confirmed on multiple resolvers) and sessions.us is offline, so this action cannot reach its API.',
   auth: sessionAuth,
   minimumSupportedRelease: '0.30.0',
   logoUrl: 'https://cdn.activepieces.com/pieces/sessions-us.png',

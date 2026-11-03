@@ -13,7 +13,7 @@ export const agentDelete = createAction({
   auth: straicoAuth,
   name: 'agent_delete',
   displayName: 'Delete Agent',
-  description: 'Delete a specific agent by its ID',
+  description: 'Delete a specific agent by its ID\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     agentId: agentIdDropdown('Agent','Select the agent to delete')
   },

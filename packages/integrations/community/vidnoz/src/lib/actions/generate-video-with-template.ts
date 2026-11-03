@@ -23,7 +23,7 @@ type VidnozListTemplatesResponse = {
 export const generateVideoWithTemplate = createAction({
   name: 'generate_video_with_template',
   displayName: 'Generate Video with Template',
-  description: 'Generate a video using a template.',
+  description: 'Generate a video using a template.\n\nDEPRECATED (Nov 2026 liveness census): The API host devapi.vidnoz.com no longer has DNS records (confirmed on multiple resolvers) and Vidnoz has published no replacement host, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Submits a Vidnoz job to generate a video from a pre-built template, returning a task id for the queued generation (poll separately for the finished video). Choose this when starting from one of the account templates rather than composing an avatar scene yourself. Requires a template id and a per-scene voices array, where each scene picks a voice source — text-to-speech, an audio file, or silence. Not idempotent: each call queues a new video generation task.',

@@ -13,7 +13,7 @@ export const guidelite = createPiece({
   logoUrl: 'https://cdn.activepieces.com/pieces/guidelite.png',
   authors: ['sanket-a11y'],
   description:
-    'GuideLite is a platform that helps organizations build and utilize AI assistants',
+    'GuideLite is a platform that helps organizations build and utilize AI assistants\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.guidelite.ai and docs.guidelite.ai no longer resolve and guidelite.ai now hosts a different product, so this action cannot reach its API.',
   categories: [PieceCategory.ARTIFICIAL_INTELLIGENCE],
   actions: [
     sendAPrompt,

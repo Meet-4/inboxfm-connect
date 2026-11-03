@@ -10,7 +10,7 @@ export const datastoreSearch = createAction({
   auth: llmrailsAuth,
   name: 'search',
   displayName: 'Datastore search',
-  description: 'Search in datastore',
+  description: 'Search in datastore\n\nDEPRECATED (Nov 2026 liveness census): api.llmrails.com and console.llmrails.com no longer accept TCP connections (connect timeout on every probe), so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description:

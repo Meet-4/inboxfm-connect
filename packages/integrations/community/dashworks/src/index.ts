@@ -9,6 +9,7 @@ export const dashworks = createPiece({
   displayName: "Dashworks",
   categories: [PieceCategory.PRODUCTIVITY],
   auth: dashworksAuth,
+  description: 'DEPRECATED (Nov 2026 liveness census): The API host api.dashworks.ai is a dangling CNAME to a deleted AWS load balancer and does not resolve; Dashworks has published no replacement host, so this piece cannot reach its API.',
   minimumSupportedRelease: '0.36.1',
   logoUrl: "https://cdn.activepieces.com/pieces/dashworks.png",
   authors: ["kishanprmr"],

@@ -7,7 +7,7 @@ export const walletSegment = createAction({
   auth: chainAwareAuth,
   name: 'walletSegment',
   displayName: 'Wallet Segment',
-  description: 'Get wallet behaviour information',
+  description: 'Get wallet behaviour information\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Retrieve ChainAware behavioural segmentation for a wallet address on a given network — how the wallet is categorized based on its on-chain activity. Choose this to profile or classify a wallet rather than score its fraud risk. Requires the network name and wallet address. Read-only lookup — idempotent.',

@@ -11,7 +11,7 @@ import { chainAwareAuth } from './lib/common/auth';
 
 export const chainAware = createPiece({
   displayName: 'ChainAware.AI',
-  description: 'Detect risky wallet behavior',
+  description: 'Detect risky wallet behavior\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.',
   auth: chainAwareAuth,
   minimumSupportedRelease: '0.36.1',
   logoUrl: 'https://cdn.activepieces.com/pieces/chain-aware.png',
