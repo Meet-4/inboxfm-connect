@@ -11,7 +11,7 @@ export const newCallTrigger = createTrigger({
   displayName: 'New Call',
   description: 'Triggers when a new outgoing or incoming call is created.',
   aiMetadata: {
-    description: 'Fires when a new call is created in Retell, for either inbound or outbound direction, via the call.created webhook event. Each event represents a freshly initiated call with its call ID, numbers, direction, agent, and metadata. Requires a manually configured webhook in the Retell dashboard.',
+    description: 'Fires when a new call is created in Retell, for either inbound or outbound direction, via the documented call_started webhook event (Retell delivers all call events to one URL; the trigger filters to call_started). Each event represents a freshly initiated call with its call ID, numbers, direction, agent, and metadata. Requires a manually configured webhook in the Retell dashboard.',
   },
   auth: retellAiAuth,
   props: {
@@ -26,8 +26,9 @@ export const newCallTrigger = createTrigger({
       \`\`\`text
       {{webhookUrl}}
       \`\`\`
-      5. Select the **call.created** event type.
-      6. Click Save to create the webhook.
+      5. Click Save to create the webhook. Retell delivers every call event type to
+      this URL (there is no per-event selection); this trigger only emits the
+      documented **call_started** event.
       `,
     }),
   },
@@ -54,6 +55,15 @@ export const newCallTrigger = createTrigger({
   },
 
   async run(context) {
-    return [context.payload.body];
+    // A Retell webhook URL receives every call event — docs.retellai.com
+    // webhook overview: call_started, call_ended, call_analyzed,
+    // transcript_updated and transfer_* are all delivered to the same URL
+    // — and each delivery carries the event name in `event`, so only emit
+    // when a new call begins.
+    const body = context.payload.body as { event?: string };
+    if (!body || body.event !== 'call_started') {
+      return [];
+    }
+    return [body];
   },
 });
