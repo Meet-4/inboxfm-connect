@@ -51,7 +51,53 @@ export const newIssue = createTrigger({
 			required: false,
 		}),
 	},
-	sampleData: {},
+	sampleData: {
+		id: '10042',
+		key: 'PROJ-42',
+		fields: {
+			summary: 'Payment reconciliation fails for multi-currency invoices',
+			created: '2026-10-15T10:20:00.000+0000',
+			updated: '2026-10-15T10:30:00.000+0000',
+			status: {
+				name: 'In Progress',
+				id: '3',
+				description: 'This issue is being actively worked on at the moment by the assignee.',
+				statusCategory: {
+					name: 'In Progress',
+					id: 4,
+					key: 'indeterminate',
+				},
+			},
+			issuetype: {
+				name: 'Story',
+				id: '10001',
+				subtask: false,
+			},
+			project: {
+				id: '10000',
+				key: 'PROJ',
+				name: 'Payments',
+			},
+			priority: {
+				name: 'High',
+				id: '2',
+			},
+			assignee: {
+				name: 'jane.doe',
+				key: 'jane.doe',
+				displayName: 'Jane Doe',
+				emailAddress: 'jane.doe@example.com',
+				active: true,
+			},
+			reporter: {
+				name: 'bob.dullan',
+				key: 'bob.dullan',
+				displayName: 'Bob Dullan',
+				emailAddress: 'bob@example.com',
+				active: true,
+			},
+		},
+	},
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, context);
 	},
