@@ -93,7 +93,22 @@ export const newMessage = createTrigger({
   props: {
     agentId: agentIdDropdown,
   },
-  sampleData: {},
+  sampleData: {
+    id: 'message-9f8e7d6c5b4a43219876abcdef012345',
+    date: '2026-10-15T10:30:00.000000Z',
+    message_type: 'tool_call_message',
+    tool_calls: [
+      {
+      id: 'call-a1b2c3',
+      name: 'send_message',
+      arguments: '{"content":"Here is the summary you asked for."}',
+      },
+    ],
+    is_err: false,
+    sender_id: 'agent-5f8a9b2c3d4e5f6a7b8c9d0e',
+    seq_id: 42,
+    step_id: 'step-1a2b3c4d5e6f',
+  },
   async onEnable(context) {
     await pollingHelper.onEnable(polling, context);
   },

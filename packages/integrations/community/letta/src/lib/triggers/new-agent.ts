@@ -65,7 +65,19 @@ export const newAgent = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 'agent-5f8a9b2c3d4e5f6a7b8c9d0e',
+    agent_type: 'agent',
+    name: 'support-agent',
+    description: 'Customer support assistant',
+    system: 'You are a helpful customer support assistant.',
+    tags: ["support"],
+    tools: [],
+    blocks: [],
+    embedding: 'openai/text-embedding-3-small',
+    created_at: '2026-10-15T10:30:00.000000Z',
+    created_by_id: 'user-1a2b3c4d5e6f7g8h',
+  },
   async onEnable(context) {
     await pollingHelper.onEnable(polling, context);
   },
