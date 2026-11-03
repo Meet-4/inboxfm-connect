@@ -33,7 +33,7 @@ export const pdf4me = createPiece({
       baseUrl: () => pdf4meCommon.BASE_URL,
       auth: pdf4meAuth,
       authMapping: async (auth) => ({
-        Authorization: auth.secret_text,
+        Authorization: `Basic ${auth.secret_text}`,
       }),
     }),
   ],

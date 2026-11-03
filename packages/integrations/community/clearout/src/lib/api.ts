@@ -22,7 +22,9 @@ const clearoutAPI = async (
     url: `${baseUrl}${api}`,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `${auth.apiKey}`,
+      // Clearout requires the API token as Bearer auth
+      // (docs.clearout.io: "Use the token as the Authorization: Bearer <TOKEN> header in all API requests")
+      Authorization: `Bearer ${auth.apiKey}`,
     },
   };
   const response = await httpClient.sendRequest(request);
