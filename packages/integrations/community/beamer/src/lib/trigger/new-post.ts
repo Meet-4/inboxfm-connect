@@ -25,7 +25,25 @@ export const newPost = createTrigger({
     }),
   },
   type: TriggerStrategy.WEBHOOK,
-  sampleData: {},
+  sampleData: [
+    {
+    id: '1234',
+    date: '2026-10-15T10:30:00Z',
+    published: 'true',
+    category: 'New',
+    feedbackEnabled: 'true',
+    reactionsEnabled: 'true',
+    showInWidget: 'true',
+    showInStandalone: 'true',
+    postUrl: 'https://app.getbeamer.com/beamer/en/how-to-write-engaging-release-notes-',
+    language: 'EN',
+    title: 'Title of the post',
+    contentHtml: '<p class="">Content for this post!</p>\n',
+    content: 'Content for this post!',
+    linkUrl: 'https://www.getbeamer.com/',
+    linkText: 'Click here!',
+    },
+  ],
 
   async onEnable(context) {
     // IGNORED
