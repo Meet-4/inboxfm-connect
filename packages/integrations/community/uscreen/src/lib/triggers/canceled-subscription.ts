@@ -37,9 +37,9 @@ export const canceledSubscription = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload as unknown as typeof sampleData;
+    const payload = context.payload.body as unknown as typeof sampleData;
 
-    if (payload.event !== 'subscription_canceled') {
+    if (payload?.event !== 'subscription_canceled') {
       return [];
     }
 
