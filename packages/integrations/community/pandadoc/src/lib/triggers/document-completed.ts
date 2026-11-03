@@ -165,47 +165,16 @@ export const documentCompleted = createTrigger({
   async run(context) {
     const payload = context.payload.body as any;
 
-    if (
-      payload.event_type === 'document_state_changed' &&
-      payload.data?.status === 'document.completed'
-    ) {
-      const documentData = payload.data;
+    // PandaDoc v1 webhook deliveries are a JSON array of event objects:
+    // [{ "event": "document_state_changed", "data": { ... } }]
+    const events = Array.isArray(payload) ? payload : [payload];
 
+    for (const event of events) {
       if (
-        context.propsValue.template_filter &&
-        context.propsValue.template_filter.length > 0
+        event?.event === 'document_state_changed' &&
+        event.data?.status === 'document.completed'
       ) {
-        const templateId = documentData?.template?.id;
-        if (
-          !templateId ||
-          !context.propsValue.template_filter.includes(templateId)
-        ) {
-          return [];
-        }
-      }
-
-      if (
-        context.propsValue.folder_filter &&
-        context.propsValue.folder_filter.length > 0
-      ) {
-        const folderUuid = documentData?.folder_uuid;
-        if (
-          !folderUuid ||
-          !context.propsValue.folder_filter.includes(folderUuid)
-        ) {
-          return [];
-        }
-      }
-
-      return [documentData];
-    }
-
-    if (payload.event_type === 'recipient_completed') {
-      const allCompleted = payload.data?.recipients?.every(
-        (recipient: any) => recipient.has_completed
-      );
-      if (allCompleted) {
-        const documentData = payload.data;
+        const documentData = event.data;
 
         if (
           context.propsValue.template_filter &&
@@ -216,7 +185,7 @@ export const documentCompleted = createTrigger({
             !templateId ||
             !context.propsValue.template_filter.includes(templateId)
           ) {
-            return [];
+            continue;
           }
         }
 
@@ -229,11 +198,48 @@ export const documentCompleted = createTrigger({
             !folderUuid ||
             !context.propsValue.folder_filter.includes(folderUuid)
           ) {
-            return [];
+            continue;
           }
         }
 
         return [documentData];
+      }
+
+      if (event?.event === 'recipient_completed') {
+        const allCompleted = event.data?.recipients?.every(
+          (recipient: any) => recipient.has_completed
+        );
+        if (allCompleted) {
+          const documentData = event.data;
+
+          if (
+            context.propsValue.template_filter &&
+            context.propsValue.template_filter.length > 0
+          ) {
+            const templateId = documentData?.template?.id;
+            if (
+              !templateId ||
+              !context.propsValue.template_filter.includes(templateId)
+            ) {
+              continue;
+            }
+          }
+
+          if (
+            context.propsValue.folder_filter &&
+            context.propsValue.folder_filter.length > 0
+          ) {
+            const folderUuid = documentData?.folder_uuid;
+            if (
+              !folderUuid ||
+              !context.propsValue.folder_filter.includes(folderUuid)
+            ) {
+              continue;
+            }
+          }
+
+          return [documentData];
+        }
       }
     }
 

@@ -51,9 +51,9 @@ export const userUpdated = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload as unknown as typeof sampleData;
+    const payload = context.payload.body as unknown as typeof sampleData;
 
-    if (payload.event !== 'user_updated') {
+    if (payload?.event !== 'user_updated') {
       return [];
     }
 

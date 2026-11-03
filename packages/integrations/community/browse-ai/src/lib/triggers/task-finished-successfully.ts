@@ -113,7 +113,7 @@ export const taskFinishedSuccessfullyTrigger = createTrigger({
       event: string;
     };
 
-    if (payload.event !== 'task.finishedSuccessfully') return [];
+    if (payload.event !== 'taskFinishedSuccessfully') return [];
 
     return [payload.task];
   },

@@ -3,18 +3,14 @@ import { uscreenAuth } from '../common/auth';
 import { uscreenProps } from '../common/props';
 
 const sampleData = {
-  event: 'user.created',
-  data: {
-    id: 123456,
-    email: 'newuser@example.com',
-    first_name: 'John',
-    last_name: 'Doe',
-    created_at: '2025-10-27T13:00:00Z',
-    custom_fields: {
-      favorite_genre: 'Documentary',
-      how_heard_about_us: 'Referral',
-    },
-  },
+  id: '123456',
+  email: 'newuser@example.com',
+  name: 'John Doe',
+  tags: ['newsletter', 'trial'],
+  opted_in_for_news_and_updates: true,
+  opted_in_for_community_updates: false,
+  created_at: '2025-10-27T13:00:00Z',
+  event: 'user_created',
 };
 
 export const newUser = createTrigger({
@@ -27,7 +23,7 @@ export const newUser = createTrigger({
     description: 'Fires when a new user account is created on the Uscreen storefront. Represents a newly registered viewer or subscriber, including their email, name, and any storefront custom fields.',
   },
   props: { setupInstructions: uscreenProps.webhookInstructions() },
-  sampleData: sampleData.data,
+  sampleData: sampleData,
   type: TriggerStrategy.WEBHOOK,
 
   async onEnable(context) {
@@ -39,16 +35,16 @@ export const newUser = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload as unknown as typeof sampleData;
+    const payload = context.payload.body as unknown as typeof sampleData;
 
-    if (payload.event !== 'user_created') {
+    if (payload?.event !== 'user_created') {
       return [];
     }
 
-    return [payload.data];
+    return [payload];
   },
 
   async test(context) {
-    return [sampleData.data];
+    return [sampleData];
   },
 });

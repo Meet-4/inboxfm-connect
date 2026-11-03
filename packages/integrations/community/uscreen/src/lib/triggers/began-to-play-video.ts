@@ -38,9 +38,9 @@ export const beganToPlayVideo = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload as unknown as typeof sampleData;
+    const payload = context.payload.body as unknown as typeof sampleData;
 
-    if (payload.event !== 'video_play') {
+    if (payload?.event !== 'video_play') {
       return [];
     }
 
