@@ -101,7 +101,20 @@ export const newEmailTrigger = createTrigger({
 			required: false,
 		}),
 	},
-	sampleData: {},
+	sampleData: {
+		id: 'AAMkAGI2MDVhZTFkLWViNGUtNGZiYS05NzUyLWVmYmE2N2M5YQABGgAAA==',
+		subject: 'Quarterly Report',
+		bodyPreview: 'Hi team, here is the quarterly report...',
+		receivedDateTime: '2026-10-15T10:30:00Z',
+		hasAttachments: false,
+		body: {
+			contentType: 'html',
+			content: '<p>Hi team,</p><p>Here is the quarterly report...</p><p>Best,<br>Jane</p>',
+		},
+		from: { emailAddress: { name: 'Jane Doe', address: 'sender@example.com' } },
+		sender: { emailAddress: { name: 'Jane Doe', address: 'sender@example.com' } },
+		toRecipients: [{ emailAddress: { name: '', address: 'recipient@example.com' } }],
+	},
 	type: TriggerStrategy.POLLING,
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, {

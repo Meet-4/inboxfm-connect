@@ -42,7 +42,17 @@ export const newOrUpdatedContact = createTrigger({
     description: 'Fires when a contact in the authenticated user\'s Microsoft 365 People (Outlook) address book is created or modified. Polls periodically and emits each contact whose last-modified time is newer than the previous check, so both brand-new contacts and edits to existing ones surface through this single trigger.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 'AAMkAGI2MDVhZTFkLWViNGUtNGZiYS05NzUyLWVmYmE2N2M5YQAAAA==',
+    displayName: 'Jane Doe',
+    givenName: 'Jane',
+    surname: 'Doe',
+    emailAddresses: [{ name: 'Jane Doe', address: 'jane.doe@example.com' }],
+    companyName: 'Contoso Ltd.',
+    jobTitle: 'Product Manager',
+    createdDateTime: '2026-10-15T10:30:00Z',
+    lastModifiedDateTime: '2026-10-15T10:30:00Z',
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);

@@ -88,7 +88,14 @@ export const readNewRows = createTrigger({
     }),
   },
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    row: 2,
+    values: {
+      ID: 101,
+      Product: 'Widget',
+      Price: 19.99,
+    },
+  },
   onEnable: async (context) => {
     const { storageSource, siteId, documentId } = context.propsValue as any;
     if (storageSource === 'sharepoint' && (!siteId || !documentId)) {
