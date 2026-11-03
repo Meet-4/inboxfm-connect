@@ -102,7 +102,10 @@ export const addGreetAction = createAction({
       first_name: context.propsValue.first,
       last_name: context.propsValue.last,
     };
-    addProfile(context.auth.props, user);
+    // Upsert the profile first and await it: the greet below references the
+    // profile by email, and a floating promise here would race the greet
+    // creation and silently swallow profile-upsert failures.
+    await addProfile(context.auth.props, user);
 
     const greet = {
       profiles: [context.propsValue.email],

@@ -10,14 +10,14 @@ export const courceID = Property.Dropdown({
   required: true,
   refreshers: [],
   options: async ({ auth }) => {
-    if (!auth || !auth.secret_text) {
+    if (!auth || !auth.props) {
       return {
         disabled: true,
         options: [],
       };
     }
     const response = await makeRequest(
-      auth.secret_text,
+      auth.props,
       HttpMethod.POST,
       '/get_courses',
       {
@@ -42,14 +42,14 @@ export const user_idDropdown = Property.Dropdown({
   required: true,
   refreshers: [],
   options: async ({ auth }) => {
-    if (!auth || !auth.secret_text) {
+    if (!auth || !auth.props) {
       return {
         disabled: true,
         options: [],
       };
     }
     const response = await makeRequest(
-      auth.secret_text,
+      auth.props,
       HttpMethod.POST,
       '/get_users',
       {
