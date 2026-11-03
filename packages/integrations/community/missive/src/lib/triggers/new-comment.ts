@@ -119,6 +119,16 @@ Configure filters like:
   },
 
   async run(context) {
-    return [context.payload.body];
+    // Missive delivers {rule: {id, description, type}, conversation, ...}
+    // with the rule's type in rule.type (missiveapp.com/docs/developers/
+    // webhooks). The documented "New comment" rule/hook type is new_comment;
+    // gate on it so a shared URL only fires this trigger for comments.
+    const body = context.payload.body as {
+      rule?: { type?: string };
+    };
+    if (body?.rule?.type !== 'new_comment') {
+      return [];
+    }
+    return [body];
   },
 });
