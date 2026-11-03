@@ -38,7 +38,21 @@ export const newMailbox = createTrigger({
       'Fires when a new mailbox (parser) is created in the Parseur account, discovered by polling the list of mailboxes. Use to react to newly provisioned parsers/mailboxes.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 789,
+    name: 'Invoices mailbox',
+    email_prefix: 'invoices',
+    ai_engine: 'engine-3.1',
+    document_count: 128,
+    template_count: 4,
+    webhook_count: 2,
+    is_master: false,
+    last_activity: '2026-10-15T10:30:00Z',
+    force_ocr: false,
+    process_attachments: true,
+    retention_policy: 0,
+    parser_object_count: 0,
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);
