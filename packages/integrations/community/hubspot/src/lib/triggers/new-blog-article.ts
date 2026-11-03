@@ -134,6 +134,17 @@ export const newBlogArticleTrigger = createTrigger({
 	async run(context) {
 		return await pollingHelper.poll(polling, context);
 	},
-	sampleData: {},
+	sampleData: {
+		id: '1234567890',
+		name: 'Product update: new integrations',
+		slug: 'product-update-new-integrations',
+		state: 'PUBLISHED',
+		language: 'en',
+		authorName: 'Jane Doe',
+		createdAt: 1761999000000,
+		updatedAt: 1762000000000,
+		publishDate: 1762000000000,
+		publishedAt: 1762000000000,
+	},
 });
 

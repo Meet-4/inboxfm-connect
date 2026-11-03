@@ -148,6 +148,16 @@ export const newEmailEventTrigger = createTrigger({
 	async run(context) {
 		return await pollingHelper.poll(polling, context);
 	},
-	sampleData: {},
+	sampleData: {
+		id: 190001234567,
+		created: 1762000000000,
+		type: 'OPEN',
+		recipient: 'jane.doe@example.com',
+		sender: 'marketing@example.com',
+		subject: 'Your October product digest',
+		emailCampaignId: 778899,
+		portalId: 625054,
+		hmid: 'a1b2c3d4e5f6g7h8',
+	},
 });
 
