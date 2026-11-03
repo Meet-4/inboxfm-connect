@@ -33,7 +33,20 @@ export const gravityFormsNewSubmission = createTrigger({
     }),
   },
   type: TriggerStrategy.WEBHOOK,
-  sampleData: {},
+  sampleData: {
+    body: {
+      entry_id: '125',
+      form_id: '3',
+      status: 'active',
+      date_created: '2026-10-15 10:30:00',
+      '1': 'Jane Doe',
+      '2': 'jane.doe@example.com',
+      '3': 'I would like to know more about the enterprise plan.',
+    },
+    headers: {
+      'content-type': 'application/json',
+    },
+  },
   async onEnable(context) {
     // Empty
   },
