@@ -85,8 +85,12 @@ export const alertForQuery = createTrigger({
           action: 'webhook',
           params: {
             url: webhookUrl,
-            headers: {},
-            payload: {},
+            payload: {
+              query: '{query}',
+              reasoning: '{reasoning}',
+              message: '{message}',
+              report_url: '{report_url}',
+            },
           },
         },
       ],
