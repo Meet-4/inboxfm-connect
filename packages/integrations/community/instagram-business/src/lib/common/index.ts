@@ -25,7 +25,7 @@ const instagramBusinessAuth =  PieceAuth.OAuth2({
   scope: ['instagram_basic', 'instagram_content_publish', 'business_management', 'pages_show_list'],
 })
 export const instagramCommon = {
-  baseUrl: 'https://graph.facebook.com/v17.0',
+  baseUrl: 'https://graph.facebook.com/v23.0',  // v17.0 expired 2025-09-12; v23.0 is supported until 2027-10-08 (developers.facebook.com Graph API changelog)
 
   authentication: instagramBusinessAuth,
 
