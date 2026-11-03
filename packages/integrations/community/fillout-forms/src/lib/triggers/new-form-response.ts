@@ -67,10 +67,16 @@ export const newFormResponse = createTrigger({
     return submissions.responses;
   },
   async run(context) {
-    const payload = JSON.parse(context.payload.body as string) as {
-      submission: Record<string, any>;
-    };
-    return [payload.submission];
+    // The webhook body may arrive as a raw string (non-JSON content types) or
+    // as an already-parsed object; Fillout posts JSON, so parsing a parsed
+    // object (the old `JSON.parse(payload.body as string)`) threw on every
+    // real event. Per Fillout's docs the webhook body IS the submission (same
+    // shape as /submissions entries) — no `submission` wrapper.
+    const raw = (context.payload as { body?: unknown }).body ?? context.payload;
+    const payload = (typeof raw === 'string' ? JSON.parse(raw) : raw) as {
+      submission?: Record<string, unknown>;
+    } & Record<string, unknown>;
+    return [payload.submission ?? payload];
   },
   sampleData: {
     questions: [
