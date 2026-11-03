@@ -67,7 +67,7 @@ export const sendTemplateMessageAction = createAction({
 		// fetch template language code
 		const templateData = await httpClient.sendRequest({
 			method: HttpMethod.GET,
-			url: `https://graph.facebook.com/v20.0/${templateId}`,
+			url: `https://graph.facebook.com/v23.0/${templateId}`,
 			authentication: {
 				type: AuthenticationType.BEARER_TOKEN,
 				token: context.auth.props.access_token,
@@ -83,7 +83,7 @@ export const sendTemplateMessageAction = createAction({
 		// https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates/#text-based
 		const response = await httpClient.sendRequest({
 			method: HttpMethod.POST,
-			url: `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+			url: `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
 			authentication: {
 				type: AuthenticationType.BEARER_TOKEN,
 				token: context.auth.props.access_token,
