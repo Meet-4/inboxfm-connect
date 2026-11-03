@@ -127,7 +127,8 @@ export const updatedRowTrigger = createTrigger({
     type: TriggerStrategy.POLLING,
     sampleData: {
         "rowIndex": 1,
-        "values": { "ID": 101, "Product": "Widget", "Price": 19.99 }
+        "values": { "ID": 101, "Product": "Widget", "Price": 19.99 },
+        "changeType": "added"
     },
 
     onEnable: async (context) => {

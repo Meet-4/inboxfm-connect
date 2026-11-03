@@ -79,7 +79,20 @@ export const newAttachmentTrigger = createTrigger({
 			required: false,			
 		}),
 	},
-	sampleData: {},
+	sampleData: {
+		file: 'https://files.automation-service.com/r3kd9fq/quarterly-report.pdf',
+		messageId: 'AAMkAGI2MDVhZTFkLWViNGUtNGZiYS05NzUyLWVmYmE2N2M5YQABGgAAA==',
+		messageSubject: 'Quarterly Report',
+		messageSender: { emailAddress: { name: 'Jane Doe', address: 'sender@example.com' } },
+		messageReceivedDateTime: '2026-10-15T10:30:00Z',
+		parentFolderId: 'AAMkAGI2MDVhZTFkAAAA==',
+		id: 'AAMkAGI2MDVhZTFkLWViNGUtNGZiYS05NzUyLWVmYmE2N2M5YQACggAAAB==',
+		name: 'quarterly-report.pdf',
+		contentType: 'application/pdf',
+		size: 102400,
+		isInline: false,
+		lastModifiedDateTime: '2026-10-15T10:30:00Z',
+	},
 	type: TriggerStrategy.POLLING,
 	async onEnable(context) {
 		await context.store.put('lastPoll', Date.now());

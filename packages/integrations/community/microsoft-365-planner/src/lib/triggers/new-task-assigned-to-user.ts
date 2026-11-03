@@ -57,7 +57,19 @@ export const newTaskAssignedToUser = createTrigger({
     description: 'Fires when a task within a specified Planner plan is assigned to the authenticated (connected) user. Polls periodically and emits each new task in that plan where the current user is among the assignees.',
   },
   props,
-  sampleData: {},
+  sampleData: {
+    id: 'tkQQOiYO40AssX3tYmhUngAHAETw',
+    title: 'Review launch checklist',
+    planId: 'xVQeSskM60uetceyKKL7aqMAB0jA',
+    bucketId: 'hsGGvg2sk0i3ig0j6M7mggADlgIK',
+    createdDateTime: '2026-10-15T10:30:00Z',
+    assignments: {
+      'e5caaa1c-9d77-4a5c-850c-1d9d1a5a1a01': {
+        '@odata.type': 'microsoft.graph.plannerAssignment',
+        orderHint: '866511',
+      },
+    },
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);

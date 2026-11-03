@@ -22,7 +22,20 @@ export const newRow = createTrigger({
             email: "john@example.com",
             created_at: "2023-01-01T00:00:00Z"
         },
-        old_record: null
+        old_record: null,
+        timestamp: "2026-10-15T10:30:00.000Z",
+        raw_payload: {
+            type: "INSERT",
+            table: "customers",
+            schema: "public",
+            record: {
+                id: 1,
+                name: "John Doe",
+                email: "john@example.com",
+                created_at: "2023-01-01T00:00:00Z"
+            },
+            old_record: null
+        }
     },
     props: {
         instructions: Property.MarkDown({

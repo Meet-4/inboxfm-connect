@@ -17,7 +17,41 @@ export const newMention = createTrigger({
     spaceId: spacesDropdown({refreshers: ['auth']}),
     spaceMemberId: spacesMembersDropdown(['auth', 'spaceId']),
   },
-  sampleData: {},
+  sampleData: {
+    name: 'spaces/AAAAAAAAAAA/messages/UMx0oQ8BnQ5',
+    sender: {
+      name: 'users/108999999999999999999',
+      displayName: 'Alex Jones',
+      type: 'HUMAN',
+      domainId: 'example.com',
+    },
+    createTime: '2026-10-15T10:31:02.456Z',
+    text: '@Jane Doe please review the Q3 report',
+    formattedText: '@Jane Doe please review the Q3 report',
+    argumentText: ' please review the Q3 report',
+    fallbackText: '@Jane Doe please review the Q3 report',
+    annotations: [
+      {
+        type: 'USER_MENTION',
+        startIndex: 0,
+        length: 9,
+        userMention: {
+          user: {
+            name: 'users/104998394382000000000',
+            displayName: 'Jane Doe',
+            type: 'HUMAN',
+            isAnonymous: false,
+          },
+        },
+      },
+    ],
+    thread: { name: 'spaces/AAAAAAAAAAA/threads/thread1' },
+    space: {
+      name: 'spaces/AAAAAAAAAAA',
+      displayName: 'Project Alpha',
+      type: 'ROOM',
+    },
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable({ auth, propsValue, webhookUrl, store }) {
     await propsValidation.validateZod(propsValue, googleChatCommon.newMentionTriggerSchema);

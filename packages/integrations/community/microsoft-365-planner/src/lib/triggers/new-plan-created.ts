@@ -37,7 +37,12 @@ export const newPlanCreated = createTrigger({
     description: 'Fires when a new plan is created in Microsoft 365 Planner across the authenticated user\'s accessible plans. Polls periodically and emits each newly created plan.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    id: 'xVQeSskM60uetceyKKL7aqMAB0jA',
+    title: 'Q3 Launch Plan',
+    createdDateTime: '2026-10-15T10:30:00Z',
+    owner: 'e5caaa1c-9d77-4a5c-850c-1d9d1a5a1a01',
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);

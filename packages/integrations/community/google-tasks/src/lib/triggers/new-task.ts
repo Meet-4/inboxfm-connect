@@ -48,7 +48,19 @@ export const newTaskTrigger = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   props,
-  sampleData: {},
+  sampleData: {
+    kind: 'tasks#task',
+    id: 'Nm5vQXZIVHpZTkZWc1BzQw',
+    etag: 'LTc5O',
+    title: 'Review the Q3 report',
+    notes: 'Focus on the revenue section',
+    status: 'needsAction',
+    due: '2026-10-20T00:00:00.000Z',
+    updated: '2026-10-15T10:30:00.000Z',
+    position: '000000000000001',
+    parent: 'MTUxODQ',
+    deleted: false,
+  },
   async test(context) {
     const store = context.store;
     const auth = context.auth;

@@ -57,7 +57,13 @@ export const newOrUpdatedRecordTrigger = createTrigger({
       'Fires when a record of the selected entity type is created or modified in a Microsoft Dynamics 365 Business Central company. Polls periodically and detects changes by the record lastModifiedDateTime, so updates to existing records emit the event too — there is no separate created-only mode.',
   },
   type: TriggerStrategy.POLLING,
-  sampleData: {},
+  sampleData: {
+    id: '12345678-90ab-cdef-1234-567890abcdef',
+    number: 'CUST-1001',
+    displayName: 'Contoso Ltd.',
+    email: 'billing@contoso.com',
+    lastModifiedDateTime: '2026-10-15T10:30:00Z',
+  },
   props: {
     company_id: commonProps.company_id,
     record_type: Property.StaticDropdown({

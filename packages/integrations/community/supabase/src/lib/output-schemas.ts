@@ -471,9 +471,17 @@ export const newRowTriggerOutputSchema: OutputSchema = {
             ],
         },
         {
+            key: 'old_record',
+            label: 'Old Record',
+        },
+        {
             key: 'timestamp',
             label: 'Timestamp',
             format: 'datetime',
+        },
+        {
+            key: 'raw_payload',
+            label: 'Raw Payload',
         },
     ],
 };

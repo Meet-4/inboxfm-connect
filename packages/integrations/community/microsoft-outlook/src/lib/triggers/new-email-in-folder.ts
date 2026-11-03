@@ -70,7 +70,22 @@ export const newEmailInFolderTrigger = createTrigger({
 			required: true,
 		}),
 	},
-	sampleData: {},
+	sampleData: {
+		id: 'AAMkAGI2MDVhZTFkLWViNGUtNGZiYS05NzUyLWVmYmE2N2M5YQABGgAAAA==',
+		subject: 'Invoice October',
+		bodyPreview: 'Please find attached the October invoice...',
+		createdDateTime: '2026-10-15T10:30:00Z',
+		receivedDateTime: '2026-10-15T10:30:00Z',
+		hasAttachments: true,
+		parentFolderId: 'AAMkAGI2MDVhZTFkAAAA==',
+		body: {
+			contentType: 'html',
+			content: '<p>Please find attached the October invoice.</p>',
+		},
+		from: { emailAddress: { name: 'Contoso Billing', address: 'billing@contoso.com' } },
+		sender: { emailAddress: { name: 'Contoso Billing', address: 'billing@contoso.com' } },
+		toRecipients: [{ emailAddress: { name: '', address: 'recipient@example.com' } }],
+	},
 	type: TriggerStrategy.POLLING,
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, {
