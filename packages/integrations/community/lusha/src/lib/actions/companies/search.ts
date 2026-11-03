@@ -7,7 +7,7 @@ export const searchCompanies = createAction({
   displayName: 'Search Companies',
   description: 'Search for companies with filters and pagination',
   audience: 'both',
-  aiMetadata: { description: 'Search the Lusha prospecting database for companies matching a JSON filter (industry, size, location, contact countries, etc.), auto-paginating up to a result cap (max 10000). Use to discover company candidates before enriching them; the returned requestId and company IDs feed the Enrich Companies action. Read-only and idempotent for the same filter.', idempotent: true },
+  aiMetadata: { description: 'Search the Lusha prospecting database for companies matching a JSON filter (industry, size, location, contact countries, etc.), auto-paginating up to a result cap (max 10000). Use to discover company candidates before enriching them; the returned per-page { requestId, data } batches (data = company records with their IDs) feed the Enrich Companies action. Read-only and idempotent for the same filter.', idempotent: true },
   props: {
     resultLimit: Property.Number({
       displayName: 'Maximum Results',
@@ -53,11 +53,14 @@ export const searchCompanies = createAction({
       throw new Error(`The maximum of result is 10000`);
 
     // the maximum number of result is 10000
-    let allResults: any[] = []
-    let currentPage = 0
-    let hasMorePages = true
+    // Lusha returns the companies of each page under `companies`, alongside
+    // the `requestId` that must be used to enrich these companies.
+    const batches: { requestId: string; data: any[] }[] = [];
+    let currentPage = 0;
+    let hasMorePages = true;
+    let fetched = 0;
     
-    while (hasMorePages && allResults.length < resultLimit) {
+    while (hasMorePages && fetched < resultLimit) {
       const payload = {
         ...requestBody,
         pages: {
@@ -70,7 +73,7 @@ export const searchCompanies = createAction({
         method: 'POST',
         headers: {
           'x-app': 'activepieces',
-          'x-api-key': context.auth.secret_text,
+          'api_key': context.auth.secret_text,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -84,21 +87,25 @@ export const searchCompanies = createAction({
       
       const responseData = await response.json();
 
-      if (!responseData.data || responseData.data.length === 0) {
+      const companies = Array.isArray(responseData.companies)
+        ? responseData.companies
+        : [];
+
+      if (companies.length === 0 || !responseData.requestId) {
         hasMorePages = false;
       } else {
-        const remainingNeeded = resultLimit - allResults.length;
-        if (remainingNeeded < 40) {
-          allResults = allResults.concat(responseData.data.slice(0, remainingNeeded));
-        } else {
-          allResults = allResults.concat(responseData.data);
-        }
+        const remainingNeeded = resultLimit - fetched;
+        const pageCompanies = remainingNeeded < 40
+          ? companies.slice(0, remainingNeeded)
+          : companies;
+        batches.push({ requestId: responseData.requestId, data: pageCompanies });
+        fetched += pageCompanies.length;
       }
       
       currentPage++;
     }
     
-    return allResults;
+    return batches;
   }
 });
 
