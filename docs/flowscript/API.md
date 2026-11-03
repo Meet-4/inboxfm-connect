@@ -76,10 +76,14 @@ Ingress endpoint for registered webhook triggers.
 
 ## Run inspection
 
-- GET /v1/runs?flow=<name>&limit=50
+- GET /v1/runs?flow=<name>&limit=50&cursor=<cursor>
 - GET /v1/runs/:id
 
-Project ID is used in queries. Add cursor pagination before run history grows significantly.
+Project ID is used in queries. The run listing is keyset-paginated (SeekPage convention): it returns
+`{ data: [...], next: <cursor>|null, previous: null }` — at most `limit` runs (1-100, default 50),
+newest first. When more runs exist beyond the page, `next` carries an opaque cursor: pass it back as
+`?cursor=` to fetch the following page. `next` is null on the last page, and `previous` is always
+null (the listing walks forward from the newest run only). A malformed cursor returns HTTP 400.
 
 ## Request IDs and trace correlation
 - Every request accepts an optional `x-request-id` header from the client or edge gateway.

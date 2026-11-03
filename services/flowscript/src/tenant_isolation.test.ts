@@ -406,7 +406,7 @@ describe('FlowScript tenant isolation and API boundaries (issue #651)', () => {
         },
       })
       expect(listResB.statusCode).toBe(200)
-      expect(listResB.json().runs).toHaveLength(0)
+      expect(listResB.json().data).toHaveLength(0)
 
       // Project B attempts to fetch Project A's run by ID -> 404 RUN_NOT_FOUND
       const getResB = await app.inject({
