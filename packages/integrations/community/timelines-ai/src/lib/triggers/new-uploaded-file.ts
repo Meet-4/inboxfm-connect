@@ -37,7 +37,15 @@ export const newUploadedFile = createTrigger({
     description: 'Fires when a new file is uploaded to TimelinesAI. Polls the uploaded-files list and emits each newly added file as it appears.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    temporary_download_url: 'https://app.timelines.ai/files/tmp/1a2b3c4d5e6f.pdf',
+    uid: 'file_1a2b3c4d5e6f7g8h',
+    filename: 'invoice-october.pdf',
+    size: 102400,
+    mimetype: 'application/pdf',
+    uploaded_by_email: 'agent@acme.com',
+    uploaded_at: '2026-10-15 10:30:00',
+  },
   type: TriggerStrategy.POLLING,
   async test(context) {
     return await pollingHelper.test(polling, context);
