@@ -108,6 +108,12 @@ export const newPayment = createTrigger({
     // implement webhook deletion logic
   },
   async run(context) {
-    return [context.payload.body];
+    // A MoonClerk webhook endpoint can carry several topics at once, so only
+    // emit deliveries matching this trigger's event.
+    const body = context.payload.body as { event?: string };
+    if (body?.event !== 'payment_created') {
+      return [];
+    }
+    return [body];
   },
 });
