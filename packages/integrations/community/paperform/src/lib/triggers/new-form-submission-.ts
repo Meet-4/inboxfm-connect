@@ -94,7 +94,17 @@ export const newFormSubmission = createTrigger({
       };
     });
   },
-  sampleData: {},
+  sampleData: {
+    id: 'sUb_9f8e7d6c5b4a4321',
+    form_id: 'contact-us',
+    created_at: '2026-10-15T10:30:00.000000Z',
+    updated_at: '2026-10-15T10:30:00.000000Z',
+    data: {
+      'Full Name': 'Jane Doe',
+      Email: 'jane.doe@example.com',
+      Message: 'Hello!',
+    },
+  },
 });
 
 interface Payload {
