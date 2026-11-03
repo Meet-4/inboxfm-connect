@@ -20,7 +20,7 @@ const polling: Polling<
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ propsValue, lastFetchEpochMS, auth }) => {
     const response = await makeRequest(
-      auth.secret_text,
+      auth.props,
       HttpMethod.POST,
       '/get_users',
       {

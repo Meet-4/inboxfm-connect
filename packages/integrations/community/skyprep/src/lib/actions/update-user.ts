@@ -138,7 +138,7 @@ export const updateUser = createAction({
       body.password_expiration_date = password_expiration_date;
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.POST,
       '/update_user',
       body

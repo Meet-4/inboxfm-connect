@@ -27,7 +27,7 @@ const polling: Polling<
   items: async ({ propsValue, lastFetchEpochMS, auth }) => {
     // Fetch course progresses with "failed" status
     const response = await makeRequest(
-      auth.secret_text,
+      auth.props,
       HttpMethod.POST,
       '/get_course_progresses',
       {
