@@ -16,7 +16,27 @@ export const newMessage = createTrigger({
     projectId: projectsDropdown(['auth']),
     spaceId: spacesDropdown({ refreshers: ['auth'] }),
   },
-  sampleData: {},
+  sampleData: {
+    name: 'spaces/AAAAAAAAAAA/messages/UMx0oQ8BnQ4',
+    sender: {
+      name: 'users/108999999999999999999',
+      displayName: 'Jane Doe',
+      type: 'HUMAN',
+      domainId: 'example.com',
+    },
+    createTime: '2026-10-15T10:30:05.123Z',
+    text: 'Hello team, the Q3 numbers are in!',
+    formattedText: 'Hello team, the Q3 numbers are in!',
+    argumentText: 'Hello team, the Q3 numbers are in!',
+    fallbackText: 'Hello team, the Q3 numbers are in!',
+    annotations: [],
+    thread: { name: 'spaces/AAAAAAAAAAA/threads/thread1' },
+    space: {
+      name: 'spaces/AAAAAAAAAAA',
+      displayName: 'Project Alpha',
+      type: 'ROOM',
+    },
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable({ auth, propsValue, webhookUrl, store }) {
     await propsValidation.validateZod(propsValue, googleChatCommon.newMessageTriggerSchema);

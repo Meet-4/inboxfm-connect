@@ -18,7 +18,13 @@ export const gmailNewLabelTrigger = createTrigger({
   },
   props: {},
   outputSchema: newLabelTriggerOutputSchema,
-  sampleData: {},
+  sampleData: {
+    id: 'Label_7',
+    name: 'Invoices',
+    type: 'user',
+    messageListVisibility: 'show',
+    labelListVisibility: 'labelShow',
+  },
   type: TriggerStrategy.POLLING,
   async onEnable(context) {
     const authClient = await createGoogleClient(context.auth);

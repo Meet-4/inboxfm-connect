@@ -27,7 +27,23 @@ export const newReview = createTrigger({
     account: googleBusinessCommon.account,
     location: googleBusinessCommon.location,
   },
-  sampleData: {},
+  sampleData: {
+    name: 'accounts/106385697981783857474/locations/123456789012345/reviews/AZ5456',
+    relativePublishTimeDescription: '2 days ago',
+    starRating: 'FIVE',
+    rating: 5,
+    comment: 'Great service, highly recommended!',
+    createTime: '2026-10-13T09:15:00Z',
+    updateTime: '2026-10-13T09:15:00Z',
+    reviewer: {
+      displayName: 'Jane Doe',
+      profilePhotoUrl: 'https://lh3.googleusercontent.com/a-/example',
+    },
+    reviewReply: {
+      comment: 'Thank you for your feedback!',
+      updateTime: '2026-10-14T11:00:00Z',
+    },
+  },
   type: TriggerStrategy.POLLING,
   async test(ctx) {
     return await pollingHelper.test(polling, ctx);

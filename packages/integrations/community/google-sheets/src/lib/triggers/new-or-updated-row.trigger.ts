@@ -301,6 +301,14 @@ export const newOrUpdatedRowTrigger = createTrigger({
 		}
 	},
 
-	sampleData: {},
+	sampleData: {
+		row: 3,
+		values: {
+			A: 'Jane Doe',
+			B: 'jane.doe@example.com',
+			C: 'Active',
+		},
+		_dedupe_key: 'f7a3b2c1d4e5',
+	},
 });
 

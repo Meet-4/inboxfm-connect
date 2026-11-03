@@ -71,7 +71,30 @@ export const gmailNewAttachmentTrigger = createTrigger({
     }),
   },
   outputSchema: newAttachmentTriggerOutputSchema,
-  sampleData: {},
+  sampleData: {
+    attachment: {
+      fileName: 'quarterly-report.pdf',
+      mimeType: 'application/pdf',
+      size: 102400,
+      data: 'https://files.automation-service.com/r3kd9fq/quarterly-report.pdf',
+    },
+    message: {
+      id: '18d5f2b8c9e0a1f2',
+      from: {
+        text: 'Jane Doe <sender@example.com>',
+        value: [{ address: 'sender@example.com', name: 'Jane Doe' }],
+      },
+      to: {
+        text: 'recipient@example.com',
+        value: [{ address: 'recipient@example.com', name: '' }],
+      },
+      subject: 'Quarterly Report',
+      messageId: '<CAGx7QuarterlyReport7794@example.com>',
+      date: '2026-10-15T10:30:00.000Z',
+      text: 'Hi team,\n\nHere is the quarterly report...\n\nBest,\nJane',
+      html: '<p>Hi team,</p><p>Here is the quarterly report...</p><p>Best,<br>Jane</p>',
+    },
+  },
   type: TriggerStrategy.POLLING,
   async onEnable(context) {
     await context.store.put('lastPoll', Date.now());
