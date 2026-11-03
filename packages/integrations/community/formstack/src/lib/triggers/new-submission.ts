@@ -101,8 +101,7 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof formStackAuth>, 
 
       return detailedSubmissions;
     } catch (error) {
-      console.error('Error fetching submissions:', error);
-      return [];
+      throw error;
     }
   },
 };
@@ -195,60 +194,7 @@ export const newSubmission = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   async test(context) {
-    try {
-      const result = await pollingHelper.test(polling, context);
-
-      if (result && result.length > 0) {
-        return result;
-      }
-
-      return [
-        {
-          epochMilliSeconds: Date.now(),
-          data: {
-            message:
-              'No recent submissions found. The trigger is working and will detect new submissions when they arrive.',
-            form_id: context.propsValue.form_id,
-          },
-        },
-      ];
-    } catch (error) {
-      console.error('Error in test function:', error);
-
-      return [
-        {
-          epochMilliSeconds: Date.now(),
-          data: {
-            error:
-              'Unable to fetch real data. Here is sample data to show the expected structure.',
-            sample: true,
-            id: '185502901',
-            form_id: '5439876',
-            timestamp: '2024-01-15T14:32:18Z',
-            user_agent:
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            remote_addr: '198.51.100.42',
-            latitude: '37.7749',
-            longitude: '-122.4194',
-            payment_status: '',
-            data: [
-              {
-                field: '185502595',
-                value: 'John',
-              },
-              {
-                field: '185502596',
-                value: 'Doe',
-              },
-              {
-                field: '185502597',
-                value: 'john.doe@company.com',
-              },
-            ],
-          },
-        },
-      ];
-    }
+    return await pollingHelper.test(polling, context);
   },
   async onEnable(context) {
     const { store, auth, propsValue } = context;
