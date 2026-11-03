@@ -3,13 +3,18 @@ import {
   Property,
   TriggerStrategy,
 } from '@inboxfm-connect/pieces-framework';
-import { HttpMethod, httpClient } from '@inboxfm-connect/pieces-common';
 import { togglTrackAuth } from '../..';
 import { togglCommon } from '../common';
 import {
   generateTogglWebhookInstructions,
   TOGGL_WEBHOOK_EVENTS,
 } from '../common/webhook-instructions';
+import {
+  getTogglEntity,
+  handleTogglValidationPing,
+  TOGGL_WEBHOOK_ACTIONS,
+  TOGGL_WEBHOOK_MODELS,
+} from '../common/toggl-webhook';
 
 export const newTimeEntry = createTrigger({
   auth: togglTrackAuth,
@@ -68,43 +73,43 @@ export const newTimeEntry = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload.body as any;
-    
-    if (payload?.payload === 'ping' || payload?.validation_code || payload?.validation_code_url) {
-      try {
-        await httpClient.sendRequest({
-          method: HttpMethod.GET,
-          url: payload.validation_code_url,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-      } catch (error) {
-        console.error('Failed to auto-validate webhook:', error);
-      }
-      
-      return [
-        {
-          message: 'Webhook validation successful',
-          timestamp: new Date().toISOString(),
-          status: 'validated',
-        },
-      ];
+    const body = context.payload.body as any;
+
+    // Toggl sends a special "ping" event to validate the webhook URL.
+    // Complete the validation handshake without emitting it as an event.
+    if (await handleTogglValidationPing(body)) {
+      return [];
     }
 
-    if (context.propsValue.optional_project_id && payload?.project_id) {
-      if (payload.project_id !== context.propsValue.optional_project_id) {
+    // Toggl webhooks can subscribe to several event types, so only emit
+    // deliveries matching this trigger's declared event ("Time entry created").
+    const timeEntry = getTogglEntity(
+      body,
+      TOGGL_WEBHOOK_MODELS.TIME_ENTRY,
+      TOGGL_WEBHOOK_ACTIONS.CREATED
+    );
+    if (!timeEntry) {
+      return [];
+    }
+
+    if (
+      context.propsValue.optional_project_id &&
+      timeEntry?.project_id !== undefined
+    ) {
+      if (
+        String(timeEntry.project_id) !==
+        String(context.propsValue.optional_project_id)
+      ) {
         return [];
       }
     }
 
-    if (context.propsValue.task_id && payload?.task_id) {
-      if (payload.task_id !== context.propsValue.task_id) {
+    if (context.propsValue.task_id && timeEntry?.task_id !== undefined) {
+      if (String(timeEntry.task_id) !== String(context.propsValue.task_id)) {
         return [];
       }
     }
 
-    return [payload];
+    return [timeEntry];
   },
 });
