@@ -11,7 +11,7 @@ import { Data } from 'clarifai-nodejs-grpc/proto/clarifai/api/resources_pb';
 export const postInputsAction = createAction({
   auth: clarifaiAuth,
   name: 'post_inputs',
-  description: 'Add inputs to your clarifai app',
+  description: 'Add inputs to your clarifai app\n\nDEPRECATED (Nov 2026 liveness census): The Clarifai public platform went offline in July 2026 (core team and inference technology acquired by Nebius); the API host api.clarifai.com no longer resolves, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description:

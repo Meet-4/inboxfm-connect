@@ -16,7 +16,7 @@ export const promptCompletion = createAction({
   name: 'prompt_completion',
   displayName: 'Ask AI',
   description:
-    'Enables users to generate prompt completion based on a specified model.',
+    'Enables users to generate prompt completion based on a specified model.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     model: Property.Dropdown({
   auth: straicoAuth,

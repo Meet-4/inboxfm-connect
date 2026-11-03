@@ -27,7 +27,7 @@ Follow these instructions to get your Clarifai (Personal Access Token) PAT Key:
 `;
 export const clarifai = createPiece({
   displayName: 'Clarifai',
-  description: 'AI-powered visual recognition',
+  description: 'AI-powered visual recognition\n\nDEPRECATED (Nov 2026 liveness census): The Clarifai public platform went offline in July 2026 (core team and inference technology acquired by Nebius); the API host api.clarifai.com no longer resolves, so this action cannot reach its API.',
   minimumSupportedRelease: '0.30.0',
   logoUrl: 'https://cdn.activepieces.com/pieces/clarifai.png',
   categories: [PieceCategory.ARTIFICIAL_INTELLIGENCE],

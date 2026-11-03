@@ -7,7 +7,7 @@ export const unsubscribeSubscriber = createAction({
   auth: zagomailAuth,
   name: 'unsubscribeSubscriber',
   displayName: 'Unsubscribe Subscriber',
-  description: 'Unsubscribes a subscriber.',
+  description: 'Unsubscribes a subscriber.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Unsubscribes a subscriber from a specific Zagomail list, identified by the list UID and subscriber UID. Use to opt a contact out of a known list; requires both IDs. Idempotent: re-running leaves the subscriber unsubscribed.', idempotent: true },
   props: {

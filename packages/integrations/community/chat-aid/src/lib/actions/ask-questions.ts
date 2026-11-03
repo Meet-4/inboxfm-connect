@@ -8,7 +8,7 @@ export const askQuestions = createAction({
   name: 'askQuestions',
   displayName: 'Ask Questions',
   description:
-    'Query your Chat Aid knowledge base and receive AI-generated answers with source citations',
+    'Query your Chat Aid knowledge base and receive AI-generated answers with source citations\n\nDEPRECATED (Nov 2026 liveness census): The API host api.chataid.com is a dangling CNAME to a deleted AWS load balancer and does not resolve; Chat Aid has published no replacement host, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Ask a natural-language question against the Chat Aid knowledge base and get back an AI-generated answer with source citations; the call submits the prompt then polls until the answer is ready (timing out after ~2 minutes). Optionally pass parent and message timestamps to thread follow-up questions within an ongoing conversation. Use this to retrieve answers grounded in ingested sources. Not idempotent: each call generates a fresh completion and conversation turn.', idempotent: false },
   props: {

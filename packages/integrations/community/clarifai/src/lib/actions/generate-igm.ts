@@ -10,7 +10,7 @@ export const clarifaiGenerateIGM = createAction({
   name: 'generate-igm',
   displayName: 'Ask IGM',
   description:
-    'Generate an image using the Image generating models supported by clarifai.',
+    'Generate an image using the Image generating models supported by clarifai.\n\nDEPRECATED (Nov 2026 liveness census): The Clarifai public platform went offline in July 2026 (core team and inference technology acquired by Nebius); the API host api.clarifai.com no longer resolves, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description:

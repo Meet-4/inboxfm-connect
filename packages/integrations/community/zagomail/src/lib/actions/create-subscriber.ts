@@ -9,7 +9,7 @@ export const createSubscriber = createAction({
 	auth: zagomailAuth,
 	name: 'createSubscriber',
 	displayName: 'Create Subscriber',
-	description: 'Creates a new subscriber in a list.',
+	description: 'Creates a new subscriber in a list.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
 	audience: 'both',
 	aiMetadata: { description: 'Adds a new subscriber to a specific Zagomail list, identified by its list UID, populating the list custom fields you provide. Use to enroll a contact into a mailing list. Not idempotent: each call creates another subscriber record, so guard against duplicates if re-running.', idempotent: false },
 	props: {

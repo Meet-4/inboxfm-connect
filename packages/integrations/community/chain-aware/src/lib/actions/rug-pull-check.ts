@@ -7,7 +7,7 @@ export const rugPullCheck = createAction({
   auth: chainAwareAuth,
   name: 'rugPullCheck',
   displayName: 'Rug Pull Check',
-  description: 'Calculate fraud probability for a contract address',
+  description: 'Calculate fraud probability for a contract address\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description: 'Calculate a ChainAware rug-pull / fraud-probability score for a smart-contract address (e.g. a token contract) on a given network. Choose this when assessing a token or contract rather than a user wallet — for wallets use Fraud Check instead. Requires the network name and contract address. Read-only analysis — idempotent.',

@@ -6,7 +6,7 @@ import { BASE_URL, getBookedinHeaders, extractApiKey } from '../common/props';
 export const createLead = createAction({
   name: 'createLead',
   displayName: 'Create Lead',
-  description: 'Creates a new lead in Bookedin AI',
+  description: 'Creates a new lead in Bookedin AI\n\nDEPRECATED (Nov 2026 liveness census): The API host api.bookedin.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and Bookedin has published no replacement API, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Create a new lead in Bookedin for the authenticated business from a contact first name, last name, email, and phone (all required). Use it to add a prospect into the lead pipeline. Not idempotent — each call creates a separate lead, with no de-duplication on email or phone.', idempotent: false },
   auth: bookedinAuth,

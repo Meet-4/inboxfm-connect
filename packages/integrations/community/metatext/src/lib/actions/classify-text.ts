@@ -7,7 +7,7 @@ export const classifyText = createAction({
   auth: metatextAuth,
   name: 'classify_text',
   displayName: 'Classify Text',
-  description: 'Classify text into categories (sentiment, intent, topic, custom models)',
+  description: 'Classify text into categories (sentiment, intent, topic, custom models)\n\nDEPRECATED (Nov 2026 liveness census): The API host api.metatext.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and metatext.ai now hosts an unrelated product, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Run a Metatext classification project against a block of text to assign it to categories such as sentiment, intent, or topic. Use when you have a configured classification project (referenced by its project ID) and want predicted labels for raw text; optionally tune which model/version to use, a minimum confidence threshold, and how many top labels to return. Requires the project ID and the text; this is a read-only analysis call that returns the same result for the same input, so it is safe to repeat.', idempotent: true },
   props: {

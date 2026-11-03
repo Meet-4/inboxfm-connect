@@ -9,7 +9,7 @@ import { BASE_URL } from './lib/common/client';
 
 export const chatAid = createPiece({
   displayName: 'Chat Aid',
-  description: 'AI-powered assistant for your knowledge base.',
+  description: 'AI-powered assistant for your knowledge base.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.chataid.com is a dangling CNAME to a deleted AWS load balancer and does not resolve; Chat Aid has published no replacement host, so this action cannot reach its API.',
   auth: ChatAidAuth,
   minimumSupportedRelease: '0.36.1',
   logoUrl: 'https://cdn.activepieces.com/pieces/chat-aid.png',

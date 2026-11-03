@@ -13,7 +13,7 @@ export const agentPromptCompletion = createAction({
   auth: straicoAuth,
   name: 'agent_prompt_completion',
   displayName: 'Agent Prompt Completion',
-  description: 'Prompt an agent with a message and get a response',
+  description: 'Prompt an agent with a message and get a response\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     agentId: agentIdDropdown('Agent','Select the agent to prompt.'),
     prompt: Property.LongText({

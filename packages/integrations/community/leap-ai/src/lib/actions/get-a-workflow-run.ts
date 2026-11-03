@@ -7,7 +7,7 @@ export const getAWorkflowRun = createAction({
   auth: leapAiAuth,
   name: 'getAWorkflowRun',
   displayName: 'Get a Workflow Run',
-  description: 'Retrieve the status and results of a workflow run',
+  description: 'Retrieve the status and results of a workflow run\n\nDEPRECATED (Nov 2026 liveness census): Leap retired its Workflows API; api.workflows.tryleap.ai no longer accepts TLS connections and the current Leap API at api.tryleap.ai has no workflow endpoints, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: {
     description:

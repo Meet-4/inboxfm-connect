@@ -5,7 +5,7 @@ import { chatflyAuth } from './lib/auth';
 
 export const chatfly = createPiece({
   displayName: "Chatfly",
-  description: "ChatFly allows you to build AI chatbots trained on your data.",
+  description: "ChatFly allows you to build AI chatbots trained on your data.\n\nDEPRECATED (Nov 2026 liveness census): The API host backend.chatfly.co no longer resolves (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.",
   categories: [PieceCategory.ARTIFICIAL_INTELLIGENCE],
   auth: chatflyAuth,
   minimumSupportedRelease: '0.36.1',

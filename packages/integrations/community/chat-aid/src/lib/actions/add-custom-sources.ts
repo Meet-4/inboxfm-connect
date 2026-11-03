@@ -12,7 +12,7 @@ export const addCustomSources = createAction({
   auth: ChatAidAuth,
   name: 'addCustomSources',
   displayName: 'Add Custom Sources',
-  description: 'Upload one or more files as custom sources for training',
+  description: 'Upload one or more files as custom sources for training\n\nDEPRECATED (Nov 2026 liveness census): The API host api.chataid.com is a dangling CNAME to a deleted AWS load balancer and does not resolve; Chat Aid has published no replacement host, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Upload one or more files (PDF, Word, text, Markdown, HTML, Excel, CSV, PowerPoint, or images) to a Chat Aid knowledge base as custom sources for training, optionally scoped to a specific team (defaults to org-wide). Use this to ingest new documents the assistant should be able to answer from. Not idempotent: each call appends new sources, so repeating it uploads duplicates.', idempotent: false },
   props: {

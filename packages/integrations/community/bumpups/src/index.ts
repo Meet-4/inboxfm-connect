@@ -13,6 +13,7 @@ import { BASE_URL } from "./lib/common/client";
 export const bumpups = createPiece({
   displayName: 'Bumpups',
   auth: BumpupsAuth,
+  description: 'DEPRECATED (Nov 2026 liveness census): The old API host api.bumpups.com no longer resolves; Bumpups now serves its API at bumpups.com/api/v1 with Bearer auth and a different async contract, so this piece needs a full rewrite.',
   minimumSupportedRelease: '0.36.1',
   logoUrl: 'https://cdn.activepieces.com/pieces/bumpups.png',
   authors: ['Niket2035','sanket-a11y'],

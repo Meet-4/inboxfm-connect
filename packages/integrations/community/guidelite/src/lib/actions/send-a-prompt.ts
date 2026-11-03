@@ -8,7 +8,7 @@ export const sendAPrompt = createAction({
   auth: guideliteAuth,
   name: 'sendAPrompt',
   displayName: 'Send a Prompt',
-  description: 'Send a message to a Guidelite Assistant',
+  description: 'Send a message to a Guidelite Assistant\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.guidelite.ai and docs.guidelite.ai no longer resolve and guidelite.ai now hosts a different product, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Sends a message to a specified GuideLite AI assistant and returns its reply. Provide a conversationId to continue an existing conversation, or omit it to start a new one. Each call posts a new message and produces a fresh assistant response, so it is not idempotent.', idempotent: false },
   props: {

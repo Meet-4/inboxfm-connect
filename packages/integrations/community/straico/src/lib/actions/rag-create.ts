@@ -13,7 +13,7 @@ export const createRag = createAction({
   auth: straicoAuth,
   name: 'create_rag',
   displayName: 'Create RAG',
-  description: 'Create a new RAG (Retrieval-Augmented Generation) base in the database.',
+  description: 'Create a new RAG (Retrieval-Augmented Generation) base in the database.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {
     name: Property.ShortText({
       displayName: 'Name',

@@ -11,7 +11,7 @@ export const createSession = createAction({
   auth: sessionAuth,
   name: 'create_session',
   displayName: 'Create Session',
-  description: 'Quickly create a session.',
+  description: 'Quickly create a session.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.app.sessions.us no longer resolves (NXDOMAIN confirmed on multiple resolvers) and sessions.us is offline, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Create a new session (a private video meeting) on Sessions.us with a name, start/end time, and timezone, returning the session id and join link. Use when an agent needs to schedule a meeting rather than a public registration-based event. Creates a new session each call, so it is not idempotent — repeating it produces duplicate sessions.', idempotent: false },
   props: {

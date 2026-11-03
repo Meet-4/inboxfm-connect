@@ -8,7 +8,7 @@ export const tagSubscriber = createAction({
   auth: zagomailAuth,
   name: 'tagSubscriber',
   displayName: 'Tag Subscriber',
-  description: 'Adds A Tag to A Subscriber.',
+  description: 'Adds A Tag to A Subscriber.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.zagomail.com and app.zagomail.com no longer resolve (NXDOMAIN confirmed on multiple resolvers), so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Applies one or more tags to a subscriber in a Zagomail list, creating any tag that does not already exist before attaching it. Use to label or segment a contact; requires the list UID and the subscriber UID. Not idempotent: it mutates the subscriber and may create new tags on each run.', idempotent: false },
   props: {

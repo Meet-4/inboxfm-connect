@@ -7,7 +7,7 @@ export const creditScore = createAction({
   auth: chainAwareAuth,
   name: 'creditScore',
   displayName: 'Credit Score',
-  description: "Get a user's credit score",
+  description: "Get a user's credit score\n\nDEPRECATED (Nov 2026 liveness census): The API host enterprise.api.chainaware.ai no longer resolves (NXDOMAIN confirmed on multiple resolvers) and ChainAware has published no replacement base URL, so this action cannot reach its API.",
   audience: 'both',
   aiMetadata: {
     description: 'Look up the ChainAware on-chain credit score for a wallet address on a given network. Choose this to assess a wallet\'s creditworthiness or borrowing history rather than fraud risk. Requires the network name and wallet address. Read-only lookup — idempotent.',

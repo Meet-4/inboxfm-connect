@@ -12,7 +12,7 @@ export const listRags = createAction({
   auth: straicoAuth,
   name: 'list_rags',
   displayName: 'List RAGs',
-  description: 'List all RAG (Retrieval-Augmented Generation) bases for a user.',
+  description: 'List all RAG (Retrieval-Augmented Generation) bases for a user.\n\nDEPRECATED (Nov 2026 liveness census): The API hosts api.straico.com and platform.straico.com no longer resolve and straico.com is unreachable, so this action cannot reach its API.',
   props: {},
   async run({ auth }) {
     const response = await httpClient.sendRequest<{

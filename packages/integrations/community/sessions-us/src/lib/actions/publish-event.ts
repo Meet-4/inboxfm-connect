@@ -7,7 +7,7 @@ export const publishEvent = createAction({
   auth: sessionAuth,
   name: 'publish_event',
   displayName: 'Publish Event',
-  description: 'Quickly publish an event.',
+  description: 'Quickly publish an event.\n\nDEPRECATED (Nov 2026 liveness census): The API host api.app.sessions.us no longer resolves (NXDOMAIN confirmed on multiple resolvers) and sessions.us is offline, so this action cannot reach its API.',
   audience: 'both',
   aiMetadata: { description: 'Publish an existing draft event on Sessions.us so it becomes live and open for registration, identified by its event id. Use after Create Event when the event should go public. Requires a valid event id; publishing an already-published event has no further effect, so the call is effectively idempotent.', idempotent: true },
   props: {
