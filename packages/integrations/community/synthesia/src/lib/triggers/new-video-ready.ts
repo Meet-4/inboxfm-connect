@@ -16,7 +16,29 @@ export const newVideoReady = createTrigger({
       'Fires when a Synthesia video finishes rendering and becomes ready (the video.completed event), delivered via a registered webhook. Represents a single completed video; use it to act on a video once generation has finished.',
   },
   props: {},
-  sampleData: {},
+  sampleData: {
+    type: 'video.completed',
+    data: {
+      id: '9b8c7d6e-5f4a-4321-9876-abcdefabcdef',
+      title: 'Hello, World!',
+      description: 'This is my first synthetic video, made with the Synthesia API!',
+      status: 'complete',
+      visibility: 'private',
+      callbackId: 'jane.doe@example.com',
+      createdAt: 1762000000,
+      lastUpdatedAt: 1762000500,
+      duration: '0:00:59.000000',
+      download: 'https://download.synthesia.io/videos/9b8c7d6e.mp4',
+      thumbnail: {
+        image: 'https://thumbnails.synthesia.io/9b8c7d6e.jpg',
+        gif: 'https://thumbnails.synthesia.io/9b8c7d6e.gif',
+      },
+      captions: {
+        srt: 'https://captions.synthesia.io/9b8c7d6e.srt',
+        vtt: 'https://captions.synthesia.io/9b8c7d6e.vtt',
+      },
+    },
+  },
   type: TriggerStrategy.WEBHOOK,
   async onEnable(context) {
     const webhookUrl = context.webhookUrl;
