@@ -24,6 +24,6 @@ export const findBot = createAction({
       `/bots/${context.propsValue.uid}`
     );
 
-    return response.body;
+    return response;
   },
 });
