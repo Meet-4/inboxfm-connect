@@ -53,10 +53,13 @@ export const newVideoReady = createTrigger({
     await context.store.delete('webhookData');
   },
   async run(context) {
-    const payload = context.payload as any;
-    if (payload.type !== 'video.completed') {
-      return [];
-    }
-    return [context.payload.body];
+    const payload = context.payload.body as {
+      type: string;
+      data: Record<string, any>;
+    };
+
+    if (payload?.type !== 'video.completed') return [];
+
+    return [payload];
   },
 });
