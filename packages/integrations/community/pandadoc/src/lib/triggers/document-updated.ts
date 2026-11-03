@@ -176,20 +176,28 @@ export const documentUpdated = createTrigger({
   async run(context) {
     const payload = context.payload.body as any;
 
-    if (payload.event_type === 'document_updated') {
-      const documentData = payload.data;
+    // PandaDoc v1 webhook deliveries are a JSON array of event objects:
+    // [{ "event": "document_updated", "data": { ... } }]
+    const events = Array.isArray(payload) ? payload : [payload];
+
+    for (const event of events) {
+      if (event?.event !== 'document_updated') {
+        continue;
+      }
+
+      const documentData = event.data;
 
       if (context.propsValue.template_filter && context.propsValue.template_filter.length > 0) {
         const templateId = documentData?.template?.id;
         if (!templateId || !context.propsValue.template_filter.includes(templateId)) {
-          return [];
+          continue;
         }
       }
 
       if (context.propsValue.folder_filter && context.propsValue.folder_filter.length > 0) {
         const folderUuid = documentData?.folder_uuid;
         if (!folderUuid || !context.propsValue.folder_filter.includes(folderUuid)) {
-          return [];
+          continue;
         }
       }
 
@@ -217,7 +225,7 @@ export const documentUpdated = createTrigger({
         });
 
         if (!hasMatchingUpdate) {
-          return [];
+          continue;
         }
       }
 

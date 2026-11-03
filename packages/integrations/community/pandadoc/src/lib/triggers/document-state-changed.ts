@@ -94,13 +94,21 @@ export const documentStateChanged = createTrigger({
   async run(context) {
     const payload = context.payload.body as any;
 
-    if (payload.event_type === 'document_state_changed') {
-      const documentData = payload.data;
+    // PandaDoc v1 webhook deliveries are a JSON array of event objects:
+    // [{ "event": "document_state_changed", "data": { ... } }]
+    const events = Array.isArray(payload) ? payload : [payload];
+
+    for (const event of events) {
+      if (event?.event !== 'document_state_changed') {
+        continue;
+      }
+
+      const documentData = event.data;
       const currentStatus = documentData?.status;
 
       if (context.propsValue.filter_status && context.propsValue.filter_status.length > 0) {
         if (!context.propsValue.filter_status.includes(currentStatus)) {
-          return [];
+          continue;
         }
       }
 
