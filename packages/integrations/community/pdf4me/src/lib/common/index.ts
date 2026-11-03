@@ -15,7 +15,8 @@ async function callFileApi({
     method: HttpMethod.POST,
     url: `${BASE_URL}${endpoint}`,
     headers: {
-      Authorization: apiKey,
+      // PDF4me requires the API key as Basic auth on every REST call
+      Authorization: `Basic ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body,
@@ -36,7 +37,8 @@ async function callJsonApi<T extends HttpMessageBody>({
     method: HttpMethod.POST,
     url: `${BASE_URL}${endpoint}`,
     headers: {
-      Authorization: apiKey,
+      // PDF4me requires the API key as Basic auth on every REST call
+      Authorization: `Basic ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body,
