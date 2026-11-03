@@ -27,6 +27,7 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof leexiAuth>, Reco
             const response = await httpClient.sendRequest<ListCallResponse>({
                 method: HttpMethod.GET,
                 url: BASE_URL + '/calls',
+                queryParams: qs,
                 authentication: {
                     type: AuthenticationType.BASIC,
                     username: auth.username,
