@@ -75,7 +75,22 @@ auth: teamworkAuth,
 		}
 		return [payload];
 	},
-	sampleData: {},
+	sampleData: {
+		eventCreator: {
+			id: 238860,
+			firstName: 'Marc',
+			lastName: 'Cashman',
+			avatar: 'https://s3.amazonaws.com/TWFiles/343429/userAvatar/userImg_343429_238860.png',
+		},
+		expense: {
+			id: 9912345,
+			name: 'Client lunch',
+			description: 'Team lunch with the Acme client',
+			projectId: 732893,
+			dateCreated: '2026-10-15T10:30:00Z',
+			dateUpdated: '2026-10-15T10:30:00Z',
+		},
+	},
 });
 
 

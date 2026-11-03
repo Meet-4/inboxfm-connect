@@ -40,7 +40,20 @@ export const newPerson = createTrigger({
 		const payload = context.payload.body;
 		return [payload];
 	},
-	sampleData: {},
+	sampleData: {
+		eventCreator: {
+			id: 238860,
+			firstName: 'Marc',
+			lastName: 'Cashman',
+			avatar: 'https://s3.amazonaws.com/TWFiles/343429/userAvatar/userImg_343429_238860.png',
+		},
+		user: {
+			id: 305124,
+			firstName: 'Alice',
+			lastName: 'Ng',
+			emailAddress: 'alice.ng@example.com',
+		},
+	},
 });
 
 
