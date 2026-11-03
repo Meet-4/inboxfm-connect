@@ -66,7 +66,16 @@ export const newConversationTrigger = createTrigger({
 		websiteId: websiteIdProp,
 	},
 	type: TriggerStrategy.POLLING,
-	sampleData: {},
+	sampleData: {
+		session_id: 'session_9f8e7d6c-5b4a-4321-9876-dcba98765432',
+		website_id: '8c840203-3f2b-4d6e-9f1a-2b3c4d5e6f7a',
+		inbox_id: 'inbox_1a2b3c4d',
+		people_id: 'c5a1b2d3-e4f5-6a7b-8c9d-0e1f2a3b4c5d',
+		state: 'pending',
+		active: 1,
+		created_at: 1762000000,
+		updated_at: 1762000100,
+	},
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, {
 			auth: context.auth,

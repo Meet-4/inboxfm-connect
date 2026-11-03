@@ -68,7 +68,18 @@ export const newContactTrigger = createTrigger({
 		websiteId: websiteIdProp,
 	},
 	type: TriggerStrategy.POLLING,
-	sampleData: {},
+	sampleData: {
+		person_id: 'c5a1b2d3-e4f5-6a7b-8c9d-0e1f2a3b4c5d',
+		email: 'jane.doe@example.com',
+		personal: {
+			nickname: 'Jane',
+			geo: 'Austin, US',
+		},
+		segments: ["customer"],
+		active: 1,
+		created_at: 1762000000,
+		updated_at: 1762000100,
+	},
 	async onEnable(context) {
 		await pollingHelper.onEnable(polling, {
 			auth: context.auth,
