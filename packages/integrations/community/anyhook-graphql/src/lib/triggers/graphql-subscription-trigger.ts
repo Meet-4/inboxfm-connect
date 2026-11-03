@@ -60,6 +60,9 @@ export const graphqlSubscriptionTrigger = createTrigger({
       },
     ];
   },
-  sampleData: {},
+  sampleData: {
+    event: 'GraphQL event data',
+    details: 'Details of the event',
+  },
 });
 

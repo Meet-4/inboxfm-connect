@@ -75,6 +75,7 @@ export const scheduledReportFetchBatch = createTrigger({
 		total_count: 1,
 		report_id: 'Worker_Report',
 		records: [{ employee_id: 'worker-001', name: 'Jane Doe' }],
+		fetched_at: '2026-10-15T10:30:00.000Z',
 	},
 	type: TriggerStrategy.POLLING,
 	async test(ctx) {

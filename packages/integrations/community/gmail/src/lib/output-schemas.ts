@@ -622,62 +622,57 @@ export const newLabeledEmailTriggerOutputSchema: OutputSchema = {
     {
       key: 'subject',
       label: 'Subject',
-      value: 'data.message.subject',
+      value: 'message.subject',
     },
     {
       key: 'from',
       label: 'From',
-      value: 'data.message.from.text',
+      value: 'message.from.text',
       format: 'email',
     },
     {
       key: 'to',
       label: 'To',
-      value: 'data.message.to.text',
+      value: 'message.to.text',
       format: 'email',
     },
     {
       key: 'text',
       label: 'Body (Text)',
-      value: 'data.message.text',
+      value: 'message.text',
     },
     {
       key: 'date',
       label: 'Date',
-      value: 'data.message.date',
+      value: 'message.date',
       format: 'datetime',
-    },
-    {
-      key: 'id',
-      label: 'Message ID',
-      value: 'id',
     },
     {
       key: 'messageId',
       label: 'Internet Message ID',
-      value: 'data.message.messageId',
+      value: 'message.messageId',
     },
     {
       key: 'addedAt',
       label: 'Label Added At',
-      value: 'data.labelInfo.addedAt',
+      value: 'labelInfo.addedAt',
       format: 'datetime',
     },
     {
       key: 'attachments',
       label: 'Attachments',
-      value: 'data.message.attachments',
-      labelKey: 'filename',
+      value: 'message.attachments',
+      labelKey: 'fileName',
       listItems: [
         {
-          key: 'filename',
+          key: 'fileName',
           label: 'Filename',
-          value: 'filename',
+          value: 'fileName',
         },
         {
-          key: 'contentType',
+          key: 'mimeType',
           label: 'Content Type',
-          value: 'contentType',
+          value: 'mimeType',
         },
         {
           key: 'size',
@@ -690,7 +685,7 @@ export const newLabeledEmailTriggerOutputSchema: OutputSchema = {
     {
       key: 'thread',
       label: 'Thread',
-      value: 'data.thread',
+      value: 'thread',
       children: [
         {
           key: 'id',
