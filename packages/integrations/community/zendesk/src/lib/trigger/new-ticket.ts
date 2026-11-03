@@ -26,6 +26,7 @@ interface ZendeskOrganization {
 interface ZendeskPayload {
   type?: string;
   ticket?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export const newTicket = createTrigger({
@@ -192,11 +193,9 @@ export const newTicket = createTrigger({
 
   async run(context) {
     const payload = context.payload.body as ZendeskPayload;
-    if (!payload.ticket) {
-      return [];
-    }
-
-    const ticket = payload.ticket;
+    // Zendesk trigger-connected webhooks carry a user-defined payload, and this
+    // trigger's own sampleData declares the flat ticket shape - accept both.
+    const ticket = (payload.ticket ?? payload) as Record<string, unknown>;
 
     const organizationId = context.propsValue.organization_id;
     if (organizationId && organizationId !== 'all') {
