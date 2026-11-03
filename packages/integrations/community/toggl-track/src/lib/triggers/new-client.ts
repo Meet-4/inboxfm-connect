@@ -3,13 +3,18 @@ import {
   Property,
   TriggerStrategy,
 } from '@inboxfm-connect/pieces-framework';
-import { HttpMethod, httpClient } from '@inboxfm-connect/pieces-common';
 import { togglTrackAuth } from '../..';
 import { togglCommon } from '../common';
 import {
   generateTogglWebhookInstructions,
   TOGGL_WEBHOOK_EVENTS,
 } from '../common/webhook-instructions';
+import {
+  getTogglEntity,
+  handleTogglValidationPing,
+  TOGGL_WEBHOOK_ACTIONS,
+  TOGGL_WEBHOOK_MODELS,
+} from '../common/toggl-webhook';
 
 export const newClient = createTrigger({
   auth: togglTrackAuth,
@@ -56,37 +61,25 @@ export const newClient = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload.body as any;
+    const body = context.payload.body as any;
 
-    // Handle validation pings automatically
-    if (
-      payload?.payload === 'ping' ||
-      payload?.validation_code ||
-      payload?.validation_code_url
-    ) {
-      try {
-        await httpClient.sendRequest({
-          method: HttpMethod.GET,
-          url: payload.validation_code_url,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        return [
-          {
-            message: 'Webhook validation successful',
-            timestamp: new Date().toISOString(),
-            status: 'validated',
-          },
-        ];
-      } catch (error) {
-        console.error('Failed to auto-validate webhook:', error);
-      }
-
+    // Toggl sends a special "ping" event to validate the webhook URL.
+    // Complete the validation handshake without emitting it as an event.
+    if (await handleTogglValidationPing(body)) {
       return [];
     }
 
-    return [payload];
+    // Toggl webhooks can subscribe to several event types, so only emit
+    // deliveries matching this trigger's declared event ("Client created").
+    const client = getTogglEntity(
+      body,
+      TOGGL_WEBHOOK_MODELS.CLIENT,
+      TOGGL_WEBHOOK_ACTIONS.CREATED
+    );
+    if (!client) {
+      return [];
+    }
+
+    return [client];
   },
 });

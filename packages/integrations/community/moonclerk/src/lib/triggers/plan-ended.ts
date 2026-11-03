@@ -39,6 +39,12 @@ export const planEnded = createTrigger({
     // implement webhook deletion logic
   },
   async run(context) {
-    return [context.payload.body];
+    // A MoonClerk webhook endpoint can carry several topics at once, so only
+    // emit deliveries matching this trigger's event.
+    const body = context.payload.body as { event?: string };
+    if (body?.event !== 'plan_ended') {
+      return [];
+    }
+    return [body];
   },
 });

@@ -7,6 +7,16 @@ import { emailOctopusAuth } from '../common/auth';
 import { emailOctopusProps } from '../common/props';
 import { MarkdownVariant } from '@inboxfm-connect/pieces-framework';
 
+interface EmailOctopusEvent {
+  type: string;
+  id: string;
+  contact_email_address: string;
+  campaign_id?: string;
+  list_id?: string;
+  contact_id?: string;
+  occurred_at?: string;
+}
+
 export const emailOpened = createTrigger({
   auth: emailOctopusAuth,
   name: 'email_opened',
@@ -60,21 +70,27 @@ export const emailOpened = createTrigger({
   },
 
   async run(context) {
-    const payloadBody = context.payload.body as {
-      type: string;
-      campaign_id: string;
-    };
+    // EmailOctopus delivers a JSON array of events (up to 1000 per request).
+    // Docs: https://help.emailoctopus.com/article/314-webhooks
+    const events = context.payload.body;
     const campaignIdFilter = context.propsValue.campaign_id;
 
-    if (payloadBody.type !== 'contact.opened') {
-      return [];
+    if (Array.isArray(events)) {
+      return events.filter(
+        (event: EmailOctopusEvent) =>
+          event.type === 'contact.opened' &&
+          (!campaignIdFilter || event.campaign_id === campaignIdFilter)
+      );
     }
 
-    if (campaignIdFilter && payloadBody.campaign_id !== campaignIdFilter) {
-      return [];
+    if (
+      (events as EmailOctopusEvent)?.type === 'contact.opened' &&
+      (!campaignIdFilter || (events as EmailOctopusEvent).campaign_id === campaignIdFilter)
+    ) {
+      return [events];
     }
 
-    return [payloadBody];
+    return [];
   },
 });
 
