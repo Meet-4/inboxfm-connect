@@ -127,43 +127,12 @@ export const mollieNewInvoice = createTrigger({
       if (invoices._embedded?.invoices?.length) {
         return invoices._embedded.invoices;
       }
-    } catch (error) {
-      console.error('Failed to fetch invoices:', error);
-    }
 
-    return [
-      {
-        id: 'inv_FrvewDA3Pr',
-        resource: 'invoice',
-        reference: 'INV-2024-001',
-        vatNumber: 'NL123456789B01',
-        status: 'open',
-        issuedAt: '2024-01-15T09:00:00+00:00',
-        paidAt: null,
-        dueAt: '2024-02-14T09:00:00+00:00',
-        netAmount: {
-          value: '100.00',
-          currency: 'EUR',
-        },
-        vatAmount: {
-          value: '21.00',
-          currency: 'EUR',
-        },
-        grossAmount: {
-          value: '121.00',
-          currency: 'EUR',
-        },
-        _links: {
-          self: {
-            href: 'https://api.mollie.com/v2/invoices/inv_FrvewDA3Pr',
-            type: 'application/hal+json',
-          },
-          pdf: {
-            href: 'https://api.mollie.com/v2/invoices/inv_FrvewDA3Pr.pdf',
-            type: 'application/pdf',
-          },
-        },
-      },
-    ];
+      return [];
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch invoices for trigger test: ${(error as Error).message ?? 'Unknown error occurred'}`
+      );
+    }
   },
 });
