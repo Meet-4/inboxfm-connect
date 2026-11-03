@@ -135,6 +135,17 @@ export const taskFinishedSuccessfullyTrigger = createTrigger({
     return response.result.robotTasks.items;
   },
 
-  sampleData: {},
+  sampleData: {
+    id: 'task_abc123',
+    robotId: 'robot_xyz789',
+    status: 'successful',
+    capturedTexts: {
+      'Product Name': 'Example Product',
+      Price: '$29.99',
+      Availability: 'In Stock',
+    },
+    createdAt: 1762000000,
+    finishedAt: 1762000060,
+  },
 });
 

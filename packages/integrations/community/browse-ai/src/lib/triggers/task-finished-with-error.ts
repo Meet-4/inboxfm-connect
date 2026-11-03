@@ -134,6 +134,13 @@ export const taskFinishedWithErrorTrigger = createTrigger({
     return response.result.robotTasks.items;
   },
 
-  sampleData: {},
+  sampleData: {
+    id: 'task_abc123',
+    robotId: 'robot_xyz789',
+    status: 'failed',
+    userFriendlyError: 'Robot could not find the requested element on the page',
+    createdAt: 1762000000,
+    finishedAt: 1762000060,
+  },
 });
 
