@@ -269,7 +269,16 @@ export const pieceHelper = {
                 id: constants.projectId,
                 externalId: constants.externalProjectId,
             },
-            flows: createFlowsContext(constants),
+            // Headless placeholder ids, not EngineConstants defaults: the #618
+            // contract test pins ctx.flows.current.id === 'headless' (dev's own
+            // regression test), and the store context uses the same 'headless'
+            // prefix — keep both sides of the context on one convention.
+            flows: createFlowsContext({
+                engineToken: params.engineToken,
+                internalApiUrl: params.internalApiUrl,
+                flowId: 'headless',
+                flowVersionId: 'headless',
+            }),
             output: {
                 update: async () => {},
             },

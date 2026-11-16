@@ -146,7 +146,10 @@ describe('executeTool headless run context', () => {
         expect(result.response).toEqual({
             // externalId must be the contract's () => Promise<string | undefined>, not the raw projectId string
             externalIdType: 'function',
-            flowsCurrentId: 'mcp-flow-id',
+            // 'headless' placeholder, per dev's #618 contract test (the original
+            // branch pinned the DEFAULT_MCP_DATA flow id before dev's #618 fix
+            // landed; the re-land follows dev's newer convention).
+            flowsCurrentId: 'headless',
             outputType: 'function',
             agentType: 'function',
             storeType: 'object',
