@@ -112,28 +112,9 @@ export const sendEmail = createAction({
       headers: propsValue.customHeaders as Headers,
     };
 
-    return await sendWithRetry(transporter, mailOptions);
+    return await transporter.sendMail(mailOptions);
   },
 });
-
-async function sendWithRetry(transporter: any, mailOptions: any) {
-  const maxRetries = 3;
-  let retryCount = 0;
-  
-  while (retryCount < maxRetries) {
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      return info;
-    } catch (error: any) {
-      if ('code' in error && error.code === 'ECONNRESET' && retryCount < maxRetries - 1) {
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        continue;
-      }
-      throw error;
-    }
-  }
-}
 
 function getFrom(senderName: string|undefined, from: string) {
   if (senderName) {
