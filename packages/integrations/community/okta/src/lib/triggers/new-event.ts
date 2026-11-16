@@ -229,17 +229,12 @@ export const newEventTrigger = createTrigger({
   },
 
   async test(context) {
-    try {
-      const response = await makeOktaRequest(
-        context.auth,
-        '/logs?limit=1',
-        HttpMethod.GET
-      );
-      return response.body || [];
-    } catch (error) {
-      console.error('Test error:', error);
-      return [];
-    }
+    const response = await makeOktaRequest(
+      context.auth,
+      '/logs?limit=1',
+      HttpMethod.GET
+    );
+    return response.body || [];
   },
 
   sampleData: {

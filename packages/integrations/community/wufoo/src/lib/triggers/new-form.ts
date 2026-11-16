@@ -182,104 +182,40 @@ export const newFormTrigger = createTrigger({
   async test(context) {
     const { responseFormat } = context.propsValue;
 
-    try {
-      const response = await wufooApiCall<{ Forms: WufooForm[] }>({
-        auth: context.auth,
-        method: HttpMethod.GET,
-        resourceUri: `/forms.${responseFormat || 'json'}`,
-      });
+    const response = await wufooApiCall<{ Forms: WufooForm[] }>({
+      auth: context.auth,
+      method: HttpMethod.GET,
+      resourceUri: `/forms.${responseFormat || 'json'}`,
+    });
 
-      const forms = response.Forms || [];
-      
-      if (forms.length > 0) {
-        const testForm = forms[0];
-        return [
-          {
-            id: testForm.Hash,
-            name: testForm.Name,
-            description: testForm.Description,
-            url: testForm.Url,
-            isPublic: testForm.IsPublic === '1',
-            isActive: testForm.IsPublic === '1',
-            redirectUrl: testForm.RedirectUrl,
-            dateCreated: testForm.DateCreated,
-            dateUpdated: testForm.DateUpdated,
-            entryCount: parseInt(testForm.EntryCount || '0', 10),
-            language: testForm.Language || 'english',
-            rawFormData: testForm,
-            triggerInfo: {
-              detectedAt: new Date().toISOString(),
-              source: 'wufoo',
-              type: 'new_form',
-            },
-          },
-        ];
-      } else {
-        return [
-          {
-            id: 's1afea8b1vk0jf7',
-            name: 'Sample Contact Form',
-            description: 'A sample contact form for testing purposes',
-            url: 'https://example.wufoo.com/forms/s1afea8b1vk0jf7/',
-            isPublic: true,
-            isActive: true,
-            redirectUrl: 'https://example.com/thank-you',
-            dateCreated: '2025-01-15 10:00:00',
-            dateUpdated: '2025-01-15 10:00:00',
-            entryCount: 0,
-            language: 'english',
-            rawFormData: {
-              Hash: 's1afea8b1vk0jf7',
-              Name: 'Sample Contact Form',
-              Description: 'A sample contact form for testing purposes',
-              Url: 'https://example.wufoo.com/forms/s1afea8b1vk0jf7/',
-              IsPublic: '1',
-              EntryCount: '0',
-              DateCreated: '2025-01-15 10:00:00',
-              DateUpdated: '2025-01-15 10:00:00',
-              Language: 'english',
-            },
-            triggerInfo: {
-              detectedAt: new Date().toISOString(),
-              source: 'wufoo',
-              type: 'new_form',
-            },
-          },
-        ];
-      }
-    } catch (error: any) {
-      return [
-        {
-          id: 's1afea8b1vk0jf7',
-          name: 'Test Contact Form',
-          description: 'A test form created for workflow testing',
-          url: 'https://example.wufoo.com/forms/s1afea8b1vk0jf7/',
-          isPublic: true,
-          isActive: true,
-          redirectUrl: 'https://example.com/thank-you',
-          dateCreated: '2025-01-15 10:00:00',
-          dateUpdated: '2025-01-15 10:00:00',
-          entryCount: 5,
-          language: 'english',
-          rawFormData: {
-            Hash: 's1afea8b1vk0jf7',
-            Name: 'Test Contact Form',
-            Description: 'A test form created for workflow testing',
-            Url: 'https://example.wufoo.com/forms/s1afea8b1vk0jf7/',
-            IsPublic: '1',
-            EntryCount: '5',
-            DateCreated: '2025-01-15 10:00:00',
-            DateUpdated: '2025-01-15 10:00:00',
-            Language: 'english',
-          },
-          triggerInfo: {
-            detectedAt: new Date().toISOString(),
-            source: 'wufoo',
-            type: 'new_form',
-          },
-        },
-      ];
+    const forms = response.Forms || [];
+
+    if (forms.length === 0) {
+      return [];
     }
+
+    const testForm = forms[0];
+    return [
+      {
+        id: testForm.Hash,
+        name: testForm.Name,
+        description: testForm.Description,
+        url: testForm.Url,
+        isPublic: testForm.IsPublic === '1',
+        isActive: testForm.IsPublic === '1',
+        redirectUrl: testForm.RedirectUrl,
+        dateCreated: testForm.DateCreated,
+        dateUpdated: testForm.DateUpdated,
+        entryCount: parseInt(testForm.EntryCount || '0', 10),
+        language: testForm.Language || 'english',
+        rawFormData: testForm,
+        triggerInfo: {
+          detectedAt: new Date().toISOString(),
+          source: 'wufoo',
+          type: 'new_form',
+        },
+      },
+    ];
   },
 
   sampleData: {

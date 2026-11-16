@@ -73,25 +73,19 @@ export const newCardTrigger = createTrigger({
 		return [card];
 	},
 	async test(context) {
-		let cards: Array<Record<string, unknown>> = [];
-		try {
-			const getListFunction = context.propsValue.list_id_opt ? getCardsInList : getCardsInBoard;
-			cards = await getListFunction(
-				context.auth.username,
-				context.auth.password,
-				context.propsValue.list_id_opt || context.propsValue.board_id,
-			);
+		const getListFunction = context.propsValue.list_id_opt ? getCardsInList : getCardsInBoard;
+		const cards = await getListFunction(
+			context.auth.username,
+			context.auth.password,
+			context.propsValue.list_id_opt || context.propsValue.board_id,
+		);
 
-			cards.sort(
-				(a: any, b: any) =>
-					new Date(b.dateLastActivity).getTime() - new Date(a.dateLastActivity).getTime(),
-			);
+		cards.sort(
+			(a: any, b: any) =>
+				new Date(b.dateLastActivity).getTime() - new Date(a.dateLastActivity).getTime(),
+		);
 
-			return cards.slice(0, 5);
-		} catch (error) {
-			console.error('An error occurred:', error);
-			return [];
-		}
+		return cards.slice(0, 5);
 	},
 	sampleData: {
 		id: '6651d6d6298164adb4a598b6',
