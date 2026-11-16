@@ -561,6 +561,10 @@ describe('if', () => {
         expect(r.error).toBeNull()
         expect(r.result).toBe('inner-false')
     })
+    it('numeric branch results stay numbers, not padded strings', () => {
+        expect(result('if({{c}}; 5; 0)', { c: true })).toBe(5)
+        expect(result('if({{c}}; 5; 0)', { c: false })).toBe(0)
+    })
 })
 
 describe('if_empty', () => {
@@ -586,6 +590,13 @@ describe('switch', () => {
         expect(result('switch("z";"a";"first";"b";"second";"fallback")')).toBe('fallback'))
     it('returns empty when no match and no default', () =>
         expect(result('switch("z";"a";"first")')).toBe(''))
+
+    it('bare keys written with separator spacing still match (registry doc example style)', () =>
+        expect(result('switch({{plan}}; free; 0; pro; 100)', { plan: 'pro' })).toBe(100))
+    it('numeric result value stays a number, not a padded string', () =>
+        expect(result('switch({{plan}}; free; 0; pro; 100)', { plan: 'pro' })).not.toBe(' 100'))
+    it('bare numeric keys match typed values', () =>
+        expect(result('switch({{n}}; 1; one; 2; two)', { n: 2 })).toBe('two'))
 })
 
 describe('is_empty / is_not_empty', () => {
@@ -613,12 +624,17 @@ describe('coalesce', () => {
         expect(result('coalesce({{a}};{{b}};"fallback")', { a: null, b: '' })).toBe('fallback'))
     it('returns first value when defined', () =>
         expect(result('coalesce("first";"second")')).toBe('first'))
+    it('numeric fallback stays a number, not a padded string', () =>
+        expect(result('coalesce({{a}}; 0; "fb")', { a: null })).toBe(0))
+    it('bare fallback is trimmed of separator spacing', () =>
+        expect(result('coalesce({{a}}; N/A)', { a: null })).toBe('N/A'))
 })
 
 describe('is_number', () => {
     it('true for number', () => expect(result('is_number({{x}})', { x: 42 })).toBe(true))
     it('false for numeric string', () => expect(result('is_number({{x}})', { x: '42' })).toBe(false))
     it('false for null', () => expect(result('is_number({{x}})', { x: null })).toBe(false))
+    it('true for a bare numeric literal', () => expect(result('is_number(5)')).toBe(true))
 })
 
 describe('is_list', () => {
@@ -680,6 +696,22 @@ describe('mixed template', () => {
 
     it('plain text without wrapper passes through unchanged', () =>
         expect(okMixed('Please trim(spaces)').result).toBe('Please trim(spaces)'))
+
+    it('object variable in text renders as JSON, matching the plain-text engine path', () =>
+        expect(okMixed('Hello {{user}}!', { user: { name: 'Ada' } }).result).toBe('Hello {"name":"Ada"}!'))
+
+    it('array variable in text renders as JSON, not comma-joined', () =>
+        expect(okMixed('Tags: {{tags}}!', { tags: ['a', 'b'] }).result).toBe('Tags: ["a","b"]!'))
+
+    it('null/undefined variable in text renders as empty string', () =>
+        expect(okMixed('Hi {{nope.deep}}!', { nope: null }).result).toBe('Hi !'))
+
+    it('text segment rendering is consistent with the formula-segment rendering of the same object', () => {
+        const data = { user: { name: 'Ada' } }
+        const viaText = okMixed('Hello {{user}}!', data).result
+        const viaFormula = okMixed(`Hello ${formulaEvaluator.wrap('{{user}}')}!`, data).result
+        expect(viaText).toBe(viaFormula)
+    })
 })
 
 // ---------------------------------------------------------------------------
@@ -723,8 +755,11 @@ describe('implicit string quoting', () => {
     it('combine with quoted space separator still works', () =>
         expect(result('combine(John;Smith;" ")')).toBe('John Smith'))
 
-    it('combine preserves spaces typed inside an arg', () =>
-        expect(result('combine(hello;    world)')).toBe('hello    world'))
+    it('combine preserves spaces typed inside a quoted arg', () =>
+        expect(result('combine("hello";"    world")')).toBe('hello    world'))
+
+    it('bare args are trimmed of separator spacing', () =>
+        expect(result('combine(John ; Smith ; " ")')).toBe('John Smith'))
 
     it('replace without quotes on search and replacement', () =>
         expect(result('replace(hello world;world;there)')).toBe('hello there'))
