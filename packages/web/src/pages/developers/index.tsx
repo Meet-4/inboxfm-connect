@@ -1,5 +1,6 @@
 import { BookOpen, Check, Code2, Copy, Key, Terminal } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/page-header'
@@ -8,16 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { buildRestSnippet } from './snippets'
 
 export default function DevelopersPage() {
+  const { t } = useTranslation()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const copySnippet = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopiedKey(label)
-      toast.success(`Copied ${label} snippet to clipboard`)
+      toast.success(t('Copied {{label}} snippet to clipboard', { label }))
       setTimeout(() => setCopiedKey((current) => (current === label ? null : current)), 2000)
     } catch {
-      toast.error('Could not copy snippet to clipboard')
+      toast.error(t('Could not copy snippet to clipboard'))
     }
   }
 
@@ -53,8 +55,8 @@ console.log(result);`
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Developers & SDK"
-        description="API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents."
+        title={t('Developers & SDK')}
+        description={t('API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents.')}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -64,15 +66,15 @@ console.log(result);`
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-primary" />
-                <span>SDK Installation</span>
+                <span>{t('SDK Installation')}</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Install the official Node.js/TypeScript client SDK.
+                {t('Install the official Node.js/TypeScript client SDK.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-muted-foreground">Node.js (npm / bun / pnpm)</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{t('Node.js (npm / bun / pnpm)')}</span>
                 <div className="relative">
                   <pre className="p-3 rounded-md bg-muted/40 font-mono text-xs text-foreground">
                     {installNpm}
@@ -98,21 +100,20 @@ console.log(result);`
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Key className="h-4 w-4 text-amber-500" />
-                <span>API Keys</span>
+                <span>{t('API Keys')}</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Manage service keys for headless programmatic execution.
+                {t('Manage service keys for headless programmatic execution.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Project and platform API keys have a dedicated page with masked values, creation dates, last-used
-                activity, and revoke controls.
+                {t('Project and platform API keys have a dedicated page with masked values, creation dates, last-used activity, and revoke controls.')}
               </p>
               <Button size="sm" variant="outline" className="gap-1.5 text-xs" asChild>
                 <Link to="/api-keys">
                   <Key className="h-3.5 w-3.5" />
-                  <span>Manage API Keys</span>
+                  <span>{t('Manage API Keys')}</span>
                 </Link>
               </Button>
             </CardContent>
@@ -125,7 +126,7 @@ console.log(result);`
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-primary" />
-                <span>TypeScript SDK Example</span>
+                <span>{t('TypeScript SDK Example')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="relative">
@@ -151,7 +152,7 @@ console.log(result);`
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-primary" />
-                <span>Direct REST API Contract</span>
+                <span>{t('Direct REST API Contract')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="relative">

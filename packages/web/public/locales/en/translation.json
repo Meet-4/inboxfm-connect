@@ -2941,5 +2941,17 @@
   "invalidHexColor": "Invalid hex color format (expected #RGB or #RRGGBB)",
   "invalidCloudflareAccountId": "Account ID must contain only alphanumeric characters, underscores, and hyphens",
   "invalidCloudflareGatewayId": "Gateway ID must contain only alphanumeric characters, underscores, and hyphens",
-  "invalidAzureResourceName": "Azure resource name must contain only alphanumeric characters and hyphens, start and end with an alphanumeric character, and be between 2 and 64 characters"
+  "invalidAzureResourceName": "Azure resource name must contain only alphanumeric characters and hyphens, start and end with an alphanumeric character, and be between 2 and 64 characters",
+  "Copied {{label}} snippet to clipboard": "Copied {{label}} snippet to clipboard",
+  "Could not copy snippet to clipboard": "Could not copy snippet to clipboard",
+  "Developers & SDK": "Developers & SDK",
+  "API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents.": "API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents.",
+  "SDK Installation": "SDK Installation",
+  "Install the official Node.js/TypeScript client SDK.": "Install the official Node.js/TypeScript client SDK.",
+  "Node.js (npm / bun / pnpm)": "Node.js (npm / bun / pnpm)",
+  "Manage service keys for headless programmatic execution.": "Manage service keys for headless programmatic execution.",
+  "Project and platform API keys have a dedicated page with masked values, creation dates, last-used activity, and revoke controls.": "Project and platform API keys have a dedicated page with masked values, creation dates, last-used activity, and revoke controls.",
+  "Manage API Keys": "Manage API Keys",
+  "TypeScript SDK Example": "TypeScript SDK Example",
+  "Direct REST API Contract": "Direct REST API Contract"
 }
