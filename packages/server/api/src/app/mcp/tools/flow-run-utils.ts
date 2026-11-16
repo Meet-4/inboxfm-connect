@@ -6,6 +6,7 @@ import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
 import { appConnectionService, appConnectionsRepo } from '../../app-connection/app-connection-service/app-connection-service'
 import { AppConnectionSchema } from '../../app-connection/app-connection.entity'
+import { domainHelper } from '../../helper/domain-helper'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { localPieceCatalog } from '../../pieces/metadata/local-piece-catalog'
@@ -120,7 +121,11 @@ export async function executeAdhocAction({
         missingCredentialsWarning = `⚠️ Connection ${connectionLabel} has no credentials attached (status: MISSING). "${actionName}" ran because it does not require auth — actions that need this connection's credentials will fail until it is reconnected.`
     }
 
-    const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
+    // The runtime builds sandbox-internal URLs (store entries, files, piece bundles) by
+    // appending `v1/...` to this value, so it must carry the `/api` prefix — the raw
+    // AP_FRONTEND_URL previously made `new URL()` throw "Invalid URL" for every
+    // store-touching action (#544).
+    const publicUrl = await domainHelper.getPublicApiUrl({ path: '' })
     const result = await runtime.execute({
         integration: canonicalPieceName,
         tool: actionName,

@@ -8,6 +8,7 @@ import { ArrayContains } from 'typeorm'
 import { z } from 'zod'
 import { appConnectionsRepo } from '../app-connection/app-connection-service/app-connection-service'
 import { executeRuntime } from '../execute/execute.controller'
+import { domainHelper } from '../helper/domain-helper'
 import { system } from '../helper/system/system'
 import { AppSystemProp } from '../helper/system/system-props'
 import { mcpUtils } from '../mcp/tools/mcp-utils'
@@ -173,7 +174,10 @@ All invocations run with strict customer and project-level boundaries.`,
                 }
 
                 // 4. Execute through headless runtime
-                const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
+                // Same requirements as the MCP ap_run_action path (#544): the runtime
+                // builds sandbox-internal URLs (store entries, files, piece bundles) by
+                // appending `v1/...` to this value, so it must carry the `/api` prefix.
+                const publicUrl = await domainHelper.getPublicApiUrl({ path: '' })
                 const result = await executeRuntime.execute({
                     integration: pieceName,
                     tool: actionName,
