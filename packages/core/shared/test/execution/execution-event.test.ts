@@ -92,6 +92,17 @@ describe('ExecutionEvent Contracts & Payloads', () => {
             expect(ExecutionCompletedPayload.parse(payload)).toEqual(payload)
         })
 
+        it('preserves finishTime, which is what the api actually emits on completion', () => {
+            // Mirrors api execution.service updateStatus(COMPLETED):
+            // { executionId, totalTokens, finishTime } — parse must keep it.
+            const emitted = {
+                executionId: 'exec_01',
+                totalTokens: 1200,
+                finishTime: '2026-01-01T00:01:30.000Z',
+            }
+            expect(ExecutionCompletedPayload.parse(emitted)).toEqual(emitted)
+        })
+
         it('validates ExecutionFailedPayload', () => {
             const payload = {
                 executionId: 'exec_01',

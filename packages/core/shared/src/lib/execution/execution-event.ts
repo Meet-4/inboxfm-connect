@@ -66,6 +66,10 @@ export const ExecutionCompletedPayload = z.object({
     output: z.unknown().optional(),
     totalTokens: z.number().nullable().optional(),
     durationMs: z.number().nullable().optional(),
+    // The api's execution.service emits finishTime on Completion (alongside
+    // totalTokens) — it was missing from this contract, so parsing the real
+    // emission silently stripped it.
+    finishTime: z.string().nullable().optional(),
 })
 export type ExecutionCompletedPayload = z.infer<typeof ExecutionCompletedPayload>
 
