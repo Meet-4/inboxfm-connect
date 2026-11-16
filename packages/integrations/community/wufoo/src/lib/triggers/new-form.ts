@@ -180,7 +180,7 @@ export const newFormTrigger = createTrigger({
   },
 
   async test(context) {
-    const { responseFormat } = context.propsValue;
+    const { nameFilter, includeInactive, responseFormat } = context.propsValue;
 
     const response = await wufooApiCall<{ Forms: WufooForm[] }>({
       auth: context.auth,
@@ -188,7 +188,21 @@ export const newFormTrigger = createTrigger({
       resourceUri: `/forms.${responseFormat || 'json'}`,
     });
 
-    const forms = response.Forms || [];
+    // Mirror run(): the trigger only ever emits forms that pass the
+    // nameFilter and (unless includeInactive) IsPublic filter — the test
+    // must not display a form this configuration would discard.
+    let forms = response.Forms || [];
+
+    if (nameFilter && nameFilter.trim()) {
+      const filterText = nameFilter.trim().toLowerCase();
+      forms = forms.filter((form) =>
+        form.Name && form.Name.toLowerCase().includes(filterText)
+      );
+    }
+
+    if (!includeInactive) {
+      forms = forms.filter((form) => form.IsPublic === '1');
+    }
 
     if (forms.length === 0) {
       return [];
