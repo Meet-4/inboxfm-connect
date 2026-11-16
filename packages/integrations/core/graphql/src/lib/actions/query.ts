@@ -139,7 +139,17 @@ export const query = createAction({
           httpsAgent,
         });
 
-        const proxied_response = await axiosClient.request(request);
+        // Map the pieces-common HttpRequest to an axios config: axios only
+        // recognizes `data` and `params` — passing `body`/`queryParams`
+        // verbatim silently drops the GraphQL query from the request.
+        const proxied_response = await axiosClient.request({
+          method: request.method,
+          url: request.url,
+          params: request.queryParams,
+          headers: request.headers,
+          data: request.body,
+          timeout: request.timeout,
+        });
         return proxied_response.data;
       }
       return await httpClient.sendRequest(request);
