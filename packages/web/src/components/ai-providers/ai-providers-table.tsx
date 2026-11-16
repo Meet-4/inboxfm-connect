@@ -21,8 +21,6 @@ export interface AIProvidersTableProps {
   onBrowseModels: (provider: AIProviderWithoutSensitiveData) => void
   onToggleChat: (provider: AIProviderWithoutSensitiveData, enabled: boolean) => void
   togglingId?: string | null
-  /** Set false for non-admin users: edit/delete and the chat toggle hit admin-only endpoints. */
-  canManage?: boolean
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -46,7 +44,6 @@ export function AIProvidersTable({
   onBrowseModels,
   onToggleChat,
   togglingId,
-  canManage = true,
 }: AIProvidersTableProps) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
