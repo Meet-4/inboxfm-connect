@@ -7,6 +7,7 @@ import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
 import { z } from 'zod'
 import { appConnectionsRepo } from '../app-connection/app-connection-service/app-connection-service'
+import { accessTokenManager } from '../authentication/lib/access-token-manager'
 import { executeRuntime } from '../execute/execute.controller'
 import { system } from '../helper/system/system'
 import { AppSystemProp } from '../helper/system/system-props'
@@ -174,6 +175,15 @@ All invocations run with strict customer and project-level boundaries.`,
 
                 // 4. Execute through headless runtime
                 const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
+                // Headless pieces call engine API routes (store entries, files,
+                // flows) with this token, and the sandbox uses it to download
+                // piece bundles — those routes verify a real engine principal,
+                // so a placeholder string is rejected with 401 mid-run (same
+                // pattern as user-interaction-watcher).
+                const engineToken = await accessTokenManager(log).generateEngineToken({
+                    projectId: externalUser.projectId,
+                    platformId: externalUser.platformId,
+                })
                 const result = await executeRuntime.execute({
                     integration: pieceName,
                     tool: actionName,
@@ -181,6 +191,7 @@ All invocations run with strict customer and project-level boundaries.`,
                     input,
                     projectId: externalUser.projectId,
                     platformId: externalUser.platformId,
+                    engineToken,
                     internalApiUrl: publicUrl,
                     publicApiUrl: publicUrl,
                 })
