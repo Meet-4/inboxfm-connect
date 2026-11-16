@@ -100,6 +100,23 @@ function encodePreviousCursor(cursor: string | null | undefined) {
     return encode('prev_' + cursor)
 }
 
+const MAX_REQUESTED_LIMIT = 100
+
+/**
+ * Clamps a user-supplied page size to a sane positive integer range.
+ *
+ * Raw query values must never reach the paginator unvalidated: it treats
+ * `limit === -1` as its NO_LIMIT sentinel (skipping the SQL LIMIT entirely,
+ * i.e. a full-table dump) and a huge value translates into an unbounded
+ * `take(limit + 1)`.
+ */
+export function clampRequestedLimit(requested: number | null | undefined, fallback: number): number {
+    if (isNil(requested) || !Number.isFinite(requested)) {
+        return fallback
+    }
+    return Math.min(Math.max(Math.trunc(requested), 1), MAX_REQUESTED_LIMIT)
+}
+
 export const paginationHelper = {
     createPage<T>(data: T[], cursor: CursorResult | null): SeekPage<T> {
         return {

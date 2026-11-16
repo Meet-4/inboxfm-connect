@@ -3,6 +3,7 @@ import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
 import { platformMustHaveFeatureEnabled } from '../authentication/ee-authorization'
 import { auditLogService } from './audit-event-service'
+import { clampRequestedLimit } from '../../helper/pagination/pagination-utils'
 
 export const auditEventModule: FastifyPluginAsyncZod = async (app) => {
     auditLogService(app.log).setup()
@@ -16,7 +17,7 @@ const auditEventController: FastifyPluginAsyncZod = async (app) => {
         return auditLogService(request.log).list({
             platformId: request.principal.platform.id,
             cursorRequest: request.query.cursor ?? null,
-            limit: request.query.limit ?? 20,
+            limit: clampRequestedLimit(request.query.limit, 20),
             action: request.query.action ?? undefined,
             projectId: request.query.projectId ?? undefined,
             userId: request.query.userId ?? undefined,

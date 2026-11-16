@@ -5,6 +5,7 @@ import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { ProjectResourceType } from '../../../core/security/authorization/common'
 import { securityAccess } from '../../../core/security/authorization/fastify-security'
+import { clampRequestedLimit } from '../../../helper/pagination/pagination-utils'
 import { ProjectMemberEntity } from './project-member.entity'
 import { projectMemberService } from './project-member.service'
 
@@ -26,7 +27,7 @@ export const projectMemberController: FastifyPluginAsyncZod = async (
             platformId: request.principal.platform.id,  
             projectId: request.projectId,
             cursorRequest: request.query.cursor ?? null,
-            limit: request.query.limit ?? DEFAULT_LIMIT_SIZE,
+            limit: clampRequestedLimit(request.query.limit, DEFAULT_LIMIT_SIZE),
             projectRoleId: request.query.projectRoleId ?? undefined,
         })
     })

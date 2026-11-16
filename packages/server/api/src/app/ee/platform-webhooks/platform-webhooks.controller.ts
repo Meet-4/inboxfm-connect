@@ -5,6 +5,7 @@ import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
 import { eventDestinationService } from '../../event-destinations/event-destinations.service'
+import { clampRequestedLimit } from '../../helper/pagination/pagination-utils'
 
 export const platformWebhooksController: FastifyPluginAsyncZod = async (app) => {
     app.post('/', CreateEventDestinationRequest, async (req) => {
@@ -22,7 +23,7 @@ export const platformWebhooksController: FastifyPluginAsyncZod = async (app) => 
         return eventDestinationService(req.log).list({
             platformId: req.principal.platform.id,
             cursorRequest: req.query.cursor ?? null,
-            limit: req.query.limit ?? 10,
+            limit: clampRequestedLimit(req.query.limit, 10),
         })
     })
     app.delete('/:id', DeleteEventDestinationRequest, async (req) => {

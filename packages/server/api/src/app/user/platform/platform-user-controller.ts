@@ -4,6 +4,7 @@ import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
+import { clampRequestedLimit } from '../../helper/pagination/pagination-utils'
 import { system } from '../../helper/system/system'
 import { userService } from '../user-service'
 
@@ -17,7 +18,7 @@ export const platformUserController: FastifyPluginAsyncZod = async (app) => {
             platformId,
             externalId: req.query.externalId,
             cursorRequest: req.query.cursor ?? null,
-            limit: req.query.limit ?? 10,
+            limit: clampRequestedLimit(req.query.limit, 10),
         })
     })
 
