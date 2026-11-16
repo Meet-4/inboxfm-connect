@@ -230,7 +230,18 @@ function quoteIfBare(arg: string): string {
     if (trimmed.startsWith('__ap_')) return arg
     const fnCallMatch = trimmed.match(/^([a-z_][a-z0-9_]*)\s*\(/i)
     if (fnCallMatch && AP_FUNCTIONS.some((f) => f.name === fnCallMatch[1])) return arg
-    return '"' + arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
+    // Numeric and boolean literals are valid expr-eval operands on their own —
+    // quoting them would silently coerce them to strings (is_number(5) → false,
+    // switch(x; a; 1) → " 1"). Union arg specs (e.g. string|number) must not
+    // force a string here.
+    if (/^-?\d+(?:\.\d+)?$/.test(trimmed) || trimmed === 'true' || trimmed === 'false') {
+        return arg
+    }
+    // Quote the TRIMMED value: the arg text carries the spaces the user typed
+    // around the separator (`; 5 ;`), and embedding them in the literal breaks
+    // comparisons (switch keys saved as " pro" never match "pro") and joins
+    // (combine(John ; Smith) → "John   Smith ").
+    return '"' + trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
 }
 
 function normalizeExpression(expr: string): string {
@@ -341,7 +352,13 @@ function friendlyError(e: unknown): string {
 function resolveTextVars(text: string, sampleData: Record<string, unknown>): string {
     return text.replace(/\{\{([^}]+)\}\}/g, (_, path: string) => {
         const resolved = resolveVariable(path.trim(), sampleData)
-        return resolved != null ? String(resolved) : ''
+        if (resolved == null) return ''
+        // Objects and arrays must serialize as JSON, not String() — the
+        // formula-segment branch below (JSON.stringify) and the engine's
+        // plain-text interpolation (props-resolver) both use JSON, so
+        // String() here would render `{{user}}` as `[object Object]` in one
+        // template and `{"name":...}` in another.
+        return typeof resolved === 'object' ? JSON.stringify(resolved) : String(resolved)
     })
 }
 
