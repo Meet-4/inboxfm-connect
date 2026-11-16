@@ -10,11 +10,15 @@ import { buildRestSnippet } from './snippets'
 export default function DevelopersPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
-  const copySnippet = (text: string, label: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedKey(label)
-    toast.success(`Copied ${label} snippet to clipboard`)
-    setTimeout(() => setCopiedKey(null), 2000)
+  const copySnippet = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(label)
+      toast.success(`Copied ${label} snippet to clipboard`)
+      setTimeout(() => setCopiedKey((current) => (current === label ? null : current)), 2000)
+    } catch {
+      toast.error('Could not copy snippet to clipboard')
+    }
   }
 
   const installNpm = `npm install @inboxfm-connect/sdk`
@@ -76,7 +80,7 @@ console.log(result);`
                   <Button
                     size="icon-xs"
                     variant="outline"
-                    onClick={() => copySnippet(installNpm, 'npm install')}
+                    onClick={() => void copySnippet(installNpm, 'npm install')}
                     className="absolute top-2 right-2"
                   >
                     {copiedKey === 'npm install' ? (
@@ -131,7 +135,7 @@ console.log(result);`
               <Button
                 size="icon-xs"
                 variant="outline"
-                onClick={() => copySnippet(nodeSnippet, 'TypeScript')}
+                onClick={() => void copySnippet(nodeSnippet, 'TypeScript')}
                 className="absolute top-5 right-5"
               >
                 {copiedKey === 'TypeScript' ? (
@@ -157,7 +161,7 @@ console.log(result);`
               <Button
                 size="icon-xs"
                 variant="outline"
-                onClick={() => copySnippet(restSnippet, 'REST')}
+                onClick={() => void copySnippet(restSnippet, 'REST')}
                 data-testid="copy-rest-snippet"
                 className="absolute top-5 right-5"
               >
