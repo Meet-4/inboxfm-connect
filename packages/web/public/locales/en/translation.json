@@ -3058,7 +3058,6 @@
   "{{toolName}} is always exposed and cannot be disabled": "{{toolName}} is always exposed and cannot be disabled",
   "{{toolName}} is always exposed to AI agents": "{{toolName}} is always exposed to AI agents",
   "© {{year}} Inboxfm Connect. Dual-licensed — see": "© {{year}} Inboxfm Connect. Dual-licensed — see",
-
   "{{count}} triggers": "{{count}} triggers",
   "Loading triggers": "Loading triggers",
   "Could not load triggers": "Could not load triggers",
@@ -3083,7 +3082,6 @@
   "Integrations with triggers": "Integrations with triggers",
   "Select an integration": "Select an integration",
   "Choose an integration on the left to browse its event triggers.": "Choose an integration on the left to browse its event triggers.",
-
   "Signed in successfully": "Signed in successfully",
   "Invalid credentials": "Invalid credentials",
   "Sign in to your developer console": "Sign in to your developer console",
@@ -3092,5 +3090,17 @@
   "1-Click Sign in as Dev (dev@ap.com)": "1-Click Sign in as Dev (dev@ap.com)",
   "Signed in as Dev user": "Signed in as Dev user",
   "Dev authentication failed": "Dev authentication failed",
-  "Invalid dev credentials": "Invalid dev credentials"
+  "Invalid dev credentials": "Invalid dev credentials",
+  "Copied {{label}} snippet to clipboard": "Copied {{label}} snippet to clipboard",
+  "Could not copy snippet to clipboard": "Could not copy snippet to clipboard",
+  "Developers & SDK": "Developers & SDK",
+  "API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents.": "API keys, the TypeScript SDK, and REST contracts for embedding InboxFM Connect into your application or AI agents.",
+  "SDK Installation": "SDK Installation",
+  "Install the official Node.js/TypeScript client SDK.": "Install the official Node.js/TypeScript client SDK.",
+  "Node.js (npm / bun / pnpm)": "Node.js (npm / bun / pnpm)",
+  "Manage service keys for headless programmatic execution.": "Manage service keys for headless programmatic execution.",
+  "Project and platform API keys have a dedicated page with masked values, creation dates, last-used activity, and revoke controls.": "Project and platform API keys have a dedicated page with masked values, creation dates, last-used activity, and revoke controls.",
+  "Manage API Keys": "Manage API Keys",
+  "TypeScript SDK Example": "TypeScript SDK Example",
+  "Direct REST API Contract": "Direct REST API Contract"
 }
