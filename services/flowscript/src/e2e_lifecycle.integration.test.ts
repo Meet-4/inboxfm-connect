@@ -66,7 +66,7 @@ describe('FlowScript E2E Lifecycle & Security Boundaries against PostgreSQL (iss
       await testPool.query(`
         DROP TABLE IF EXISTS flowscript_schedule_occurrences CASCADE;
         DROP TABLE IF EXISTS flowscript_step_attempts CASCADE;
-        DROP TABLE IF EXISTS flowscript_idempotency_keys CASCADE;
+        DROP TABLE IF EXISTS flowscript_webhook_idempotency CASCADE;
         DROP TABLE IF EXISTS flowscript_triggers CASCADE;
         DROP TABLE IF EXISTS flowscript_runs CASCADE;
         DROP TABLE IF EXISTS flowscript_deployments CASCADE;
