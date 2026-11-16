@@ -80,7 +80,7 @@ export const dealEntersStage = createTrigger({
         // For test, we need to handle the case where stage_id might be undefined
         const testDeals = await pollingHelper.test(polling, context) as ZendeskDeal[];
         const matchingDeal = testDeals.find(deal => deal.stage_id === context.propsValue.stage_id);
-        return [matchingDeal ?? {}];
+        return matchingDeal ? [matchingDeal] : [];
     },
 
     async onEnable(context) {
