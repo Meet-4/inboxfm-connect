@@ -46,18 +46,13 @@ export const createFolderAction = createAction({
       };
     } 
     catch (err) {
+      // Rethrow so failures fail the step instead of resolving with
+      // an error payload as successful step output (same error-swallow
+      // class fixed in the new-file trigger).
       if (err instanceof FTPError) {
-          console.error(getSftpError(err.code));
-          return {
-              status: 'error',
-              error: getSftpError(err.code),
-          };
-      } else {
-          return {
-              status: 'error',
-              error: err
-          }
+          throw new Error(getSftpError(err.code).error);
       }
+      throw err;
     } finally {
       await endClient(client, context.auth.props.protocol);
     }
