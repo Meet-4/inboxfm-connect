@@ -53,7 +53,16 @@ export const executionJournal = {
             let loopStepOutput = step as LoopStepOutput
             let iterationOutput = loopStepOutput.output?.iterations[iteration]
             if (!iterationOutput ) {
-                loopStepOutput = loopStepOutput.setItemAndIndex({ item: undefined, index: iteration }).addIteration()
+                loopStepOutput = loopStepOutput.setItemAndIndex({ item: undefined, index: iteration })
+                // Pad up to the requested iteration: addIteration() appends a
+                // single `{}` at the END of the array, so when `iteration` is
+                // more than one past the current length, `iterations[iteration]`
+                // stays undefined and the old `?? {}` fallback returned a
+                // throwaway object — upsertStep then wrote the step output into
+                // an object that was never stored, silently losing it.
+                while ((loopStepOutput.output?.iterations.length ?? 0) <= iteration) {
+                    loopStepOutput = loopStepOutput.addIteration()
+                }
                 iterationOutput = loopStepOutput.output?.iterations[iteration] ?? {}
             }
             target[parentStepName] = loopStepOutput

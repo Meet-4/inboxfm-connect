@@ -90,6 +90,61 @@ describe('executionJournal (Issue #141)', () => {
             })
             expect(retrieved?.output).toEqual({ ok: true })
         })
+
+        it('creates and RETAINS iteration 1 when the loop has no iterations yet (skip-ahead)', () => {
+            const steps: Record<string, StepOutput> = {}
+            const innerAction = GenericStepOutput.create({
+                type: FlowActionType.PIECE,
+                status: StepOutputStatus.SUCCEEDED,
+                input: {},
+                output: { ok: true },
+            })
+
+            executionJournal.upsertStep({
+                stepName: 'inner_step',
+                stepOutput: innerAction,
+                path: [['loop', 1]],
+                steps,
+                createLoopIterationIfNotExists: true,
+            })
+
+            // addIteration() appends a single `{}` at the end of the array, so
+            // the old code wrote into a throwaway object for index > 0 and the
+            // step output was silently lost.
+            const retrieved = executionJournal.getStep({
+                stepName: 'inner_step',
+                path: [['loop', 1]],
+                steps,
+            })
+            expect(retrieved?.output).toEqual({ ok: true })
+        })
+
+        it('pads iterations up to a jump-ahead index instead of dropping the write', () => {
+            const loopStep = LoopStepOutput.init({ input: [] }).setItemAndIndex({ item: undefined, index: 0 }).addIteration()
+            const steps: Record<string, StepOutput> = { loop: loopStep }
+            const innerAction = GenericStepOutput.create({
+                type: FlowActionType.PIECE,
+                status: StepOutputStatus.SUCCEEDED,
+                input: {},
+                output: { ok: 1 },
+            })
+
+            executionJournal.upsertStep({
+                stepName: 'far_step',
+                stepOutput: innerAction,
+                path: [['loop', 3]],
+                steps,
+                createLoopIterationIfNotExists: true,
+            })
+
+            expect((steps.loop as LoopStepOutput).output?.iterations.length).toBe(4)
+            const retrieved = executionJournal.getStep({
+                stepName: 'far_step',
+                path: [['loop', 3]],
+                steps,
+            })
+            expect(retrieved?.output).toEqual({ ok: 1 })
+        })
     })
 
     describe('getStateAtPath & getOrCreateStateAtPath', () => {
