@@ -103,8 +103,7 @@ const polling: Polling<
         data: conversation,
       }));
     } catch (error) {
-      console.error('Error fetching conversations from Heymarket:', error);
-      return [];
+      throw error;
     }
   },
 };
