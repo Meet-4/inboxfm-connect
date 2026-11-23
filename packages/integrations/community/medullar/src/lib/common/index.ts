@@ -14,7 +14,9 @@ export async function getUser(authentication: AppConnectionValueForAuthProperty<
     method: HttpMethod.GET,
     url: `${medullarCommon.authUrl}/users/me/`,
     headers: {
-      Authorization: `Bearer ${authentication}`,
+      // SecretText connection value is `{ secret_text }` — interpolating the whole
+      // object would send "Authorization: Bearer [object Object]" (401 on every call).
+      Authorization: `Bearer ${authentication.secret_text}`,
     },
   });
 
@@ -108,7 +110,8 @@ export const medullarPropsCommon = {
         method: HttpMethod.GET,
         url: `${medullarCommon.aiUrl}/chats/?space=${spaceId}&limit=1000&offset=0`,
         headers: {
-          Authorization: `Bearer ${authentication}`,
+          // `{ secret_text }` connection value — interpolate the key, not the object.
+          Authorization: `Bearer ${authentication.secret_text}`,
         },
       });
 
