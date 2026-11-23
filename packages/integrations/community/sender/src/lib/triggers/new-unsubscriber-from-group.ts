@@ -54,8 +54,5 @@ export const newUnsubscriberFromGroupTrigger = createTrigger({
   async run(context) {
     return [context.payload.body];
   },
-  async test(context) {
-    return [];
-  },
   sampleData: {},
 });

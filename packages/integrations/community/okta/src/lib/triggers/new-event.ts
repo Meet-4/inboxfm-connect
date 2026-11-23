@@ -200,7 +200,6 @@ export const newEventTrigger = createTrigger({
 
   async run(context) {
     const payload: any = context.payload.body;
-    console.log("firstfdsdfsdf",JSON.stringify(payload))
     const configuredEventTypes = context.propsValue.eventTypes || [];
 
     if (!payload.data?.events || !Array.isArray(payload.data.events)) {
@@ -229,17 +228,23 @@ export const newEventTrigger = createTrigger({
   },
 
   async test(context) {
-    try {
-      const response = await makeOktaRequest(
-        context.auth,
-        '/logs?limit=1',
-        HttpMethod.GET
-      );
-      return response.body || [];
-    } catch (error) {
-      console.error('Test error:', error);
-      return [];
+    const configuredEventTypes = context.propsValue.eventTypes || [];
+    const response = await makeOktaRequest(
+      context.auth,
+      '/logs?limit=50',
+      HttpMethod.GET
+    );
+    const events = response.body || [];
+    if (configuredEventTypes.length === 0) {
+      return events.slice(0, 1);
     }
+    // Mirror run(): only events matching the configured eventTypes are
+    // ever emitted, so the test must not display a discarded event.
+    const match = events.find(
+      (event: { eventType: string }) =>
+        configuredEventTypes.includes(event.eventType)
+    );
+    return match ? [match] : [];
   },
 
   sampleData: {

@@ -40,7 +40,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
             operation: {
                 projectId: params.projectId,
                 platformId: params.platformId,
-                engineToken: 'headless',
+                engineToken: params.engineToken,
                 internalApiUrl: params.internalApiUrl || 'http://localhost:3000',
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
                 timeoutInSeconds: 60,
@@ -56,7 +56,7 @@ export class HeadlessRuntime<TConnection extends RuntimeConnection> {
                 pieces: [piecePackage],
                 codes: [],
                 publicApiUrl: params.publicApiUrl || 'http://localhost:3000',
-                engineToken: 'headless',
+                engineToken: params.engineToken,
             },
         })
 
@@ -165,6 +165,13 @@ export type ExecuteParams = {
     input: Record<string, unknown>
     projectId: string
     platformId: string
+    /**
+     * Signed engine principal token. The engine wires it into the piece context
+     * (store entries, files, flows, server) and the sandbox uses it to download
+     * piece bundles — every one of those API routes verifies a real engine
+     * principal, so a placeholder string fails with 401 mid-run.
+     */
+    engineToken: string
     internalApiUrl?: string
     publicApiUrl?: string
 }

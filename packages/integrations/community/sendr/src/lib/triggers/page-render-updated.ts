@@ -114,18 +114,4 @@ export const pageRenderUpdated = createTrigger({
     }];
   },
 
-  async test(context) {
-    return [
-      {
-        event_type: 'page_render.updated',
-        page_id: 'test_cuid_page',
-        page_url: 'https://pages.sendr.io/test',
-        page_slug: 'test-slug',
-        gif_url: 'https://cdn.sendr.io/gif/test.gif',
-        audio_url: 'https://cdn.sendr.io/audio/test.mp3',
-        lipsync_video: 'https://cdn.sendr.io/video/test.mp4',
-        event_status: 'updated',
-      },
-    ];
-  },
 });

@@ -19,7 +19,10 @@ const uploadMedia = async (media: ApFile, baseUrl: string, token: string) => {
       token,
     },
     headers: {
-      'Content-type': 'multipart/form-data',
+      // form-data owns the multipart boundary; getHeaders() sets
+      // "Content-Type: multipart/form-data; boundary=..." — a manual
+      // "multipart/form-data" header omits the boundary and the upload fails.
+      ...formData.getHeaders(),
     },
     body: formData,
   });
