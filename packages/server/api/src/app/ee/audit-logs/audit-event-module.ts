@@ -1,9 +1,9 @@
 import { ListAuditEventsRequest, PrincipalType } from '@inboxfm-connect/shared'
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
+import { clampRequestedLimit } from '../../helper/pagination/pagination-utils'
 import { platformMustHaveFeatureEnabled } from '../authentication/ee-authorization'
 import { auditLogService } from './audit-event-service'
-import { clampRequestedLimit } from '../../helper/pagination/pagination-utils'
 
 export const auditEventModule: FastifyPluginAsyncZod = async (app) => {
     auditLogService(app.log).setup()
