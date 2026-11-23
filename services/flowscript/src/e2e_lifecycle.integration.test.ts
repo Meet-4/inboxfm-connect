@@ -351,7 +351,7 @@ steps:
         },
       })
       expect(listRes.statusCode).toBe(200)
-      expect(listRes.json().runs).toHaveLength(0)
+      expect(listRes.json().data).toHaveLength(0)
 
       // Project Beta attempts to cancel Alpha's run -> 404
       const cancelRes = await app.inject({

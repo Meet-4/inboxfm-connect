@@ -8,12 +8,13 @@ import { executeFlowIR } from './runtime.js'
 import {
   closeStore,
   createRun,
+  decodeRunListCursor,
   deployFlow,
   finishRun,
   getDeployedFlow,
   getRun,
   initializeStore,
-  listRuns,
+  listRunsPage,
   publishFlow,
   createFlowTrigger,
   enqueueWebhook,
@@ -565,7 +566,15 @@ export function buildServer(): FastifyInstance {
     const projectId = auth.projectId
     const query = z.object({ flow: z.string().optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }).safeParse(request.query)
     if (!query.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid query parameters')
-    return { runs: await listRuns(projectId, query.data.flow, query.data.limit) }
+    // The pagination cursor is validated outside the zod object above: it is an opaque token
+    // (not a user-typed value) and this keeps the schema line shared with the open status-filter
+    // change free of overlap. Malformed cursors are rejected like any other bad parameter.
+    const rawCursor = z.string().min(1).max(512).optional().safeParse((request.query as Record<string, unknown> | undefined)?.cursor)
+    if (!rawCursor.success) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid cursor')
+    const cursor = rawCursor.data ? decodeRunListCursor(rawCursor.data) : null
+    if (rawCursor.data && !cursor) return sendError(reply, 400, 'BAD_REQUEST', 'Invalid cursor')
+    const page = await listRunsPage(projectId, { flowName: query.data.flow, limit: query.data.limit, cursor })
+    return { data: page.data, next: page.next, previous: null }
   })
 
   app.get('/v1/runs/:id', async (request, reply) => {
