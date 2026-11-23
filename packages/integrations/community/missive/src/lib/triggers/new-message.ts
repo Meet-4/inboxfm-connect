@@ -129,6 +129,22 @@ Configure filters like:
   },
 
   async run(context) {
-    return [context.payload.body];
+    // Every Missive webhook delivery carries the rule that fired it as
+    // {rule: {id, description, type}, conversation, latest_message}
+    // (missiveapp.com/docs/developers/webhooks). A shared URL across rules
+    // would fire this trigger for non-message rules (label_change,
+    // new_comment, ...), so gate on the documented incoming-message rule
+    // family: incoming_email, incoming_sms_message, incoming_facebook_message,
+    // incoming_whatsapp_message, incoming_twilio_chat_message
+    // (REST hooks API supported values = rule types). Also drops the
+    // rule-save validation POST, which carries no event of its own.
+    const body = context.payload.body as {
+      rule?: { type?: string };
+    };
+    const ruleType = body?.rule?.type;
+    if (!ruleType || !ruleType.startsWith('incoming_')) {
+      return [];
+    }
+    return [body];
   },
 });

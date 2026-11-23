@@ -110,6 +110,14 @@ export const newNote = createTrigger({
     // remove the webhook using dashboard
   },
   async run(context) {
-    return [context.payload.body];
+    // Zeplin webhooks can subscribe to every workspace event, and each
+    // delivery carries {event, action, ...} (docs.zeplin.dev: project
+    // events use actions created/updated/deleted), so only emit when a
+    // project.note resource is created.
+    const body = context.payload.body as { event?: string; action?: string };
+    if (!body || body.event !== 'project.note' || body.action !== 'created') {
+      return [];
+    }
+    return [body];
   },
 });

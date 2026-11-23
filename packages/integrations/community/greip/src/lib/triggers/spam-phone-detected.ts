@@ -48,7 +48,15 @@ To use this trigger, you need to manually set up a webhook in your Greip account
     // Webhooks are removed manually in Greip dashboard
   },
   async run(context) {
-    return [context.payload.body];
+    // A Greip webhook URL can be configured to receive several event types
+    // (docs.greip.io webhooks: one URL delivers each of fraud_payment,
+    // proxy_detected, profanity, spam_email, spam_phone), and every delivery
+    // carries the event name in `event`, so filter to this trigger's event.
+    const body = context.payload.body as { event?: string };
+    if (!body || body.event !== 'spam_phone') {
+      return [];
+    }
+    return [body];
   },
 });
 

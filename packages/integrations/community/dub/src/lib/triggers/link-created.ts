@@ -55,7 +55,15 @@ export const linkCreated = createTrigger({
     // Webhook is removed manually in the Dub platform
   },
   async run(context) {
-    return [context.payload.body];
+    // Dub webhook endpoints can be subscribed to multiple event types
+    // and every delivery carries the event name in `event`
+    // (dub.co/docs/webhooks/event-types: {id, event, createdAt, data}),
+    // so only emit this trigger's own event.
+    const body = context.payload.body as { event?: string };
+    if (!body || body.event !== 'link.created') {
+      return [];
+    }
+    return [body];
   },
 });
 
