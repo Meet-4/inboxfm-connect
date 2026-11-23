@@ -211,9 +211,10 @@ export const linkedinCommon = {
         type: AuthenticationType.BEARER_TOKEN,
         token: accessToken,
       },
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      // form-data owns the multipart boundary; spreading getHeaders() sets
+      // "Content-Type: multipart/form-data; boundary=..." — a manual
+      // "multipart/form-data" header omits the boundary and the upload fails.
+      headers: uploadFormData.getHeaders(),
     });
 
     return uploadData;

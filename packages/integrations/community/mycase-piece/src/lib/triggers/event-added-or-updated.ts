@@ -79,7 +79,4 @@ export const eventAddedOrUpdated = createTrigger({
   async run(ctx) {
     return [ctx.payload.body];
   },
-  async test(ctx) {
-    return [ctx.propsValue];
-  },
 });

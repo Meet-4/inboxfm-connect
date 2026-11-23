@@ -8,6 +8,7 @@ import { ArrayContains } from 'typeorm'
 import { z } from 'zod'
 import { appConnectionService, appConnectionsRepo } from '../app-connection/app-connection-service/app-connection-service'
 import { AppConnectionSchema } from '../app-connection/app-connection.entity'
+import { accessTokenManager } from '../authentication/lib/access-token-manager'
 import { ProjectResourceType } from '../core/security/authorization/common'
 import { securityAccess } from '../core/security/authorization/fastify-security'
 import { syncExecutionRateLimitOptions } from '../core/security/rate-limit'
@@ -68,6 +69,14 @@ export const executeController: FastifyPluginAsyncZod = async (fastify) => {
         // `v1/...` to this value, so it must carry the `/api` prefix. Raw AP_FRONTEND_URL was the
         // one call site skipping domainHelper — the mismatch produced `/api/api/...` paths (#440).
         const publicUrl = await domainHelper.getPublicApiUrl({ path: '' })
+        // Headless pieces call engine API routes (store entries, files, flows) with
+        // this token, and the sandbox uses it to download piece bundles — those
+        // routes verify a real engine principal, so a placeholder string is
+        // rejected with 401 mid-run (same pattern as user-interaction-watcher).
+        const engineToken = await accessTokenManager(request.log).generateEngineToken({
+            projectId: request.projectId,
+            platformId: request.principal.platform.id,
+        })
         const connectionId = await resolveConnectionId({
             projectId: request.projectId,
             platformId: request.principal.platform.id,
@@ -83,6 +92,7 @@ export const executeController: FastifyPluginAsyncZod = async (fastify) => {
             input: request.body.input,
             projectId: request.projectId,
             platformId: request.principal.platform.id,
+            engineToken,
             internalApiUrl: publicUrl,
             publicApiUrl: publicUrl,
         }))

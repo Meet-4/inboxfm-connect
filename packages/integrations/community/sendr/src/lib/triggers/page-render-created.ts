@@ -110,16 +110,4 @@ export const pageRenderCreated = createTrigger({
     }];
   },
 
-  async test(context) {
-    return [
-      {
-        event_type: 'page_render.created',
-        page_id: 'test_cuid_page',
-        page_url: 'https://pages.sendr.io/test',
-        page_slug: 'test-slug',
-        template_id: 'test_cuid_template',
-        event_status: 'created',
-      },
-    ];
-  },
 });

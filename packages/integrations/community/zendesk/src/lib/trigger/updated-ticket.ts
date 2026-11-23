@@ -213,12 +213,10 @@ export const updatedTicket = createTrigger({
   },
 
   async run(context) {
-    const payload = context.payload.body as { ticket?: ZendeskTicket };
-    if (!payload.ticket) {
-      return [];
-    }
-
-    const ticket = payload.ticket;
+    const payload = context.payload.body as ZendeskTicket & { ticket?: ZendeskTicket };
+    // Zendesk trigger-connected webhooks carry a user-defined payload, and this
+    // trigger's own sampleData declares the flat ticket shape - accept both.
+    const ticket = payload.ticket ?? payload;
 
     const organizationId = context.propsValue.organization_id;
     if (organizationId && organizationId !== 'all') {

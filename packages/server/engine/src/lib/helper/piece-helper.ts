@@ -7,13 +7,17 @@ import {
     ExecutePropsResult,
     ExecutionType,
     getAuthPropertyForValue,
+    InputPropertyMap,
+    IntegrationAuthProperty,
     MultiSelectDropdownProperty,
     PieceAuthProperty,
     PieceMetadata,
     PiecePropertyMap,
     pieceTranslation,
     PropertyType,
+    RunContext,
     StaticPropsValue,
+    ToolContext,
 } from '@inboxfm-connect/pieces-framework'
 import {
     AppConnectionType,
@@ -29,6 +33,8 @@ import {
     ExecuteToolOperation,
     ExecuteValidateAuthOperation,
     ExecuteValidateAuthResponse,
+    ExecutionError,
+    ExecutionErrorType,
     PropsValidationError,
 } from '@inboxfm-connect/shared'
 import { EngineConstants } from '../handler/context/engine-constants'
@@ -228,7 +234,9 @@ export const pieceHelper = {
             throw new PropsValidationError(errors)
         }
 
-        const context = {
+        const constants = EngineConstants.fromExecuteActionInput(params)
+
+        const context: ToolContext<IntegrationAuthProperty, InputPropertyMap> = {
             executionType: ExecutionType.BEGIN,
             store: createContextStore({
                 apiUrl: params.internalApiUrl,
@@ -256,25 +264,26 @@ export const pieceHelper = {
             connections: {
                 get: async () => null,
             },
-            // The flow-run context wires flows; the headless context must honour the same
-            // PieceContext contract or any piece reading context.flows.current crashes
-            // (#618). Placeholder ids mirror the store/run headless convention.
+            run: buildHeadlessRunContext(),
+            project: {
+                id: constants.projectId,
+                externalId: constants.externalProjectId,
+            },
+            // Headless placeholder ids, not EngineConstants defaults: the #618
+            // contract test pins ctx.flows.current.id === 'headless' (dev's own
+            // regression test), and the store context uses the same 'headless'
+            // prefix — keep both sides of the context on one convention.
             flows: createFlowsContext({
                 engineToken: params.engineToken,
                 internalApiUrl: params.internalApiUrl,
                 flowId: 'headless',
                 flowVersionId: 'headless',
             }),
-            run: {
-                id: 'headless',
-                stop: () => {},
-                respond: () => {},
-                createWaitpoint: async () => ({ id: 'dummy', token: 'dummy' }),
-                waitForWaitpoint: async () => {},
+            output: {
+                update: async () => {},
             },
-            project: {
-                id: params.projectId,
-                externalId: params.projectId,
+            agent: {
+                tools: async () => ({}),
             },
         }
 
@@ -293,6 +302,30 @@ export const pieceHelper = {
 }
 
 type ExecutePropsParams = Omit<ExecutePropsOptions, 'piece'> & { pieceName: string, pieceVersion: string }
+
+// Headless tool execution (/v1/execute -> EXECUTE_TOOL) runs a single tool with no
+// flow run to suspend, so waitpoints cannot be honored. Returning a stub result
+// used to crash pieces with "waitpoint.buildResumeUrl is not a function"
+// (CreateWaitpointResult requires id/resumeUrl/buildResumeUrl); instead fail the
+// tool with an explicit USER error that surfaces through the engine response.
+function buildHeadlessRunContext(): RunContext {
+    const pauseUnsupported = (): never => {
+        throw new ExecutionError(
+            'PauseUnsupportedInHeadlessModeError',
+            JSON.stringify({
+                message: 'Pausing is not supported in headless tool execution. createWaitpoint/waitForWaitpoint require a flow run to suspend, but /v1/execute runs a single tool without one.',
+            }, null, 2),
+            ExecutionErrorType.USER,
+        )
+    }
+    return {
+        id: 'headless',
+        stop: () => {},
+        respond: () => {},
+        createWaitpoint: async () => pauseUnsupported(),
+        waitForWaitpoint: () => pauseUnsupported(),
+    }
+}
 
 
 function mismatchAuthTypeErrorMessage(pieceAuthType: PropertyType, connectionType: AppConnectionType): ExecuteValidateAuthResponse {
