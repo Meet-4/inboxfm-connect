@@ -70,7 +70,7 @@ export const enrollAUserIntoAUserGroup = createAction({
     }
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.POST,
       '/enroll_user_in_user_group',
       body
