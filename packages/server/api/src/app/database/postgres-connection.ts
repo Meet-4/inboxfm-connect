@@ -13,7 +13,8 @@ import { AddAgentEntity1790153850000 } from './migration/postgres/1790153850000-
 import { AddMcpOAuthTokenLineage1790154000000 } from './migration/postgres/1790154000000-AddMcpOAuthTokenLineage'
 import { AddAppCredentialProjectIdAppNameUniqueIndex1791869464750 } from './migration/postgres/1791869464750-AddAppCredentialProjectIdAppNameUniqueIndex'
 import { AddConnectionHealthCheckColumns1791869626000 } from './migration/postgres/1791869626000-AddConnectionHealthCheckColumns'
-import { FixPlatformAnalyticsReportCachedAtType1791985230890 } from './migration/postgres/1791985230890-FixPlatformAnalyticsReportCachedAtType'
+import { AddAppConnectionProjectIdsGinIndex1791880000000 } from './migration/postgres/1791880000000-AddAppConnectionProjectIdsGinIndex'
+import { FixPlatformAnalyticsReportCachedAtType1791985230890 } from './migration/postgres/1791985230890-FixPlatformAnalyticsReportCachedAtType' 
 
 const getSslConfig = (): boolean | TlsOptions => {
     const useSsl = system.get(AppSystemProp.POSTGRES_USE_SSL)
@@ -46,8 +47,8 @@ const poolErrorHandler = (error: unknown): void => {
  * fork has since removed — flow builder, templates, trigger sources) into one migration
  * generated directly from the current `getEntities()` list. A fresh install now gets the
  * current schema in one step instead of replaying years of since-diverged history.
- * The old migration files remain on disk (unregistered, never executed) — see the repo
- * root's audit notes for why they weren't deleted outright.
+ * The old migration files remain on disk (unregistered, never executed) — they are
+ * the legacy Activepieces-era chains kept for upstream-merge and history reference.
  */
 export const getMigrations = (): (new () => Migration)[] => {
     const migrations = [
@@ -58,6 +59,7 @@ export const getMigrations = (): (new () => Migration)[] => {
         AddMcpOAuthTokenLineage1790154000000,
         AddAppCredentialProjectIdAppNameUniqueIndex1791869464750,
         AddConnectionHealthCheckColumns1791869626000,
+        AddAppConnectionProjectIdsGinIndex1791880000000,
         FixPlatformAnalyticsReportCachedAtType1791985230890,
     ]
     return migrations
