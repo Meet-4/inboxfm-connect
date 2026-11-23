@@ -6,6 +6,7 @@ import { AppConnectionValue } from '@inboxfm-connect/core-piece-types'
 import { PiecePackage } from '@inboxfm-connect/core-piece-types'
 import { ScheduleOptions } from '@inboxfm-connect/core-piece-types'
 import { JobPayload } from '../workers/job-data'
+import { FlowVersion } from '../flows/flow-version'
 
 export enum EngineOperationType {
     EXTRACT_PIECE_METADATA = 'EXTRACT_PIECE_METADATA',
@@ -83,7 +84,7 @@ export type ExecutePropsOptions = BaseEngineOperation & {
     piece: PiecePackage
     propertyName: string
     actionOrTriggerName: string
-    flowVersion?: unknown
+    flowVersion?: FlowVersion
     input: Record<string, unknown>
     sampleData: Record<string, unknown>
     searchValue?: string
@@ -118,7 +119,7 @@ export type ExecuteTriggerOperation<HT extends TriggerHookType> = BaseEngineOper
     hookType: HT
     test: boolean
     triggerBinding?: TriggerBindingInfo
-    flowVersion?: unknown
+    flowVersion?: FlowVersion
     webhookUrl: string
     triggerPayload?: JobPayload
     appWebhookUrl?: string
