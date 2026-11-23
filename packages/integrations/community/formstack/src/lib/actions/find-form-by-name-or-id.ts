@@ -69,14 +69,17 @@ export const findFormByNameOrId = createAction({
           message: `Form found with ID: ${search_query}`,
         };
       } catch (error) {
-        return {
-          search_type: 'id',
-          query: search_query,
-          found: false,
-          form: null,
-          message: `No form found with ID: ${search_query}`,
-          error: 'Form not found or access denied',
-        };
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Not Found')) {
+          return {
+            search_type: 'id',
+            query: search_query,
+            found: false,
+            form: null,
+            message: `No form found with ID: ${search_query}`,
+          };
+        }
+        throw error;
       }
     } else {
       try {
@@ -129,14 +132,7 @@ export const findFormByNameOrId = createAction({
           },
         };
       } catch (error) {
-        return {
-          search_type: 'name',
-          query: search_query,
-          found: false,
-          forms: [],
-          message: `Search failed for "${search_query}"`,
-          error: 'Unable to search forms or access denied',
-        };
+        throw error;
       }
     }
   },

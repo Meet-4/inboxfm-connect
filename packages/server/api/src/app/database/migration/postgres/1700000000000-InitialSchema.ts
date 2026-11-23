@@ -89,9 +89,10 @@ export class InitialSchema1700000000000 implements MigrationInterface {
         await queryRunner.query('CREATE UNIQUE INDEX "idx_mcp_oauth_code" ON "mcp_oauth_authorization_code" ("code") ')
         await queryRunner.query('CREATE TABLE "mcp_oauth_token" ("id" character varying(21) NOT NULL, "created" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "refreshToken" character varying(128) NOT NULL, "clientId" character varying(64) NOT NULL, "userId" character varying(21) NOT NULL, "projectId" character varying(21), "platformId" character varying(21) NOT NULL, "scopes" character varying array, "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL, "revoked" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_45168e6e2a99c74779e45fab66b" PRIMARY KEY ("id"))')
         await queryRunner.query('CREATE UNIQUE INDEX "idx_mcp_oauth_token_refresh" ON "mcp_oauth_token" ("refreshToken") ')
-        // pgvector is an optional extension (see AddToolSearchIndexTable1801000000000's original
-        // comment) — managed/vanilla Postgres without it just runs tool-search on the keyword
-        // floor, so table creation degrades gracefully instead of crash-looping the migration.
+        // pgvector is an optional extension (the original upstream migration that owned
+        // this table guarded the same way) — managed/vanilla Postgres without it just
+        // runs tool-search on the keyword floor, so table creation degrades gracefully
+        // instead of crash-looping the migration.
         const vectorAvailable = await queryRunner.query('SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = \'vector\') AS available')
         if (vectorAvailable[0]?.available) {
             await queryRunner.query('CREATE TABLE "tool_search_index" ("id" character varying(21) NOT NULL, "created" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "objectKind" character varying NOT NULL, "pieceName" character varying NOT NULL, "pieceVersion" character varying NOT NULL, "objectName" character varying NOT NULL, "displayName" character varying NOT NULL, "retrievalDoc" text NOT NULL, "audience" character varying, "requiresConnection" boolean NOT NULL DEFAULT false, "categories" character varying array, "modelVersion" character varying NOT NULL, "embeddingInputHash" character varying NOT NULL, "embedding" vector, "platformId" character varying(21), CONSTRAINT "PK_cd208da2cdf1dc1d1ccb6830519" PRIMARY KEY ("id"))')
