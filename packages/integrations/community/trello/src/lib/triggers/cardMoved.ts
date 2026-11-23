@@ -73,24 +73,18 @@ export const cardMovedTrigger = createTrigger({
 		return [card];
 	},
 	async test(context) {
-		let cards: Array<Record<string, unknown>> = [];
-		try {
-			cards = await getCardsInList(
-				context.auth.username,
-				context.auth.password,
-				context.propsValue.list_id,
-			);
+		const cards = await getCardsInList(
+			context.auth.username,
+			context.auth.password,
+			context.propsValue.list_id,
+		);
 
-			cards.sort(
-				(a: any, b: any) =>
-					new Date(b.dateLastActivity).getTime() - new Date(a.dateLastActivity).getTime(),
-			);
+		cards.sort(
+			(a: any, b: any) =>
+				new Date(b.dateLastActivity).getTime() - new Date(a.dateLastActivity).getTime(),
+		);
 
-			return cards.slice(0, 5);
-		} catch (error) {
-			console.error('An error occurred:', error);
-			return [];
-		}
+		return cards.slice(0, 5);
 	},
 	sampleData: {
 		id: '6651d6d6298164adb4a598b6',

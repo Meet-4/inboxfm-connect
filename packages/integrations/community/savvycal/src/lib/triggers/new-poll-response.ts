@@ -73,7 +73,4 @@ export const newPollResponseTrigger = createTrigger({
     return [{ event_type: body.type, ...body.payload }];
   },
 
-  async test(_context) {
-    return [SAMPLE_DATA];
-  },
 });

@@ -7,9 +7,6 @@ import {
   ResumePayload,
   TriggerPayload,
   TriggerStrategy,
-  DelayPauseMetadata,
-  PauseMetadata,
-  WebhookPauseMetadata,
 } from '@inboxfm-connect/core-piece-types';
 import type { SeekPage } from '@inboxfm-connect/core-utils';
 import type { FlowRunId, ProjectId } from '@inboxfm-connect/core-utils';
@@ -130,16 +127,6 @@ export type StopHook = (params?: StopHookParams) => void;
 
 export type RespondHook = (params?: RespondHookParams) => void;
 
-/** @deprecated Since 2026-04-12. Use {@link CreateWaitpointHook} and {@link WaitForWaitpointHook} instead. */
-export type PauseHookParams = {
-  pauseMetadata: PauseMetadata;
-};
-
-/** @deprecated Since 2026-04-12. Use {@link CreateWaitpointHook} and {@link WaitForWaitpointHook} instead. */
-export type PauseHook = (params: {
-  pauseMetadata: Omit<DelayPauseMetadata, 'requestIdToReply'> | Omit<WebhookPauseMetadata, 'requestId' | 'requestIdToReply'>
-}) => void;
-
 export type FlowsContext = {
   list(params?: ListFlowsContextParams): Promise<SeekPage<PopulatedFlowSummary>>
   current: {
@@ -195,8 +182,6 @@ export type WaitForWaitpointHook = (waitpointId: string) => void;
 export type RunContext = {
   id: FlowRunId;
   stop: StopHook;
-  /** @deprecated Use createWaitpoint + waitForWaitpoint instead */
-  pause?: PauseHook;
   respond: RespondHook;
   createWaitpoint: CreateWaitpointHook;
   waitForWaitpoint: WaitForWaitpointHook;

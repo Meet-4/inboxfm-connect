@@ -14,7 +14,7 @@ export const updateProject = createAction({
   audience: 'both',
   aiMetadata: {
     description:
-      'Update an existing project on an Activepieces platform, identified by its project id, setting its display name, notification status, and team-member limit. Use when reconfiguring a known project rather than creating one. Requires the target project id; idempotent — repeating with the same values leaves the project in the same state.',
+      'Update an existing project on an Activepieces platform, identified by its project id, setting its display name and whether the project owner is notified by email when flows fail. Use when reconfiguring a known project rather than creating one. Requires the target project id; idempotent — repeating with the same values leaves the project in the same state.',
     idempotent: true,
   },
   props: {
@@ -30,7 +30,8 @@ export const updateProject = createAction({
     }),
     notify_status: Property.StaticDropdown({
       displayName: 'Notify Status',
-      description: undefined,
+      description:
+        'Whether the project owner is notified by email when flows fail',
       required: true,
       options: {
         options: [
@@ -45,11 +46,6 @@ export const updateProject = createAction({
         ],
       },
     }),
-    team_members: Property.Number({
-      displayName: 'Team Members',
-      description: undefined,
-      required: true,
-    }),
   },
   async run({ propsValue, auth }) {
     const response = await httpClient.sendRequest<string[]>({
@@ -61,9 +57,7 @@ export const updateProject = createAction({
       },
       body: {
         displayName: propsValue['display_name'],
-        plan: {
-          teamMembers: propsValue['team_members'],
-        },
+        notifyFlowOwnerOnFailure: propsValue['notify_status'] === 'ALWAYS',
       },
     });
 

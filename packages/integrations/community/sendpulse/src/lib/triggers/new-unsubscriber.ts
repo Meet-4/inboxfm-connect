@@ -1,7 +1,6 @@
 import {
   createTrigger,
   TriggerStrategy,
-  WebhookResponse,
 } from '@inboxfm-connect/pieces-framework';
 import { sendpulseAuth } from '../common/auth';
 import { sendpulseApiCall } from '../common/client';
@@ -110,21 +109,6 @@ export const newUnsubscriberTrigger = createTrigger({
     return results;
   },
 
-  async test() {
-    return [
-      {
-        id: 'test-unsubscribe@example.com_1496827872',
-        email: 'test-unsubscribe@example.com',
-        mailingListId: '123456',
-        taskId: '3668141',
-        fromAll: true,
-        reason: 'User clicked unsubscribe link',
-        categories: '',
-        unsubscribedAt: new Date().toISOString(),
-        timestamp: '1496827872',
-      },
-    ];
-  },
 
   sampleData: {
     id: 'unsub@example.com_1496827872',

@@ -30,7 +30,6 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof formStackAuth>, 
       );
 
       const forms = formsResponse.forms || [];
-      console.log('Raw forms API response:', JSON.stringify(formsResponse, null, 2));
 
       const newForms = forms.filter((form: any) => {
         if (!form.created) return false;
@@ -65,8 +64,7 @@ const polling: Polling<AppConnectionValueForAuthProperty<typeof formStackAuth>, 
         },
       }));
     } catch (error) {
-      console.error('Error fetching forms:', error);
-      return [];
+      throw error;
     }
   }
 };
@@ -104,52 +102,7 @@ export const newForm = createTrigger({
   },
   type: TriggerStrategy.POLLING,
   async test(context) {
-    try {
-      const result = await pollingHelper.test(polling, context);
-      
-      if (result && result.length > 0) {
-        return result;
-      }
-      
-      return [{
-        epochMilliSeconds: Date.now(),
-        data: {
-          message: 'No recently created forms found. The trigger is working and will detect new forms when they are created.',
-          note: 'This trigger monitors for newly created forms in your Formstack account.'
-        }
-      }];
-      
-    } catch (error) {
-      console.error('Error in test function:', error);
-      
-      return [{
-        epochMilliSeconds: Date.now(),
-        data: {
-          error: 'Unable to fetch real data. Here is sample data to show the expected structure.',
-          sample: true,
-          id: "6244510",
-          name: "Customer Registration Form",
-          views: 342,
-          created: "2024-12-15 14:22:18",
-          updated: "2024-12-20 09:45:33",
-          submissions: 127,
-          submissions_unread: 8,
-          last_submission_id: "1361884054",
-          last_submission_time: "2025-01-14 14:16:49",
-          url: "https://activepieces.formstack.com/forms/customer_registration",
-          data_url: "https://www.formstack.com/admin/form/summary/6244510",
-          summary_url: "https://www.formstack.com/admin/form/data/6244510",
-          rss_url: "https://www.formstack.com/forms/index.php?6244510-rss",
-          timezone: "America/New_York",
-          status: "1",
-          folder: "Marketing Forms",
-          language: "en",
-          encrypted: "0",
-          ssl: "1",
-          viewkey: "K6244510MjPqRt"
-        }
-      }];
-    }
+    return await pollingHelper.test(polling, context);
   },
   async onEnable(context) {
     const { store, auth, propsValue } = context;

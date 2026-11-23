@@ -121,10 +121,9 @@ export const getInvoices = createAction({
         return false;
       } // this is still returned so if it is false we'll return notfound or similar
     } catch (error) {
-      // Handle the error when the request fails (status other than 2xx).
-      // console.log((error as Error).message);
-      return (error as Error).message;
-      //       return "There was a problem getting information from your Invoice Ninja";
+      // Re-throw so a failed request fails the step instead of resolving
+      // with the error text as a successful output.
+      throw error;
     }
   },
 });
