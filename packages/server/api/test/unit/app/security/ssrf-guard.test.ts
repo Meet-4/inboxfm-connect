@@ -48,12 +48,6 @@ const ALLOWANCES: RawFetchAllowance[] = [
         owner: 'Engine SSRF follow-up, do not extend',
     },
     {
-        file: 'engine/src/lib/piece-context/waitpoint-client.ts',
-        expectedMatches: 1,
-        reason: 'Engine-to-platform internal API call against operator-configured apiUrl',
-        owner: 'Engine SSRF follow-up, do not extend',
-    },
-    {
         file: 'engine/src/lib/piece-context/store.ts',
         expectedMatches: 3,
         reason: 'Engine-to-platform internal API calls against operator-configured apiUrl',

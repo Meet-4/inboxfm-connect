@@ -241,6 +241,29 @@ describe('LocalScheduler Lifecycle & Resilience', () => {
             expect(LocalScheduler.has('idempotent-cron')).toBe(false)
         })
 
+        it('rejects an invalid cron expression with a clean error and keeps the existing schedule intact', async () => {
+            const fn1 = vi.fn()
+            await LocalScheduler.cron({
+                name: 'guard-cron',
+                cronExpression: '* * * * *',
+                fn: fn1,
+            })
+            expect(LocalScheduler.has('guard-cron')).toBe(true)
+
+            await expect(LocalScheduler.cron({
+                name: 'guard-cron',
+                cronExpression: 'not-a-cron-expression',
+                fn: vi.fn(),
+            })).rejects.toThrow('Invalid cron expression "not-a-cron-expression"')
+
+            // The previously registered task must survive the failed re-registration.
+            expect(LocalScheduler.has('guard-cron')).toBe(true)
+            expect(LocalScheduler.getActiveTaskCount()).toBe(1)
+
+            await LocalScheduler.cancel('guard-cron')
+            expect(LocalScheduler.has('guard-cron')).toBe(false)
+        })
+
         it('supports timezone and recoverMissedExecutions options without error', async () => {
             const id = await LocalScheduler.cron({
                 name: 'tz-cron',
