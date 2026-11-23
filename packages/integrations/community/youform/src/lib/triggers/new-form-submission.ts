@@ -63,8 +63,5 @@ export const newSubmissionTrigger = createTrigger({
   async run(context) {
     return [context.payload.body];
   },
-  async test(context) {
-    return [context.payload.body];
-  },
   sampleData: undefined,
 });

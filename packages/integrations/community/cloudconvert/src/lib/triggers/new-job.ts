@@ -63,9 +63,6 @@ export const newJob = createTrigger({
     }
   },
 
-  async test(context) {
-    return [this.sampleData];
-  },
 
   onEnable: async (context) => {
     const webhookUrl = context.webhookUrl;

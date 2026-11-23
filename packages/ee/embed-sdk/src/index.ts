@@ -388,7 +388,7 @@ class ActivepiecesEmbedded {
   }
     
   private _addConnectionIframe({pieceName, connectionName}:{pieceName:string, connectionName?:string}) {
-    return this._addOverlayIframe(`/embed/connections?${NEW_CONNECTION_QUERY_PARAMS.name}=${pieceName}&randomId=${Date.now()}&${NEW_CONNECTION_QUERY_PARAMS.connectionName}=${connectionName || ''}`);
+    return this._addOverlayIframe(`/embed/connections?${NEW_CONNECTION_QUERY_PARAMS.name}=${encodeURIComponent(pieceName)}&randomId=${Date.now()}&${NEW_CONNECTION_QUERY_PARAMS.connectionName}=${encodeURIComponent(connectionName || '')}`);
   }
 
   private _openNewWindowForConnections({pieceName, connectionName,newWindow}:{pieceName:string, connectionName?:string, newWindow:newWindowFeatures}) {
@@ -396,7 +396,7 @@ class ActivepiecesEmbedded {
     if (!popup) {
       this._errorCreator('Failed to open popup window');
     }
-    this._setupInitialMessageHandler(popup, `/embed/connections?${NEW_CONNECTION_QUERY_PARAMS.name}=${pieceName}&randomId=${Date.now()}&${NEW_CONNECTION_QUERY_PARAMS.connectionName}=${connectionName || ''}`);
+    this._setupInitialMessageHandler(popup, `/embed/connections?${NEW_CONNECTION_QUERY_PARAMS.name}=${encodeURIComponent(pieceName)}&randomId=${Date.now()}&${NEW_CONNECTION_QUERY_PARAMS.connectionName}=${encodeURIComponent(connectionName || '')}`);
     return popup;
   }
   async connect({ pieceName, connectionName, newWindow }: { 
@@ -411,21 +411,23 @@ class ActivepiecesEmbedded {
       },
       method: async () => {
         const target = newWindow? this._openNewWindowForConnections({pieceName, connectionName,newWindow}) : this._addConnectionIframe({pieceName, connectionName});
-        //don't check for window because (instanceof Window) is false for popups
-        if(!(target instanceof HTMLIFrameElement)) {
-          const checkClosed = setInterval(() => {
-            if (target.closed) {
-              clearInterval(checkClosed);
-              if(this._resolveNewConnectionDialogClosed) {
-                this._resolveNewConnectionDialogClosed({connection:undefined})
-              }
-            }
-          }, 500);
-        }
         return new Promise<ActivepiecesNewConnectionDialogClosed['data']>((resolve, reject) => {
           this._resolveNewConnectionDialogClosed = resolve;
           this._rejectNewConnectionDialogClosed = reject;
           this._setConnectionIframeEventsListener(target);
+          //don't check for window because (instanceof Window) is false for popups
+          if(!(target instanceof HTMLIFrameElement)) {
+            // Watch THIS call's popup. Resolving via the captured `resolve` (not
+            // this._resolveNewConnectionDialogClosed, which a newer connect() call
+            // rebinds) keeps a superseded popup's close-poller from resolving the
+            // newer call's promise with {connection: undefined}.
+            const checkClosed = setInterval(() => {
+              if (target.closed) {
+                clearInterval(checkClosed);
+                resolve({connection:undefined});
+              }
+            }, 500);
+          }
         });
       },
       errorMessage: 'unable to add connection embedding'
@@ -674,6 +676,7 @@ class ActivepiecesEmbedded {
       }
       const checker = setInterval(() => {
         if (checkCounter >= this._MAX_CONTAINER_CHECK_COUNT) {
+          clearInterval(checker);
           this._logger().error(errorMessage);
           reject(errorMessage);
           return;
@@ -728,6 +731,11 @@ class ActivepiecesEmbedded {
     const response = await this.request({path: '/managed-authn/external-token', method: 'POST', body: {
       externalAccessToken: jwtToken,
     }}, false)
+    // Never cache a failed/incomplete auth response — a poisoned cache would
+    // pin every later request to `Bearer undefined` for the SDK's lifetime.
+    if(!response || typeof response.token !== 'string') {
+      this._errorCreator('failed to obtain embed session token', response);
+    }
     this._embeddingAuth = {
       userJwtToken: response.token,
       platformId: response.platformId,
@@ -735,6 +743,7 @@ class ActivepiecesEmbedded {
     }
     return this._embeddingAuth;
   }
+
 
 
 
@@ -754,7 +763,16 @@ class ActivepiecesEmbedded {
       method,
       body: body ? JSON.stringify(body) : undefined,
       headers,
-     }).then(res => res.json())
+     }).then(async res => {
+      const data = await res.json().catch(() => undefined);
+      // Surface HTTP failures instead of resolving with the error body —
+      // callers otherwise treat an error payload (e.g. a 401 body) as a
+      // successful result of the documented return type.
+      if(!res.ok) {
+        throw new Error(`Activepieces: ${method} ${path} failed with status ${res.status}`);
+      }
+      return data;
+    })
   }
 
 }

@@ -74,10 +74,10 @@ export const sendNotification = createAction({
     const accessToken = auth.props.access_token;
 
     const topic = propsValue.topic;
-    let title = propsValue.title;
-    let message = propsValue.message;
-    title = encodeToRFC2047(title as string);
-    message = encodeToRFC2047(message as string);
+    const title = propsValue.title;
+    const message = propsValue.message;
+    const encodedTitle = title ? encodeToRFC2047(title) : undefined;
+    const encodedMessage = encodeToRFC2047(message);
     const priority = propsValue.priority;
     const tags = propsValue.tags;
     const icon = propsValue.icon;
@@ -95,8 +95,8 @@ export const sendNotification = createAction({
         },
       }),
       headers: {
-        'X-Message': message,
-        'X-Title': title,
+        'X-Message': encodedMessage,
+        ...(encodedTitle ? { 'X-Title': encodedTitle } : {}),
         'X-Priority': priority,
         'X-Tags': tags?.join(','),
         'X-Icon': icon,

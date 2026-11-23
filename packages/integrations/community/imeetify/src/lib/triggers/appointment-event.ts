@@ -101,10 +101,12 @@ export const appointmentEvent = createTrigger({
   },
   async run(context) {
     const payload = context.payload.body as any;
-    if (payload.data.event_type !== context.propsValue.eventType) {
+    // Webhook payloads are flat (see sampleData): event_type sits at the
+    // top level, not under a `data` wrapper.
+    if (payload.event_type !== context.propsValue.eventType) {
       return [];
     }
-    return [payload.data];
+    return [payload];
   },
 });
 
