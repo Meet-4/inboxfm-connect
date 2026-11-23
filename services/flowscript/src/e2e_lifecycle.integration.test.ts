@@ -66,7 +66,7 @@ describe('FlowScript E2E Lifecycle & Security Boundaries against PostgreSQL (iss
       await testPool.query(`
         DROP TABLE IF EXISTS flowscript_schedule_occurrences CASCADE;
         DROP TABLE IF EXISTS flowscript_step_attempts CASCADE;
-        DROP TABLE IF EXISTS flowscript_idempotency_keys CASCADE;
+        DROP TABLE IF EXISTS flowscript_webhook_idempotency CASCADE;
         DROP TABLE IF EXISTS flowscript_triggers CASCADE;
         DROP TABLE IF EXISTS flowscript_runs CASCADE;
         DROP TABLE IF EXISTS flowscript_deployments CASCADE;
@@ -351,7 +351,7 @@ steps:
         },
       })
       expect(listRes.statusCode).toBe(200)
-      expect(listRes.json().runs).toHaveLength(0)
+      expect(listRes.json().data).toHaveLength(0)
 
       // Project Beta attempts to cancel Alpha's run -> 404
       const cancelRes = await app.inject({

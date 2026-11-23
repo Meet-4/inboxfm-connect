@@ -1,7 +1,6 @@
 import {
   createTrigger,
   TriggerStrategy,
-  WebhookResponse,
 } from '@inboxfm-connect/pieces-framework';
 import { sendpulseAuth } from '../common/auth';
 import { sendpulseApiCall } from '../common/client';
@@ -106,19 +105,6 @@ export const newSubscriberTrigger = createTrigger({
     return results;
   },
 
-  async test() {
-    return [
-      {
-        id: 'demo@example.com_1496827625',
-        email: 'demo@example.com',
-        mailingListId: '123456',
-        source: 'address book',
-        variables: {},
-        addedAt: new Date().toISOString(),
-        timestamp: '1496827625',
-      },
-    ];
-  },
 
   sampleData: {
     id: 'subscriber@example.com_1496827625',

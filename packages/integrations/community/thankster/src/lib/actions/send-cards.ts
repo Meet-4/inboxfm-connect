@@ -215,6 +215,7 @@ export const sendCards = createAction({
         country: context.propsValue.country,
         r_fname: context.propsValue.r_fname,
         r_lname: context.propsValue.r_lname,
+        r_company: context.propsValue.r_company,
         r_address: context.propsValue.r_address,
         r_address2: context.propsValue.r_address2,
         r_city: context.propsValue.r_city,

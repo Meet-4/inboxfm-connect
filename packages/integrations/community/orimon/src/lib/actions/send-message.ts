@@ -32,7 +32,7 @@ export const sendMessage = createAction({
   },
   async run(context) {
     const { tenantId, messageText, messageId } = context.propsValue;
-    const apiKey = context.auth;
+    const apiKey = context.auth.secret_text;
 
     const randomValue = Math.random().toString(36).substring(2, 15);
     const psid = `${randomValue}_${tenantId}`;
