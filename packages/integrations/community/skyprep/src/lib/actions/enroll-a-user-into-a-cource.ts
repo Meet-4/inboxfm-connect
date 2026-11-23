@@ -28,7 +28,7 @@ export const enrollAUserIntoACource = createAction({
     };
 
     const response = await makeRequest(
-      context.auth.secret_text,
+      context.auth.props,
       HttpMethod.POST,
       '/enroll_user_in_course',
       body

@@ -82,13 +82,21 @@ export const fountainWorkerWebhook = createTrigger({
     // No cleanup needed
   },
   async run(context) {
-    const payload = context.payload.body;
+    const payload = context.payload.body as Record<string, unknown> | undefined;
 
     if (context.propsValue.verify_auth && context.propsValue.auth_key) {
       const authHeader = context.payload.headers['authorization'];
       if (!authHeader || authHeader !== context.propsValue.auth_key) {
         throw new Error('Authentication failed');
       }
+    }
+
+    // A Fountain automation webhook action sends either the applicant or
+    // the worker payload in the body (developer.fountain.com
+    // automation-webhooks: the action panel selects which one), so a URL
+    // shared across automations only fires this trigger for worker payloads.
+    if (!payload || !payload['worker']) {
+      return [];
     }
 
     return [payload];
