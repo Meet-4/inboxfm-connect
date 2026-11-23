@@ -5,6 +5,7 @@ import { FastifyBaseLogger } from 'fastify'
 import { ArrayContains } from 'typeorm'
 import { appConnectionService, appConnectionsRepo } from '../../app-connection/app-connection-service/app-connection-service'
 import { AppConnectionSchema } from '../../app-connection/app-connection.entity'
+import { accessTokenManager } from '../../authentication/lib/access-token-manager'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { localPieceCatalog } from '../../pieces/metadata/local-piece-catalog'
@@ -102,6 +103,14 @@ export async function executeAdhocAction({
     }
 
     const publicUrl = system.get(AppSystemProp.FRONTEND_URL) || 'http://localhost:3000'
+    // Headless pieces call engine API routes (store entries, files, flows) with
+    // this token, and the sandbox uses it to download piece bundles — those
+    // routes verify a real engine principal, so a placeholder string is
+    // rejected with 401 mid-run (same pattern as user-interaction-watcher).
+    const engineToken = await accessTokenManager(log).generateEngineToken({
+        projectId,
+        platformId: project.platformId,
+    })
     const result = await runtime.execute({
         integration: canonicalPieceName,
         tool: actionName,
@@ -109,6 +118,7 @@ export async function executeAdhocAction({
         input,
         projectId,
         platformId: project.platformId,
+        engineToken,
         internalApiUrl: publicUrl,
         publicApiUrl: publicUrl,
     })

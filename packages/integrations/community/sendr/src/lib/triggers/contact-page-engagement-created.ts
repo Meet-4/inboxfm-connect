@@ -110,16 +110,4 @@ export const contactPageEngagementCreated = createTrigger({
     }];
   },
 
-  async test(context) {
-    return [
-      {
-        event_type: 'contact_page_engagement.created',
-        page_id: 'test_cuid_page',
-        page_slug: 'test-slug',
-        page_url: 'https://pages.sendr.io/test',
-        attributes: JSON.stringify({ first_name: 'John', company: 'Acme' }),
-        timestamp: '2026-04-24T14:00:00Z',
-      },
-    ];
-  },
 });
