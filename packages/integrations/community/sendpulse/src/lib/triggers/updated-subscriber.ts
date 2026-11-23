@@ -102,29 +102,20 @@ export const updatedSubscriberTrigger = createTrigger({
     }
   },
 
-  async test() {
-    return [
-      {
-        id: 'test-updated@example.com_1234567890',
-        email: 'test-updated@example.com',
-        mailingListId: '123456',
-        previousData: {
-          email: 'test-updated@example.com',
-          variables: { name: 'Old Name' },
-        },
-        currentData: {
-          email: 'test-updated@example.com',
-          variables: { name: 'New Name' },
-        },
-        updatedAt: new Date().toISOString(),
-        changes: {
-          'variables.name': {
-            from: 'Old Name',
-            to: 'New Name',
-          },
-        },
-      },
-    ];
+  async test(context) {
+    const mailingListId = String(context.propsValue.mailingListId);
+
+    // Hits the same endpoint run() uses, so a bad token or unreadable
+    // address book fails the test instead of silently looking healthy.
+    // Real change events cannot exist at test time (they need a prior
+    // snapshot to diff against), so an empty result is honest here.
+    await sendpulseApiCall<unknown[]>({
+      method: HttpMethod.GET,
+      auth: context.auth.props,
+      resourceUri: `/addressbooks/${mailingListId}/emails`,
+    });
+
+    return [];
   },
 
   sampleData: {

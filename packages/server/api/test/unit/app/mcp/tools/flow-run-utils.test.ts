@@ -24,6 +24,12 @@ vi.mock('../../../../../src/app/project/project-service', () => ({
     }),
 }))
 
+vi.mock('../../../../../src/app/authentication/lib/access-token-manager', () => ({
+    accessTokenManager: () => ({
+        generateEngineToken: vi.fn().mockResolvedValue('test-engine-token'),
+    }),
+}))
+
 vi.mock('../../../../../src/app/helper/system/system', () => ({
     system: {
         get: vi.fn().mockReturnValue(undefined),
@@ -66,6 +72,12 @@ describe('executeAdhocAction connection resolution', () => {
         await run({ pieceName: '@inboxfm-connect/piece-resend', connectionExternalId: 'resend-mihir' })
 
         expect(executeMock).toHaveBeenCalledWith(expect.objectContaining({ connectionId: 'conn-resend' }))
+    })
+
+    it('passes a signed engine token so headless store/files/flows calls authenticate', async () => {
+        await run({ pieceName: '@inboxfm-connect/piece-resend', connectionExternalId: 'resend-mihir' })
+
+        expect(executeMock).toHaveBeenCalledWith(expect.objectContaining({ engineToken: 'test-engine-token' }))
     })
 
     it('never pairs an externalId from another piece with the requested piece', async () => {

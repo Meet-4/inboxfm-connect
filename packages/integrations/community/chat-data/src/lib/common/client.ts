@@ -68,7 +68,6 @@ export class ChatDataClient {
         headers: this.getHeaders(),
         body: payload,
         timeout: 30000,
-        retries: 3,
       });
       return Chatbot.parse(response.body);
     } catch (error) {
@@ -99,7 +98,6 @@ export class ChatDataClient {
         headers: this.getHeaders(),
         body: payload,
         timeout: 30000,
-        retries: 3,
       });
       
       // Response is text/plain for non-streaming
@@ -142,7 +140,6 @@ export class ChatDataClient {
         headers: this.getHeaders(),
         body: payload,
         timeout: 30000,
-        retries: 3,
       });
       return RetrainJob.parse(response.body);
     } catch (error) {

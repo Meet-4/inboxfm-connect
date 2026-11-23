@@ -138,9 +138,6 @@ export const newUpdatedWorkItemWebhookTrigger = createTrigger({
     return [flattenResource(payload.resource)];
   },
 
-  async test() {
-    return [sampleWebhookOutput];
-  },
 });
 
 function flattenResource(resource: WorkItemResource): FlatWorkItem {
