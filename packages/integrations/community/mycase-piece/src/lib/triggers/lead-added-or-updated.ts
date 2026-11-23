@@ -89,7 +89,4 @@ export const leadAddedOrUpdated = createTrigger({
   async run(ctx) {
     return [ctx.payload.body];
   },
-  async test(ctx) {
-    return [ctx.propsValue];
-  },
 });

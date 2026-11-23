@@ -71,6 +71,13 @@ const localSchedulerImpl: Scheduler = {
 
     async cron({ name, cronExpression, timezone, recoverMissedExecutions, fn, onError }): Promise<string> {
         const id = name
+        // Validate BEFORE cancelling the task already registered under this name:
+        // cron.schedule throws on a malformed expression, and without this guard
+        // a failed re-registration would leave the previous schedule destroyed
+        // with nothing replacing it.
+        if (!cron.validate(cronExpression)) {
+            throw new Error(`Invalid cron expression "${cronExpression}" for task "${name}"`)
+        }
         cancelTask({ id })
         const task = cron.schedule(
             cronExpression,
